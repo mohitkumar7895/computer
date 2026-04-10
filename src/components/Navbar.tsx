@@ -1,0 +1,532 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { ChevronDown, Download, LogIn, Menu, Wallet, X } from "lucide-react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { NAV_LINKS } from "@/utils/constants";
+
+export default function Navbar() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const lastScrollYRef = useRef(0);
+
+  const sectionLinks = useMemo(
+    () =>
+      NAV_LINKS.flatMap((item) => [item.href, ...(item.children?.map((child) => child.href) ?? [])]).filter((href) =>
+        href.startsWith("#"),
+      ),
+    [],
+  );
+
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      setIsScrolled(currentY > 20);
+
+      if (currentY <= 80) {
+        setIsNavVisible(true);
+      } else if (currentY > lastScrollYRef.current && !isMobileMenuOpen) {
+        setIsNavVisible(false);
+      } else {
+        setIsNavVisible(true);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
+  const scrollToSection = (href: string) => {
+    if (!href.startsWith("#")) return;
+    const section = document.querySelector(href);
+    if (!section) return;
+
+    const headerOffset = 92;
+    const sectionTop = section.getBoundingClientRect().top + window.scrollY;
+    const target = Math.max(0, sectionTop - headerOffset);
+
+    window.scrollTo({ top: target, behavior: "smooth" });
+    window.history.replaceState(null, "", href);
+  };
+
+  const handleNavClick = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    setIsMobileMenuOpen(false);
+    setOpenMobileDropdown(null);
+
+    if (!href.startsWith("#")) return;
+    event.preventDefault();
+    scrollToSection(href);
+  };
+
+  const navLinkClass =
+    "group relative inline-flex items-center px-3 py-2 text-xs font-semibold tracking-wide text-white transition-colors duration-300 hover:text-blue-100";
+
+  return (
+    <>
+      <header
+        className={`fixed inset-x-0 top-0 z-70 transition-all duration-300 ${
+          isNavVisible ? "translate-y-0" : "-translate-y-full"
+        }`}
+      >
+        <div className="bg-[#0a0aa1] text-[11px] text-white">
+          <div className="mx-auto flex w-full max-w-330 items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
+            <p className="truncate font-medium">Opening Hours - Mon to Sat: 9AM to 5PM</p>
+            <div className="hidden items-center gap-4 sm:flex">
+              <Link href="/franchise-login" className="inline-flex items-center gap-1 hover:text-blue-200">
+                <LogIn className="h-3 w-3" />
+                ALC Login
+              </Link>
+              <Link href="#" className="inline-flex items-center gap-1 hover:text-blue-200">
+                <Download className="h-3 w-3" />
+                Downloads
+              </Link>
+              <Link href="#" className="inline-flex items-center gap-1 hover:text-blue-200">
+                <Wallet className="h-3 w-3" />
+                Pay Fees
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`border-b border-white/10 transition-all duration-300 ${
+            isScrolled
+              ? "bg-[#0a0aa1]/85 shadow-[0_12px_28px_rgba(7,7,70,0.35)] backdrop-blur-md"
+              : "bg-[#0a0aa1]"
+          }`}
+        >
+          <div className="mx-auto flex w-full max-w-330 items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+            <Link href="/" onClick={handleNavClick("/")} className="shrink-0">
+              <Image
+                src="/ygroup-logo.svg"
+                alt="Y Group's"
+                width={220}
+                height={90}
+                className="h-auto w-30 sm:w-40"
+                priority
+              />
+            </Link>
+
+            <nav className="hidden items-center gap-1 md:flex">
+              {NAV_LINKS.map((link) =>
+                link.children?.length ? (
+                  <div key={link.label} className="group relative">
+                    <button type="button" className={`${navLinkClass} bg-transparent`}>
+                      <span>{link.label}</span>
+                      <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                      <span className="absolute bottom-0 left-3 h-0.5 w-0 bg-white transition-all duration-300 group-hover:w-[calc(100%-1.5rem)]" />
+                    </button>
+                    <div className="invisible absolute left-0 top-full mt-2 min-w-56 translate-y-2 bg-[#0a0aa1]/95 py-2 opacity-0 shadow-lg ring-1 ring-white/10 transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                      {link.children.map((child) => (
+                        <Link
+                          key={child.label}
+                          href={child.href}
+                          onClick={handleNavClick(child.href)}
+                          className="block px-4 py-2.5 text-sm font-medium text-white/85 transition hover:bg-white/10 hover:text-white"
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Link key={link.label} href={link.href} onClick={handleNavClick(link.href)} className={navLinkClass}>
+                    <span>{link.label}</span>
+                    <span className="absolute bottom-0 left-3 h-0.5 w-0 bg-white transition-all duration-300 group-hover:w-[calc(100%-1.5rem)]" />
+                  </Link>
+                ),
+              )}
+            </nav>
+
+            <div className="hidden md:block">
+              <Link
+                href="/direct-admission"
+                onClick={handleNavClick("/direct-admission")}
+                className="inline-flex min-w-32 items-center justify-center rounded-sm border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white hover:text-[#0a0aa1]"
+              >
+                GET STARTED
+              </Link>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              className="inline-flex items-center justify-center rounded-md border border-white/30 p-2 text-white transition hover:bg-white/10 md:hidden"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav-drawer"
+              aria-label="Toggle navigation menu"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="h-23 sm:h-24" />
+
+      <div
+        className={`fixed inset-0 z-69 bg-slate-950/45 transition-opacity duration-300 md:hidden ${
+          isMobileMenuOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={() => {
+          setIsMobileMenuOpen(false);
+          setOpenMobileDropdown(null);
+        }}
+      />
+
+      <aside
+        id="mobile-nav-drawer"
+        className={`fixed right-0 top-0 z-71 h-full w-[82%] max-w-sm bg-[#0a0aa1] p-5 text-white shadow-2xl transition-transform duration-300 md:hidden ${
+          isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="mb-5 flex items-center justify-between border-b border-white/20 pb-4">
+          <p className="text-sm font-semibold tracking-wide">Menu</p>
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="rounded-md p-1.5 hover:bg-white/10"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav className="space-y-1">
+          {NAV_LINKS.map((link) =>
+            link.children?.length ? (
+              <div key={link.label}>
+                <button
+                  type="button"
+                  onClick={() => setOpenMobileDropdown((current) => (current === link.label ? null : link.label))}
+                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-semibold transition hover:bg-white/10"
+                >
+                  <span>{link.label}</span>
+                  <ChevronDown className={`h-4 w-4 transition ${openMobileDropdown === link.label ? "rotate-180" : ""}`} />
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ${openMobileDropdown === link.label ? "max-h-80" : "max-h-0"}`}>
+                  <div className="mt-1 space-y-1 pl-3">
+                    {link.children.map((child) => (
+                      <Link
+                        key={child.label}
+                        href={child.href}
+                        onClick={handleNavClick(child.href)}
+                        className="block rounded-md px-3 py-2 text-xs text-white/90 transition hover:bg-white/10 hover:text-white"
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={handleNavClick(link.href)}
+                className="block rounded-md px-3 py-2 text-sm font-semibold transition hover:bg-white/10"
+              >
+                {link.label}
+              </Link>
+            ),
+          )}
+        </nav>
+      </aside>
+    </>
+  );
+}
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { ChevronDown, Clock3, Download, LogIn, Mail, Menu, Phone, Wallet, X } from "lucide-react";
+import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { NAV_LINKS } from "@/utils/constants";
+
+export default function Navbar() {
+  const [activeSection, setActiveSection] = useState("#home");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
+
+  const sectionLinks = useMemo(
+    () =>
+      NAV_LINKS.flatMap((item) => [item.href, ...(item.children?.map((child) => child.href) ?? [])]).filter((href) =>
+        href.startsWith("#"),
+      ),
+    [],
+  );
+
+  useEffect(() => {
+    const entries = sectionLinks
+      .map((href) => {
+        const section = document.querySelector(href);
+        return section ? { href, section } : null;
+      })
+      .filter((entry): entry is { href: string; section: Element } => entry !== null);
+
+    if (!entries.length || !("IntersectionObserver" in window)) return;
+
+    const observer = new IntersectionObserver(
+      (observedEntries) => {
+        const visibleEntries = observedEntries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (!visibleEntries.length) return;
+
+        const targetId = `#${visibleEntries[0].target.id}`;
+        setActiveSection((current) => (current === targetId ? current : targetId));
+      },
+      {
+        root: null,
+        rootMargin: "-35% 0px -45% 0px",
+        threshold: [0.2, 0.4, 0.7],
+      },
+    );
+
+    entries.forEach((entry) => observer.observe(entry.section));
+    return () => observer.disconnect();
+  }, [sectionLinks]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      if (sectionLinks.includes(window.location.hash)) {
+        setActiveSection(window.location.hash);
+      }
+    };
+
+    onHashChange();
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [sectionLinks]);
+
+  const scrollToSection = (href: string) => {
+    if (!href.startsWith("#")) return;
+
+    const section = document.querySelector(href);
+    const stickyNav = document.querySelector('[data-sticky-nav="true"]');
+    if (!section || !stickyNav) return;
+
+    const headerHeight = stickyNav.getBoundingClientRect().height;
+    const sectionTop = section.getBoundingClientRect().top + window.scrollY;
+    const target = Math.max(0, sectionTop - headerHeight + 2);
+
+    window.scrollTo({
+      top: target,
+      behavior: "smooth",
+    });
+
+    window.history.replaceState(null, "", href);
+  };
+
+  const handleNavClick = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!href.startsWith("#")) {
+      setIsMobileMenuOpen(false);
+      setOpenMobileDropdown(null);
+      return;
+    }
+
+    event.preventDefault();
+    setIsMobileMenuOpen(false);
+    setOpenMobileDropdown(null);
+    scrollToSection(href);
+  };
+
+  const isLinkActive = (href: string, children?: { href: string }[]) => {
+    if (activeSection === href) return true;
+    return children?.some((child) => child.href === activeSection) ?? false;
+  };
+
+  return (
+    <header className="relative z-50">
+      <div className="bg-[#0a0aa1] text-xs text-white">
+        <div className="mx-auto flex w-full max-w-330 items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8">
+          <p className="flex items-center gap-2 font-medium sm:text-sm">
+            <Clock3 className="h-4 w-4" />
+            Opening Hours - Mon to Sat: 9AM to 5PM
+          </p>
+          <div className="hidden items-center gap-4 sm:flex">
+            <Link href="/franchise-login" className="inline-flex items-center gap-1 hover:text-blue-200">
+              <LogIn className="h-3 w-3" />
+              ALC Login
+            </Link>
+            <Link href="#" className="inline-flex items-center gap-1 hover:text-blue-200">
+              <Download className="h-3 w-3" />
+              Downloads
+            </Link>
+            <Link href="#" className="inline-flex items-center gap-1 hover:text-blue-200">
+              <Wallet className="h-3 w-3" />
+              Pay Fees
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white">
+        <div className="mx-auto flex w-full max-w-330 flex-wrap items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            onClick={handleNavClick("/")}
+            className="shrink-0"
+          >
+            <Image
+              src="/ygroup-logo.svg"
+              alt="Y Group's"
+              width={260}
+              height={110}
+              className="h-auto w-34 sm:w-42.5 lg:w-47.5"
+              priority
+            />
+          </Link>
+
+          <div className="hidden items-center gap-6 md:flex">
+            <div className="inline-flex items-center gap-3 text-sm text-slate-700">
+              <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-[#0a0aa1] text-white">
+                <Mail className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-slate-900">Email Us</p>
+                <p className="text-sm leading-none text-slate-800 lg:text-base">info@yukticomputer.com</p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-3 text-sm text-slate-700">
+              <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-white text-[#0a0aa1] ring-1 ring-slate-200">
+                <Phone className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-slate-900">Call Us</p>
+                <p className="text-sm leading-none text-slate-800 lg:text-base">(+91) 9272638590</p>
+              </div>
+            </div>
+            <Link
+              href="/direct-admission"
+              onClick={handleNavClick("/direct-admission")}
+              className="inline-flex min-w-36 items-center justify-center rounded-sm bg-[#0a0aa1] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#080885]"
+            >
+              APPLY NOW
+            </Link>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen((open) => !open)}
+            className="inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100 md:hidden"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-nav"
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+
+        {isMobileMenuOpen ? (
+          <div className="border-t border-slate-200 px-4 py-4 md:hidden sm:px-6">
+            <div className="space-y-3 text-sm text-slate-700">
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="font-semibold text-slate-900">Email Us</p>
+                <p>info@yukticomputer.com</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="font-semibold text-slate-900">Call Us</p>
+                <p>(+91) 9272638590</p>
+              </div>
+              <Link
+                href="/direct-admission"
+                onClick={handleNavClick("/direct-admission")}
+                className="block rounded-xl bg-blue-800 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-900"
+              >
+                APPLY NOW
+              </Link>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <nav
+        data-sticky-nav="true"
+        className="sticky top-0 z-50 -mb-6 bg-transparent md:-mb-10"
+      >
+        <div
+          id="mobile-nav"
+          className={`mx-auto w-full max-w-330 overflow-x-clip px-2 py-2 md:flex md:items-center md:justify-center md:px-6 lg:px-8 ${
+            isMobileMenuOpen ? "flex flex-col" : "hidden"
+          } md:flex`}
+        >
+          <div className="flex w-full flex-col bg-[#0a0aa1] md:max-w-280 md:flex-row md:flex-wrap md:items-center md:justify-between md:px-5 md:py-2.5 md:shadow-[0_14px_28px_rgba(12,12,84,0.18)]">
+            {NAV_LINKS.map((link) =>
+              link.children?.length ? (
+                <div key={link.label} className="group relative">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenMobileDropdown((current) =>
+                        current === link.label ? null : link.label,
+                      )
+                    }
+                  className={`flex w-full items-center px-4 py-3 text-xs font-semibold text-white transition md:w-auto md:px-3 md:py-2 lg:px-4 ${
+                      isLinkActive(link.href, link.children) ? "text-blue-100" : "hover:text-blue-100"
+                    }`}
+                  >
+                    {link.label}
+                    <ChevronDown className="ml-2 h-3.5 w-3.5" />
+                  </button>
+
+                  <div className="hidden min-w-56 bg-[#0a0aa1]/95 py-2 text-sm text-white md:absolute md:left-0 md:top-full md:block md:translate-y-2 md:rounded-sm md:opacity-0 md:shadow-lg md:ring-1 md:ring-white/10 md:transition md:group-hover:translate-y-0 md:group-hover:opacity-100">
+                    {link.children.map((child) => (
+                      <Link
+                        key={child.label}
+                        href={child.href}
+                        onClick={handleNavClick(child.href)}
+                        className="block px-4 py-2.5 text-left text-sm font-medium text-white/85 transition hover:bg-white/10 hover:text-white"
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+
+                  {openMobileDropdown === link.label ? (
+                    <div className="space-y-1 bg-[#06067c] px-4 py-2 md:hidden">
+                      {link.children.map((child) => (
+                        <Link
+                          key={child.label}
+                          href={child.href}
+                          onClick={handleNavClick(child.href)}
+                          className="block py-2 text-xs font-medium text-white/85 transition hover:text-white"
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={handleNavClick(link.href)}
+                  className={`flex items-center px-4 py-3 text-xs font-semibold text-white transition md:px-3 md:py-2 lg:px-4 ${
+                    isLinkActive(link.href) ? "text-blue-100" : "hover:text-blue-100"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ),
+            )}
+          </div>
+        </div>
+      </nav>
+    </header>
+  );
+}
