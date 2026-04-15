@@ -52,8 +52,12 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error) {
-    console.error("[admin/login]", error);
-    return NextResponse.json({ message: "Internal server error." }, { status: 500 });
+  } catch (error: any) {
+    console.error("[admin/login] CRITICAL_ERROR:", error);
+    return NextResponse.json({ 
+      message: "Internal server error.",
+      debug_info: error.message || "Unknown error",
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined
+    }, { status: 500 });
   }
 }
