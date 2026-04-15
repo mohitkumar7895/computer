@@ -99,12 +99,6 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-blue-200 mt-6">
-            Don&apos;t have an account?{" "}
-            <Link href="/admin/register" className="text-white font-semibold underline hover:text-blue-200 transition">
-              Register here
-            </Link>
-          </p>
 
           <div className="mt-4 text-center">
             <Link href="/" className="text-xs text-blue-300 hover:text-white transition">
