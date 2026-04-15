@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect } from "react";
+import { motion, useAnimationControls, useReducedMotion } from "framer-motion";
 import {
   FaChevronCircleRight,
   FaFacebookF,
@@ -14,6 +18,41 @@ import { FOOTER_LINKS, SITE_INFO, SOCIAL_LINKS } from "@/utils/constants";
 
 export default function Footer() {
   const socialIcons = [FaFacebookF, FaTwitter, FaYoutube, FaGooglePlusG];
+  const bannerControls = useAnimationControls();
+  const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+
+    let isMounted = true;
+
+    const animateBanner = async () => {
+      while (isMounted) {
+        await bannerControls.start({
+          x: ["-8%", "8%"],
+          transition: {
+            duration: 4.5,
+            ease: "easeInOut",
+          },
+        });
+
+        await bannerControls.start({
+          x: ["8%", "-8%"],
+          transition: {
+            duration: 6.5,
+            ease: "easeInOut",
+          },
+        });
+      }
+    };
+
+    void animateBanner();
+
+    return () => {
+      isMounted = false;
+      void bannerControls.stop();
+    };
+  }, [bannerControls, prefersReducedMotion]);
 
   return (
     <footer id="contact" className="scroll-mt-28 mt-12 bg-[#767171] text-white sm:scroll-mt-32">
@@ -41,12 +80,18 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-center gap-2 px-6 py-8 text-center text-base font-light text-[#7f7f7f] sm:text-xl lg:text-2xl">
-          <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-          <p>
+        <div className="overflow-hidden">
+          <motion.div
+            className="mx-auto flex w-full max-w-7xl items-center justify-center gap-2 px-6 py-8 text-center text-base font-light text-[#7f7f7f] will-change-transform sm:text-xl lg:text-2xl"
+            animate={prefersReducedMotion ? { x: 0 } : bannerControls}
+            initial={{ x: "-8%" }}
+          >
+            <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+            <p>
             Welcome to <span className="font-extrabold text-[#666666]">Yukti Computer Institute</span>
-          </p>
-          <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+            </p>
+            <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+          </motion.div>
         </div>
       </div>
 

@@ -1,27 +1,29 @@
 export type FAQItem = {
   question: string;
   answer: string;
+  active?: boolean;
 };
 
 export const faqData: FAQItem[] = [
   {
-    question: "Is your institute government approved?",
-    answer:
-      "Yes, our institute follows recognized training standards and industry-focused curriculum.",
+    question: "Is You Institute Is Government Approved?",
+    answer: "",
   },
   {
-    question: "Do you provide certificates after course completion?",
-    answer:
-      "Yes, students receive completion certificates after passing assessments and assignments.",
+    question: "Certificate Provided By Your Institute Is Government Approved?",
+    answer: "Ans. Yes",
+    active: true,
   },
   {
-    question: "Are classes available online?",
-    answer:
-      "We provide both classroom and online learning options with flexible schedules.",
+    question: "Is Your Institute Has Online Learning Mode?",
+    answer: "",
   },
   {
-    question: "Do you offer placement support?",
-    answer:
-      "Yes, we provide interview preparation, resume help, and job assistance support.",
+    question: "Where Is Head Office Of Your Institute ?",
+    answer: "",
+  },
+  {
+    question: "Is Your Institute Provide Service For ATC All Over India Yes",
+    answer: "",
   },
 ];

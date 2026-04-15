@@ -41,15 +41,15 @@ export const NAV_LINKS: NavLink[] = [
     children: [
       { label: "Affiliation Process", href: "/affiliation-process" },
       { label: "Become ATC", href: "/become-atc" },
-      { label: "ALC Login", href: "/franchise-login" },
+      { label: "ATC Login", href: "/atc/login" },
     ],
   },
   { label: "GALLERY", href: "/gallery" },
   {
     label: "LOGIN",
-    href: "/web-login",
+    href: "/admin/login",
     children: [
-      { label: "Web Login", href: "/web-login" },
+      { label: "Admin Login", href: "/admin/login" },
       { label: "FMS Login", href: "/fms-login" },
     ],
   },

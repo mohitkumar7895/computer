@@ -1,17 +1,6 @@
-import FranchiseLoginForm from "@/components/affiliation/FranchiseLoginForm";
-import InternalPageLayout from "@/components/InternalPageLayout";
+import { redirect } from "next/navigation";
 
+// Permanently redirect old /franchise-login to the new /atc/login
 export default function FranchiseLoginPage() {
-  return (
-    <InternalPageLayout
-      title="ATC Login"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Franchise" },
-        { label: "ATC Login" },
-      ]}
-    >
-      <FranchiseLoginForm />
-    </InternalPageLayout>
-  );
+  redirect("/atc/login");
 }

@@ -1,0 +1,26 @@
+import mongoose, { Schema, model, models } from "mongoose";
+
+export interface IAtcUser {
+  _id: mongoose.Types.ObjectId;
+  tpCode: string; // unique login code
+  trainingPartnerName: string;
+  email: string;
+  mobile: string;
+  password: string; // hashed
+  applicationId: mongoose.Types.ObjectId;
+  createdAt: Date;
+}
+
+const AtcUserSchema = new Schema<IAtcUser>(
+  {
+    tpCode: { type: String, required: true, unique: true },
+    trainingPartnerName: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    mobile: { type: String, required: true },
+    password: { type: String, required: true },
+    applicationId: { type: Schema.Types.ObjectId, ref: "AtcApplication", required: true },
+  },
+  { timestamps: true },
+);
+
+export const AtcUser = models.AtcUser ?? model<IAtcUser>("AtcUser", AtcUserSchema);

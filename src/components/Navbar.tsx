@@ -103,16 +103,16 @@ export default function Navbar() {
     <header className="relative z-50">
       <div className="bg-[#0a0aa1] text-xs text-white">
         <div className="mx-auto flex w-full max-w-330 items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8">
-          <p className="flex items-center gap-2 font-medium sm:text-sm">
-            <Clock3 className="h-4 w-4" />
-            Opening Hours - Mon to Sat: 9AM to 5PM
+          <p className="flex items-center gap-1.5 font-medium text-[10px] sm:text-xs md:text-sm">
+            <Clock3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="truncate">Opening Hours - Mon to Sat: 9AM to 5PM</span>
           </p>
           <div className="hidden items-center gap-4 sm:flex">
-            <Link href="/franchise-login" className="inline-flex items-center gap-1 hover:text-blue-200">
+            <Link href="/atc/login" className="inline-flex items-center gap-1 hover:text-blue-200">
               <LogIn className="h-3 w-3" />
-              ALC Login
+              ATC Login
             </Link>
-            <Link href="#" className="inline-flex items-center gap-1 hover:text-blue-200">
+            <Link href="/download-section" className="inline-flex items-center gap-1 hover:text-blue-200">
               <Download className="h-3 w-3" />
               Downloads
             </Link>
@@ -132,7 +132,7 @@ export default function Navbar() {
               alt="Y Group's"
               width={260}
               height={110}
-              className="h-auto w-34 sm:w-42.5 lg:w-47.5"
+              className="h-auto w-28 xs:w-34 sm:w-42.5 lg:w-47.5"
               priority
             />
           </Link>
@@ -191,9 +191,9 @@ export default function Navbar() {
               <Link
                 href="/direct-admission"
                 onClick={handleNavClick("/direct-admission")}
-                className="block rounded-xl bg-blue-800 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-900"
+                className="block rounded-xl bg-gradient-to-r from-[#0a0aa1] to-[#1a1ac0] px-4 py-3.5 text-center font-bold text-white transition hover:shadow-lg active:scale-95 shadow-md"
               >
-                APPLY NOW
+                APPLY FOR ADMISSION
               </Link>
             </div>
           </div>

@@ -1,0 +1,59 @@
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { connectDB } from "@/lib/mongodb";
+import { AtcUser } from "@/models/AtcUser";
+
+const JWT_SECRET = process.env.JWT_SECRET as string;
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as { tpCode?: string; password?: string };
+    const { tpCode, password } = body;
+
+    if (!tpCode?.trim() || !password?.trim()) {
+      return NextResponse.json({ message: "TP Code and password are required." }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const user = await AtcUser.findOne({ tpCode: tpCode.trim().toUpperCase() });
+    if (!user) {
+      return NextResponse.json({ message: "Invalid TP Code or password." }, { status: 401 });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return NextResponse.json({ message: "Invalid TP Code or password." }, { status: 401 });
+    }
+
+    const token = jwt.sign(
+      { id: user._id.toString(), tpCode: user.tpCode, trainingPartnerName: user.trainingPartnerName, role: "atc" },
+      JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    const response = NextResponse.json({
+      message: "Login successful.",
+      user: {
+        id: user._id.toString(),
+        tpCode: user.tpCode,
+        trainingPartnerName: user.trainingPartnerName,
+        email: user.email,
+      },
+    });
+
+    response.cookies.set("atc_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    return response;
+  } catch (error) {
+    console.error("[atc/login]", error);
+    return NextResponse.json({ message: "Internal server error." }, { status: 500 });
+  }
+}

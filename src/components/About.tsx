@@ -10,9 +10,9 @@ export default function About() {
       className="bg-slate-100"
     >
       <div className="grid items-center gap-8 lg:grid-cols-2">
-        <div className="relative h-80 overflow-hidden rounded-2xl shadow-lg">
+        <div className="relative h-64 sm:h-80 overflow-hidden rounded-2xl shadow-lg">
           <Image
-            src="https://source.unsplash.com/random/800x600?office,teamwork"
+            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80"
             alt="Training institute classroom"
             fill
             className="object-cover"

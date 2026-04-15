@@ -65,10 +65,10 @@ export default function Hero() {
           <p className="inline-block rounded-full bg-white/12 px-4 py-1 text-sm font-medium text-white backdrop-blur-sm">
             Career-focused training programs
           </p>
-          <h1 className="text-2xl font-extrabold leading-tight sm:text-4xl lg:text-[2.75rem]">
+          <h1 className="text-3xl font-black leading-tight sm:text-4xl lg:text-[2.75rem] uppercase">
             Upgrade Your Skills With Practical IT Courses
           </h1>
-          <p className="max-w-xl text-sm leading-7 text-slate-100 sm:text-base sm:leading-8">
+          <p className="max-w-xl text-sm leading-relaxed text-slate-100 sm:text-base sm:leading-8">
             Join expert-led classes in accounting, design, and programming. Learn
             by doing and become job-ready with project-based training.
           </p>

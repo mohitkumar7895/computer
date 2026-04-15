@@ -4,14 +4,15 @@ import InternalPageLayout from "@/components/InternalPageLayout";
 export default function BecomeAtcPage() {
   return (
     <InternalPageLayout
-      title="Apply For ALC"
+      title="Apply For ATC"
       breadcrumbs={[
         { label: "Home", href: "/" },
-        { label: "Students Section" },
-        { label: "Apply for ALC" },
+        { label: "Affiliation Process" },
+        { label: "Apply for ATC" },
       ]}
     >
       <BecomeAtcForm />
     </InternalPageLayout>
   );
 }
+
