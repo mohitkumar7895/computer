@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONNGODB_URI as string;
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONNGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error("Please define the MONNGODB_URI environment variable");
+  throw new Error("Missing MONGODB_URI environment variable. Please add it to your .env file or Vercel Environment Variables.");
 }
 
 // Extend the NodeJS global type to cache the mongoose connection

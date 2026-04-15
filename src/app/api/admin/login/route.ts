@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/mongodb";
 import { AdminUser } from "@/models/AdminUser";
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +13,11 @@ export async function POST(request: Request) {
 
     if (!email?.trim() || !password?.trim()) {
       return NextResponse.json({ message: "Email and password are required." }, { status: 400 });
+    }
+
+    if (!JWT_SECRET) {
+      console.error("CRITICAL: JWT_SECRET is not defined in environment variables.");
+      return NextResponse.json({ message: "Server configuration error." }, { status: 500 });
     }
 
     await connectDB();
