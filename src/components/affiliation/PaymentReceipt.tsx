@@ -30,6 +30,8 @@ export interface ReceiptData {
   infrastructure: Record<string, InfraRow>;
   paidAmount: string;
   transactionNo: string;
+  postalAddressOffice: string;
+  zones: string[];
 }
 
 const FEE_MAP: Record<string, { plan: string; charge: string; total: string }> = {
@@ -167,6 +169,20 @@ export default function PaymentReceipt({ data, onBack }: Props) {
             <tr>
               <td className="border border-slate-300 px-3 py-2 font-semibold bg-slate-50">Address of the Institute</td>
               <td className="border border-slate-300 px-3 py-2" colSpan={3}>{data.trainingPartnerAddress}</td>
+            </tr>
+            <tr>
+              <td className="border border-slate-300 px-3 py-2 font-semibold bg-slate-50">Postal Address (Office)</td>
+              <td className="border border-slate-300 px-3 py-2" colSpan={3}>{data.postalAddressOffice}</td>
+            </tr>
+            <tr>
+              <td className="border border-slate-300 px-3 py-2 font-semibold bg-slate-50">Zones Selected</td>
+              <td className="border border-slate-300 px-3 py-2" colSpan={3}>
+                <div className="flex flex-wrap gap-2">
+                  {data.zones.length > 0 ? data.zones.map(z => (
+                    <span key={z} className="px-2 py-0.5 bg-blue-50 text-[#0a0aa1] border border-blue-100 rounded text-[10px] font-bold">{z}</span>
+                  )) : "—"}
+                </div>
+              </td>
             </tr>
             <tr>
               <td className="border border-slate-300 px-3 py-2 font-semibold bg-slate-50">Tehsil Name</td>

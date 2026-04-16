@@ -10,6 +10,7 @@ import PaymentReceipt, { type ReceiptData, type InfraRow } from "./PaymentReceip
 
 type FormState = {
   processFee: string; trainingPartnerName: string; trainingPartnerAddress: string;
+  postalAddressOffice: string; zones: string[];
   totalName: string; district: string; state: string; pin: string; country: string;
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
   chiefName: string; designation: string; educationQualification: string;
@@ -18,8 +19,8 @@ type FormState = {
 };
 
 const initialFormState: FormState = {
-  processFee: "", trainingPartnerName: "", trainingPartnerAddress: "", totalName: "",
-  district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
+  processFee: "", trainingPartnerName: "", trainingPartnerAddress: "", postalAddressOffice: "", zones: [],
+  totalName: "", district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
   educationQualification: "", professionalExperience: "", dob: "", paymentMode: "",
   paidAmount: "", transactionNo: "",
@@ -159,6 +160,7 @@ export default function BecomeAtcForm() {
       if (screenshot) payload.append("paymentScreenshot", screenshot);
       if (instituteDocument) payload.append("instituteDocument", instituteDocument);
       payload.append("infrastructure", JSON.stringify(infra));
+      payload.append("zones", JSON.stringify(form.zones));
       const response = await fetch("/api/become-atc", { method: "POST", body: payload });
       const data = (await response.json()) as { message?: string; refNumber?: string };
       if (!response.ok) { setError(data.message ?? "Form submission failed. Try again."); return; }
@@ -242,6 +244,13 @@ export default function BecomeAtcForm() {
               <Label>Training Partner Address *</Label>
               <input className={inputCls} placeholder="Full address of the institute" value={form.trainingPartnerAddress}
                 onChange={(e) => setField("trainingPartnerAddress", e.target.value)} />
+            </div>
+
+            {/* Postal Address Office */}
+            <div className="sm:col-span-2">
+              <Label>Postal Address (Office) *</Label>
+              <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
+                onChange={(e) => setField("postalAddressOffice", e.target.value)} />
             </div>
 
             {/* Tehsil */}
@@ -346,6 +355,33 @@ export default function BecomeAtcForm() {
                 <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setInstituteDocument(e.target.files?.[0] ?? null)} />
               </label>
             </div>
+          </div>
+        </SectionCard>
+
+        {/* ── SECTION: Zones ──────────────────────────────────────── */}
+        <SectionCard icon={Layers} title="Zones (Select one or multiple)" subtitle="Select the zones you wish to operate in" color="#f59e0b">
+          <div className="flex flex-wrap gap-3 pt-1">
+            {["Software Zone", "Hardware Zone", "Vocational Zone", "Other"].map((z) => (
+              <label key={z}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition select-none
+                  ${form.zones.includes(z)
+                    ? "bg-[#f59e0b] text-white border-[#f59e0b] shadow-md"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-[#f59e0b]/40 shadow-sm"}`}>
+                <input 
+                  type="checkbox" 
+                  className="sr-only"
+                  checked={form.zones.includes(z)} 
+                  onChange={(e) => {
+                    const next = e.target.checked 
+                      ? [...form.zones, z] 
+                      : form.zones.filter(v => v !== z);
+                    setForm(c => ({ ...c, zones: next }));
+                  }} 
+                />
+                {form.zones.includes(z) ? <CheckCircle className="w-4 h-4" /> : <Layers className="w-4 h-4 opacity-40" />}
+                {z}
+              </label>
+            ))}
           </div>
         </SectionCard>
 

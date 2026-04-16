@@ -116,6 +116,8 @@ export async function POST(request: Request) {
       processFee: String(formData.get("processFee") ?? ""),
       trainingPartnerName: String(formData.get("trainingPartnerName") ?? ""),
       trainingPartnerAddress: String(formData.get("trainingPartnerAddress") ?? ""),
+      postalAddressOffice: String(formData.get("postalAddressOffice") ?? ""),
+      zones: JSON.parse(String(formData.get("zones") ?? "[]")),
       totalName: String(formData.get("totalName") ?? ""),
       district: String(formData.get("district") ?? ""),
       state: String(formData.get("state") ?? ""),

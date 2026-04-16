@@ -31,6 +31,8 @@ export interface IAtcApplication {
   status: AtcApplicationStatus;
   tpCode?: string; // Generated after approval
   submittedByAdmin: boolean; // true if Admin filled and directly approved
+  postalAddressOffice: string;
+  zones: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +42,8 @@ const AtcApplicationSchema = new Schema<IAtcApplication>(
     processFee: { type: String, required: true },
     trainingPartnerName: { type: String, required: true },
     trainingPartnerAddress: { type: String, required: true },
+    postalAddressOffice: { type: String, default: "" },
+    zones: { type: [String], default: [] },
     totalName: { type: String, default: "" },
     district: { type: String, required: true },
     state: { type: String, required: true },

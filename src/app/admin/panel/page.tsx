@@ -18,6 +18,8 @@ interface Application {
   tpCode?: string; photo?: string; paymentScreenshot?: string;
   instituteDocument?: string;
   infrastructure?: string;
+  postalAddressOffice?: string;
+  zones?: string[];
 }
 
 
@@ -427,6 +429,8 @@ export default function AdminPanelPage() {
                           <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
                             <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
                               {[
+                                { label: "Postal Address", value: app.postalAddressOffice },
+                                { label: "Zones", value: app.zones?.join(", ") },
                                 { label: "Chief Name", value: app.chiefName },
                                 { label: "TP Code", value: app.tpCode },
                                 { label: "Designation", value: app.designation },
