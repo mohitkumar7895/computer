@@ -44,15 +44,22 @@ export default function StudentDashboardPage() {
     <>
       <style>{`
         @media print {
-          body * { visibility: hidden !important; background: none !important; }
-          #student-id-card, #student-id-card * { visibility: visible !important; }
-          #student-id-card { 
+          @page { margin: 0; size: auto; }
+          body { visibility: hidden !important; background: white !important; }
+          #student-id-card-container { 
+            visibility: visible !important; 
             position: fixed !important; 
-            left: 50% !important; 
             top: 50% !important; 
-            transform: translate(-50%, -50%) scale(1.5) !important;
-            border: 1px solid #ddd !important;
-            box-shadow: none !important;
+            left: 50% !important; 
+            transform: translate(-50%, -50%) scale(1.4) !important;
+            display: flex !important;
+            justify-content: center !important;
+            width: 100% !important;
+          }
+          #student-id-card, #student-id-card * { 
+            visibility: visible !important; 
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
@@ -156,7 +163,7 @@ export default function StudentDashboardPage() {
               </div>
 
               {/* ID CARD MOCKUP */}
-              <div className="flex justify-center">
+              <div className="flex justify-center" id="student-id-card-container">
                 <div id="student-id-card" className="w-[340px] h-[520px] bg-white rounded-3xl shadow-2xl overflow-hidden relative border border-slate-200 print:shadow-none print:border-slate-300">
                   {/* Card Front */}
                   <div className="h-[43%] bg-gradient-to-br from-[#0a0a2e] to-[#0a0aa1] p-6 relative flex flex-col items-center text-center">
@@ -183,20 +190,23 @@ export default function StudentDashboardPage() {
                     <p className="text-blue-600 font-bold text-[10px] uppercase tracking-[0.2em] mb-8">{student.course}</p>
                     
                     <div className="space-y-4 text-left px-2">
+                      <div className="grid grid-cols-2 border-b border-slate-50 pb-2 gap-4">
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Reg. ID</span>
+                          <span className="text-[10px] font-black text-slate-800 break-all">{student.registrationNo}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Center Code</span>
+                          <span className="text-[10px] font-black text-slate-800 break-all">{student.tpCode}</span>
+                        </div>
+                      </div>
+                      
                       <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registration ID</span>
-                        <span className="text-[11px] font-black text-slate-800">{student.registrationNo}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Contact No.</span>
+                        <span className="text-[11px] font-black text-slate-800">{student.mobile}</span>
                       </div>
                       <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Center TP Code</span>
-                        <span className="text-[11px] font-black text-slate-800">{student.tpCode}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contact No.</span>
-                        <span className="text-[11px] font-black text-slate-800">+91 {student.mobile}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">D.O.B</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">D.O.B</span>
                         <span className="text-[11px] font-black text-slate-800">{student.dob}</span>
                       </div>
                     </div>
