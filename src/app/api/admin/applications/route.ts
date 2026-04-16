@@ -94,6 +94,13 @@ export async function POST(request: Request) {
       ssBase64 = `data:${ssFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
     }
 
+    let instDocBase64 = "";
+    const instDocFile = formData.get("instituteDocument") as File | null;
+    if (instDocFile && instDocFile.size > 0) {
+      const buffer = await instDocFile.arrayBuffer();
+      instDocBase64 = `data:${instDocFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
     const data = {
       processFee: String(formData.get("processFee") ?? ""),
       trainingPartnerName: String(formData.get("trainingPartnerName") ?? ""),
@@ -115,13 +122,47 @@ export async function POST(request: Request) {
       photo: photoBase64,
       paymentMode: String(formData.get("paymentMode") ?? ""),
       paymentScreenshot: ssBase64,
+      instituteDocument: instDocBase64,
       infrastructure: String(formData.get("infrastructure") ?? "{}"),
-      status: "pending" as const,
+      status: "approved" as const,
       submittedByAdmin: true,
     };
 
     const application = await AtcApplication.create(data);
-    return NextResponse.json({ message: "Application created successfully.", application }, { status: 201 });
+
+    // Auto-generate ATC account
+    const { AtcUser } = await import("@/models/AtcUser");
+    const existingUser = await AtcUser.findOne({ email: application.email });
+    
+    if (!existingUser) {
+      let nextId = 1;
+      const lastUser = await AtcUser.findOne().sort({ createdAt: -1 });
+      if (lastUser?.tpCode) {
+        const parts = lastUser.tpCode.split("-");
+        if (parts.length === 3) nextId = parseInt(parts[2], 10) + 1;
+      }
+      const validNextId = isNaN(nextId) ? 1 : nextId;
+      const tpCode = `ATC-${new Date().getFullYear()}-${String(validNextId).padStart(4, "0")}`;
+      const bcrypt = (await import("bcryptjs")).default;
+      const hashedPassword = await bcrypt.hash(application.mobile, 12);
+
+      await AtcUser.create({
+        tpCode,
+        trainingPartnerName: application.trainingPartnerName,
+        email: application.email,
+        mobile: application.mobile,
+        password: hashedPassword,
+        applicationId: application._id,
+      });
+
+      return NextResponse.json({ 
+        message: "Application auto-approved.", 
+        tpCode, 
+        mobile: application.mobile 
+      }, { status: 201 });
+    }
+
+    return NextResponse.json({ message: "Application created successfully." }, { status: 201 });
   } catch (error) {
     console.error("[admin/applications POST]", error);
     return NextResponse.json({ message: "Internal server error." }, { status: 500 });

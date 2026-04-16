@@ -52,6 +52,7 @@ export default function AdminAtcForm({ onSuccess }: Props) {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
   const [infra, setInfra] = useState(emptyInfra);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -90,12 +91,18 @@ export default function AdminAtcForm({ onSuccess }: Props) {
       Object.entries(form).forEach(([k, v]) => payload.append(k, v));
       if (photo) payload.append("photo", photo);
       if (screenshot) payload.append("paymentScreenshot", screenshot);
+      if (instituteDocument) payload.append("instituteDocument", instituteDocument);
       payload.append("infrastructure", JSON.stringify(infra));
       const res = await fetch("/api/admin/applications", { method: "POST", body: payload });
-      const data = (await res.json()) as { message: string };
+      const data = (await res.json()) as { message: string; tpCode?: string; mobile?: string };
       if (!res.ok) { setMessage({ type: "error", text: data.message }); return; }
-      setMessage({ type: "success", text: "ATC application created successfully!" });
-      setForm(initialFormState); setInfra(emptyInfra); setPhoto(null); setScreenshot(null);
+      
+      const successText = data.tpCode 
+        ? `✅ ATC Approved! Login ID: ${data.tpCode} | Pass: ${data.mobile}`
+        : "ATC application created successfully!";
+        
+      setMessage({ type: "success", text: successText });
+      setForm(initialFormState); setInfra(emptyInfra); setPhoto(null); setScreenshot(null); setInstituteDocument(null);
       onSuccess();
     } catch {
       setMessage({ type: "error", text: "Network error. Please try again." });
@@ -108,7 +115,7 @@ export default function AdminAtcForm({ onSuccess }: Props) {
   const lc = "block text-xs font-semibold text-slate-600 mb-1";
 
   return (
-    <form onSubmit={onSubmit} onReset={() => { setForm(initialFormState); setInfra(emptyInfra); setPhoto(null); setScreenshot(null); setMessage(null); }} className="space-y-6">
+    <form onSubmit={onSubmit} onReset={() => { setForm(initialFormState); setInfra(emptyInfra); setPhoto(null); setScreenshot(null); setInstituteDocument(null); setMessage(null); }} className="space-y-6">
 
       {/* Section 1 */}
       <div>
@@ -176,6 +183,10 @@ export default function AdminAtcForm({ onSuccess }: Props) {
               <option value="">Select Year</option>
               {Array.from({ length: 50 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => <option key={y}>{y}</option>)}
             </select>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <label className={lc}>Institute Document (Optional)</label>
+            <input type="file" accept="image/*,application/pdf" className={fc} onChange={(e) => setInstituteDocument(e.target.files?.[0] ?? null)} />
           </div>
         </div>
       </div>

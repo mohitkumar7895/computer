@@ -16,6 +16,7 @@ interface Application {
   paymentMode: string; statusOfInstitution: string; educationQualification: string;
   professionalExperience: string; dob: string; createdAt: string;
   tpCode?: string; photo?: string; paymentScreenshot?: string;
+  instituteDocument?: string;
   infrastructure?: string;
 }
 
@@ -53,6 +54,11 @@ export default function AdminPanelPage() {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrSaving, setQrSaving] = useState(false);
 
+  // Signature Settings
+  const [sigPreview, setSigPreview] = useState<string | null>(null);
+  const [sigLoading, setSigLoading] = useState(false);
+  const [sigSaving, setSigSaving] = useState(false);
+
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
     setTimeout(() => setToastMsg(null), 5000);
@@ -74,12 +80,18 @@ export default function AdminPanelPage() {
 
   const fetchQr = useCallback(async () => {
     setQrLoading(true);
+    setSigLoading(true);
     try {
-      const res = await fetch("/api/admin/settings?key=qr_code");
-      const data = (await res.json()) as { value: string | null };
-      setQrPreview(data.value ?? null);
+      const qRes = await fetch("/api/admin/settings?key=qr_code");
+      const qData = (await qRes.json()) as { value: string | null };
+      setQrPreview(qData.value ?? null);
+
+      const sRes = await fetch("/api/admin/settings?key=auth_signature");
+      const sData = (await sRes.json()) as { value: string | null };
+      setSigPreview(sData.value ?? null);
     } catch { /* ignore */ } finally {
       setQrLoading(false);
+      setSigLoading(false);
     }
   }, []);
 
@@ -144,6 +156,43 @@ export default function AdminPanelPage() {
       body: JSON.stringify({ key: "qr_code", value: "" }),
     });
     showToast("success", "QR code removed.");
+  };
+
+  const handleSigUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setSigPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSigSave = async () => {
+    if (!sigPreview) return;
+    setSigSaving(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "auth_signature", value: sigPreview }),
+      });
+      const data = (await res.json()) as { message: string };
+      if (!res.ok) { showToast("error", data.message); return; }
+      showToast("success", "Signature saved successfully! It will appear on issued certificates / documents.");
+    } catch {
+      showToast("error", "Failed to save signature.");
+    } finally {
+      setSigSaving(false);
+    }
+  };
+
+  const handleSigRemove = async () => {
+    setSigPreview(null);
+    await fetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "auth_signature", value: "" }),
+    });
+    showToast("success", "Signature removed.");
   };
 
   const handleLogout = async () => {
@@ -418,6 +467,18 @@ export default function AdminPanelPage() {
                                   </div>
                                 </div>
                               )}
+                              {app.instituteDocument && (
+                                <div className="space-y-1.5 min-w-0">
+                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1 truncate">
+                                    Institute Document
+                                  </p>
+                                  <div className="relative aspect-[3/4] w-full sm:w-32 sm:h-40 rounded-xl border-2 border-slate-200 overflow-hidden bg-white shadow-sm hover:border-blue-400 transition group">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <embed src={app.instituteDocument} className="w-full h-full object-cover p-1" />
+                                    <a href={app.instituteDocument} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-[10px] font-bold">View Doc</a>
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {/* Infrastructure Section */}
@@ -472,7 +533,8 @@ export default function AdminPanelPage() {
 
             {/* ── SETTINGS TAB ── */}
             {tab === "settings" && (
-              <div className="max-w-xl">
+              <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* QR Code Setting */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -535,6 +597,72 @@ export default function AdminPanelPage() {
 
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
                     <strong>Tip:</strong> Upload your Google Pay UPI QR code image. Applicants will see this QR when they submit the Become ATC form, on their payment receipt.
+                  </div>
+                </div>
+
+                {/* Signature Setting */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">Authorized Signature</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Upload your authorized signature image (with transparent background). Used for certificates / documents.</p>
+                    </div>
+                  </div>
+
+                  {/* Sig Preview */}
+                  {sigLoading ? (
+                    <div className="flex items-center justify-center h-40">
+                      <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
+                    </div>
+                  ) : sigPreview ? (
+                    <div className="flex flex-col items-center gap-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={sigPreview} alt="Signature Preview" className="w-48 h-24 object-contain border-2 border-slate-200 rounded-xl shadow-sm bg-slate-50" />
+                      <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" /> Signature is set and active
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                      <FileText className="w-10 h-10 text-slate-300 mb-2" />
+                      <p className="text-sm text-slate-500">No signature uploaded yet</p>
+                    </div>
+                  )}
+
+                  {/* Upload */}
+                  <div className="space-y-3">
+                    <label className="flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-purple-300 rounded-xl bg-purple-50 cursor-pointer hover:bg-purple-100 transition">
+                      <Upload className="w-5 h-5 text-purple-600" />
+                      <span className="text-sm font-semibold text-purple-700">Click to upload Signature image</span>
+                      <span className="text-xs text-purple-500">PNG with transparent background recommended</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleSigUpload} />
+                    </label>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleSigSave}
+                        disabled={!sigPreview || sigSaving}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 transition disabled:opacity-50"
+                      >
+                        {sigSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        {sigSaving ? "Saving..." : "Save Signature"}
+                      </button>
+                      {sigPreview && (
+                        <button
+                          onClick={handleSigRemove}
+                          className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 text-xs text-purple-800">
+                    <strong>Tip:</strong> Upload a clear image of your signature with a transparent background (.png format) for best results when overlaid onto certificates or official documents.
                   </div>
                 </div>
               </div>

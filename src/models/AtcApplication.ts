@@ -24,7 +24,10 @@ export interface IAtcApplication {
   photo?: string; // Base64 or URL
   paymentMode: string;
   paymentScreenshot?: string; // Base64 or URL
+  instituteDocument?: string; // Base64 or URL
   infrastructure: string; // JSON string
+  paidAmount: string;
+  transactionNo: string;
   status: AtcApplicationStatus;
   submittedByAdmin: boolean; // true if Admin filled and directly approved
   createdAt: Date;
@@ -53,7 +56,10 @@ const AtcApplicationSchema = new Schema<IAtcApplication>(
     photo: { type: String },
     paymentMode: { type: String, required: true },
     paymentScreenshot: { type: String },
+    instituteDocument: { type: String },
     infrastructure: { type: String, default: "{}" },
+    paidAmount: { type: String, default: "" },
+    transactionNo: { type: String, default: "" },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
     submittedByAdmin: { type: Boolean, default: false },
   },

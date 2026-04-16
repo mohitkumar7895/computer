@@ -4,7 +4,7 @@ import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
 import {
   Building2, User, Layers, CreditCard, ChevronDown,
   Send, RotateCcw, CheckCircle, MapPin, Phone, Mail,
-  BookOpen, Briefcase, Calendar, Camera, Home, QrCode,
+  BookOpen, Briefcase, Calendar, Camera, Home, QrCode, X, FileText
 } from "lucide-react";
 import PaymentReceipt, { type ReceiptData, type InfraRow } from "./PaymentReceipt";
 
@@ -14,6 +14,7 @@ type FormState = {
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
   chiefName: string; designation: string; educationQualification: string;
   professionalExperience: string; dob: string; paymentMode: string;
+  paidAmount: string; transactionNo: string;
 };
 
 const initialFormState: FormState = {
@@ -21,6 +22,7 @@ const initialFormState: FormState = {
   district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
   educationQualification: "", professionalExperience: "", dob: "", paymentMode: "",
+  paidAmount: "", transactionNo: "",
 };
 
 const infraFields = ["Staff Room", "Class Room", "Computer Lab", "Reception", "Toilets", "Any Other"] as const;
@@ -96,12 +98,13 @@ export default function BecomeAtcForm() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [infra, setInfra] = useState(emptyInfra);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
-
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfraRow>>(emptyInfra);
 
   useEffect(() => {
     fetch("/api/admin/settings?key=qr_code")
@@ -133,7 +136,11 @@ export default function BecomeAtcForm() {
     if (!form.professionalExperience.trim()) r.push("Professional experience is required.");
     if (!form.dob.trim()) r.push("Date of birth is required.");
     if (!form.paymentMode) r.push("Please select payment mode.");
-    if (form.paymentMode === "gpay" && !screenshot) r.push("Please upload a payment screenshot for verification.");
+    if (form.paymentMode === "gpay") {
+      if (!screenshot) r.push("Please upload a payment screenshot for verification.");
+      if (!form.paidAmount.trim()) r.push("Please enter the paid amount.");
+      if (!form.transactionNo.trim()) r.push("Please enter the transaction / UTR number.");
+    }
     return r;
   }, [form, screenshot]);
 
@@ -150,6 +157,7 @@ export default function BecomeAtcForm() {
       Object.entries(form).forEach(([key, value]) => payload.append(key, value));
       if (photo) payload.append("photo", photo);
       if (screenshot) payload.append("paymentScreenshot", screenshot);
+      if (instituteDocument) payload.append("instituteDocument", instituteDocument);
       payload.append("infrastructure", JSON.stringify(infra));
       const response = await fetch("/api/become-atc", { method: "POST", body: payload });
       const data = (await response.json()) as { message?: string; refNumber?: string };
@@ -169,7 +177,7 @@ export default function BecomeAtcForm() {
 
   const onReset = () => {
     setForm(initialFormState); setInfra(emptyInfra);
-    setPhoto(null); setScreenshot(null); setError(null); setReceiptData(null);
+    setPhoto(null); setScreenshot(null); setInstituteDocument(null); setError(null); setReceiptData(null);
   };
 
   if (receiptData) {
@@ -315,7 +323,6 @@ export default function BecomeAtcForm() {
               </div>
             </div>
 
-            {/* Year of Establishment */}
             <div>
               <Label>Year of Establishment *</Label>
               <SelectWrapper>
@@ -326,6 +333,18 @@ export default function BecomeAtcForm() {
                   ))}
                 </select>
               </SelectWrapper>
+            </div>
+
+            {/* Institute Document */}
+            <div className="sm:col-span-2">
+              <Label>Institute Document (Optional)</Label>
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {instituteDocument ? instituteDocument.name : "Click to upload JPG / PDF"}
+                </span>
+                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setInstituteDocument(e.target.files?.[0] ?? null)} />
+              </label>
             </div>
           </div>
         </SectionCard>
@@ -464,9 +483,13 @@ export default function BecomeAtcForm() {
                 {qrCode ? (
                   <div className="shrink-0 space-y-2">
                     <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Scan to Pay</p>
-                    <div className="p-2 bg-white rounded-xl shadow-sm border border-amber-200">
+                    <div className="p-2 bg-white rounded-xl shadow-sm border border-amber-200 cursor-zoom-in group relative"
+                      onClick={() => setIsQrModalOpen(true)}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={qrCode} alt="Payment QR" className="w-32 h-32 sm:w-40 sm:h-40 object-contain mx-auto" />
+                      <img src={qrCode} alt="Payment QR" className="w-32 h-32 sm:w-40 sm:h-40 object-contain mx-auto transition group-hover:opacity-90" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <span className="bg-black/60 text-white text-[10px] px-2 py-1 rounded-full font-bold">CLICK TO ENLARGE</span>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -494,6 +517,31 @@ export default function BecomeAtcForm() {
                       Upload Screenshot Below
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Transaction Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-amber-700 uppercase mb-1">Paid Amount *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-sm">₹</span>
+                    <input 
+                      className="w-full pl-7 pr-4 py-2 rounded-xl border border-amber-200 bg-white text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition"
+                      placeholder="Enter amount paid"
+                      value={form.paidAmount}
+                      onChange={(e) => setField("paidAmount", e.target.value.replace(/\D/g, ""))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-amber-700 uppercase mb-1">Transaction No / UTR *</label>
+                  <input 
+                    className="w-full px-4 py-2 rounded-xl border border-amber-200 bg-white text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition"
+                    placeholder="Enter 12-digit UTR or Txn ID"
+                    value={form.transactionNo}
+                    onChange={(e) => setField("transactionNo", e.target.value)}
+                  />
                 </div>
               </div>
             </div>
@@ -566,6 +614,34 @@ export default function BecomeAtcForm() {
           </a>
         </div>
       </form>
+
+      {/* QR Large Modal */}
+      {isQrModalOpen && qrCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsQrModalOpen(false)}>
+          <div className="relative max-w-lg w-full bg-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setIsQrModalOpen(false)}
+              className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-slate-500 hover:text-red-500 transition">
+              <X className="w-6 h-6" />
+            </button>
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Scan to Pay</h3>
+              <p className="text-sm text-slate-500">Yukti Computer Institute Official Payment QR</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
+               {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrCode} alt="Large Payment QR" className="w-full h-auto max-h-[60vh] object-contain mx-auto" />
+            </div>
+            <button 
+              onClick={() => setIsQrModalOpen(false)}
+              className="w-full py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

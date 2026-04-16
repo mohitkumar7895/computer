@@ -64,6 +64,13 @@ export async function POST(request: Request) {
       ssBase64 = `data:${ssFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
     }
 
+    let instDocBase64 = "";
+    const instDocFile = formData.get("instituteDocument") as File | null;
+    if (instDocFile && instDocFile.size > 0) {
+      const buffer = await instDocFile.arrayBuffer();
+      instDocBase64 = `data:${instDocFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
     const application = await AtcApplication.create({
       processFee: String(formData.get("processFee") ?? ""),
       trainingPartnerName: String(formData.get("trainingPartnerName") ?? ""),
@@ -85,7 +92,10 @@ export async function POST(request: Request) {
       photo: photoBase64,
       paymentMode: String(formData.get("paymentMode") ?? ""),
       paymentScreenshot: ssBase64,
+      instituteDocument: instDocBase64,
       infrastructure: String(formData.get("infrastructure") ?? "{}"),
+      paidAmount: String(formData.get("paidAmount") ?? ""),
+      transactionNo: String(formData.get("transactionNo") ?? ""),
       status: "pending",
       submittedByAdmin: false,
     });

@@ -28,6 +28,8 @@ export interface ReceiptData {
   dob: string;
   paymentMode: string;
   infrastructure: Record<string, InfraRow>;
+  paidAmount: string;
+  transactionNo: string;
 }
 
 const FEE_MAP: Record<string, { plan: string; charge: string; total: string }> = {
@@ -45,11 +47,17 @@ interface Props {
 
 export default function PaymentReceipt({ data, onBack }: Props) {
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [authSignature, setAuthSignature] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/settings?key=qr_code")
       .then((r) => r.json())
       .then((d: { value: string | null }) => setQrCode(d.value ?? null))
+      .catch(() => null);
+
+    fetch("/api/admin/settings?key=auth_signature")
+      .then((r) => r.json())
+      .then((d: { value: string | null }) => setAuthSignature(d.value ?? null))
       .catch(() => null);
   }, []);
 
@@ -65,8 +73,17 @@ export default function PaymentReceipt({ data, onBack }: Props) {
       <style>{`
         @media print {
           .no-print { display: none !important; }
+          body * { visibility: hidden; }
+          .receipt-wrapper, .receipt-wrapper * { visibility: visible; }
+          .receipt-wrapper { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%;
+            box-shadow: none !important; 
+            border: none !important; 
+          }
           body { background: white !important; }
-          .receipt-wrapper { box-shadow: none !important; border: none !important; }
         }
       `}</style>
 
@@ -123,13 +140,13 @@ export default function PaymentReceipt({ data, onBack }: Props) {
                 <br />Receiving date: __________
                 <br />TP Code: __________________
               </td>
-              <td className="border border-slate-300 px-3 py-2 font-semibold align-top">Authorized Signatory</td>
-              <td className="border border-slate-300 px-2 py-2 align-middle text-center w-24">
-                {qrCode ? (
+              <td className="border border-slate-300 px-3 py-2 font-semibold align-top text-center" colSpan={2}>
+                <div className="text-xs text-slate-500 font-bold uppercase mb-1">Authorized Signatory</div>
+                {authSignature ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={qrCode} alt="QR Code" className="w-16 h-16 object-contain mx-auto" />
+                  <img src={authSignature} alt="Signatory" className="w-24 h-12 object-contain mx-auto" />
                 ) : (
-                  <div className="w-16 h-16 border-2 border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 mx-auto">QR</div>
+                  <div className="w-24 h-8 border-2 border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 mx-auto">Sign Here</div>
                 )}
               </td>
             </tr>
@@ -266,6 +283,18 @@ export default function PaymentReceipt({ data, onBack }: Props) {
                   <td className="px-3 py-2 font-semibold text-slate-600">Total Amount</td>
                   <td className="px-3 py-2 font-bold text-green-700 text-base">{feeInfo.total}</td>
                 </tr>
+                {data.paymentMode === "gpay" && (
+                  <>
+                    <tr>
+                      <td className="border-t border-slate-200 px-3 py-2 font-semibold text-slate-600">Paid Amount</td>
+                      <td className="border-t border-slate-200 px-3 py-2 font-bold text-slate-800">₹{data.paidAmount}</td>
+                    </tr>
+                    <tr>
+                      <td className="border-t border-slate-200 px-3 py-2 font-semibold text-slate-600">Txn No / UTR</td>
+                      <td className="border-t border-slate-200 px-3 py-2 font-bold text-slate-800">{data.transactionNo}</td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </div>
@@ -308,8 +337,11 @@ export default function PaymentReceipt({ data, onBack }: Props) {
 
         {/* Seal & Signature */}
         <div className="mt-1 border border-slate-300 grid grid-cols-2">
-          <div className="border-r border-slate-300 px-4 py-8 text-sm text-slate-500">Seal of the Institute</div>
-          <div className="px-4 py-8 text-sm text-slate-500 text-right">Signature of Director/Head</div>
+          <div className="border-r border-slate-300 px-4 py-8 text-sm text-slate-500 h-24 flex items-end">Seal of the Institute</div>
+          <div className="px-4 py-8 text-sm text-slate-500 text-right h-24 relative flex flex-col items-end justify-end">
+            {authSignature && <img src={authSignature} alt="Authorized Sign" className="absolute top-2 right-4 w-32 h-14 object-contain opacity-90 mix-blend-multiply" />}
+            <span className="relative z-10 font-bold underline decoration-slate-300">Signature of Director/Head</span>
+          </div>
         </div>
 
         {/* Checklist */}
