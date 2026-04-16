@@ -8,6 +8,7 @@ export interface IAtcUser {
   mobile: string;
   password: string; // hashed
   applicationId: mongoose.Types.ObjectId;
+  zones: string[];
   createdAt: Date;
 }
 
@@ -19,6 +20,7 @@ const AtcUserSchema = new Schema<IAtcUser>(
     mobile: { type: String, required: true },
     password: { type: String, required: true },
     applicationId: { type: Schema.Types.ObjectId, ref: "AtcApplication", required: true },
+    zones: [{ type: String }],
   },
   { timestamps: true },
 );

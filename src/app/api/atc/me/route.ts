@@ -41,16 +41,27 @@ export async function PATCH(request: Request) {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
     if (decoded.role !== "atc") return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
 
-    const { mobile, email } = await request.json();
+    const { trainingPartnerName, mobile, email } = await request.json();
     await connectDB();
     
     const user = await AtcUser.findByIdAndUpdate(
       decoded.id,
-      { $set: { mobile, email } },
+      { $set: { trainingPartnerName, mobile, email } },
       { new: true }
     );
 
-    return NextResponse.json({ message: "Profile updated successfully.", user });
+    if (!user) return NextResponse.json({ message: "User not found." }, { status: 404 });
+
+    return NextResponse.json({
+      message: "Profile updated successfully.",
+      user: {
+        id: user._id.toString(),
+        tpCode: user.tpCode,
+        trainingPartnerName: user.trainingPartnerName,
+        mobile: user.mobile,
+        email: user.email,
+      },
+    });
   } catch (error) {
     return NextResponse.json({ message: "Internal server error." }, { status: 500 });
   }

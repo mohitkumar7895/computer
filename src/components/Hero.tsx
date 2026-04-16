@@ -18,7 +18,7 @@ const heroImages = [
     alt: "Teacher guiding students",
   },
   {
-    src: "https://images.unsplash.com/photo-1523240794102-9eb04d1c9f94?auto=format&fit=crop&w=900&q=80",
+    src: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80",
     alt: "Professional classroom environment",
   },
 ];

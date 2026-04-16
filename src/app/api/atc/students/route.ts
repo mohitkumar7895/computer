@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     // Validate required fields
-    const reqFields = ["name", "fatherName", "motherName", "dob", "gender", "mobile", "currentAddress", "permanentAddress", "course", "highestQualification"];
+    const reqFields = ["name", "fatherName", "motherName", "dob", "gender", "mobile", "currentAddress", "permanentAddress", "course", "highestQualification", "session", "category", "admissionFees"];
     for (const f of reqFields) {
       if (!formData.get(f)) return NextResponse.json({ message: `Missing required field: ${f}` }, { status: 400 });
     }
@@ -92,6 +92,16 @@ export async function POST(request: Request) {
       currentAddress: String(formData.get("currentAddress") || "N/A").trim(),
       permanentAddress: String(formData.get("permanentAddress") || "N/A").trim(),
       course: String(formData.get("course") || "N/A").trim(),
+      courseId: (formData.get("courseId") ? String(formData.get("courseId")) : undefined) as any,
+      session: String(formData.get("session") || "").trim(),
+      classRollNo: String(formData.get("classRollNo") || "").trim(),
+      nationality: String(formData.get("nationality") || "Indian").trim(),
+      category: String(formData.get("category") || "General").trim(),
+      maritalStatus: String(formData.get("maritalStatus") || "").trim(),
+      religion: String(formData.get("religion") || "").trim(),
+      disability: formData.get("disability") === "Yes",
+      disabilityDetails: String(formData.get("disabilityDetails") || "").trim(),
+      admissionFees: String(formData.get("admissionFees") || "0").trim(),
       highestQualification: String(formData.get("highestQualification") || "N/A").trim(),
       qualificationDoc: await toBase64(formData.get("qualificationDoc")),
       photo: await toBase64(formData.get("photo")),

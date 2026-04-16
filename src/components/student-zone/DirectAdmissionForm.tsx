@@ -105,94 +105,98 @@ export default function DirectAdmissionForm() {
       </div>
 
       <form className="mt-6 space-y-3" onSubmit={onSubmit}>
-        <div className="grid gap-2 md:grid-cols-[1.1fr_1.3fr_1fr_1.3fr]">
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value="REGISTRATION TYPE" readOnly />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value="DIRECT" readOnly />
-          <select
-            className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600"
-            value={form.course}
-            onChange={(event) => setField("course", event.target.value)}
-          >
-            <option value="">Select Code</option>
-            <option value="ADCA">ADCA</option>
-            <option value="DCA">DCA</option>
-            <option value="Tally">Tally</option>
-          </select>
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Course Fees" />
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-[260px_1fr]">
-          <label className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">Student Photo *</label>
-          <input type="file" className="border border-slate-300 bg-white px-3 py-2 text-sm" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-[260px_1fr]">
-          <label className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">Full Name of the Applicant *</label>
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.fullName} onChange={(e) => setField("fullName", e.target.value)} />
-        </div>
-        <div className="grid gap-2 md:grid-cols-[260px_1fr]">
-          <label className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">Father&apos;s Name *</label>
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.fatherName} onChange={(e) => setField("fatherName", e.target.value)} />
-        </div>
-        <div className="grid gap-2 md:grid-cols-[260px_1fr]">
-          <label className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">Mother&apos;s Name *</label>
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.motherName} onChange={(e) => setField("motherName", e.target.value)} />
-        </div>
-        <div className="grid gap-2 md:grid-cols-[260px_1fr]">
-          <label className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">Complete Address *</label>
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.address} onChange={(e) => setField("address", e.target.value)} />
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-4">
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="City *" value={form.city} onChange={(e) => setField("city", e.target.value)} />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="State *" value={form.state} onChange={(e) => setField("state", e.target.value)} />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Country" value="INDIA" readOnly />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Pin *" value={form.pin} onChange={(e) => setField("pin", e.target.value.replace(/\D/g, "").slice(0, 6))} />
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-3">
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Telephone (optional)" />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Mobile *" value={form.mobile} onChange={(e) => setField("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Email ID (optional)" value={form.email} onChange={(e) => setField("email", e.target.value)} />
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-4">
-          <select className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
-            <option>Category *</option>
-          </select>
-          <input type="date" className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.dob} onChange={(e) => setField("dob", e.target.value)} />
-          <div className="col-span-2 flex items-center gap-6 border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">
-            <span>Gender *</span>
-            <label className="inline-flex items-center gap-1">
-              <input type="radio" name="gender" checked={form.gender === "male"} onChange={() => setField("gender", "male")} />
-              Male
-            </label>
-            <label className="inline-flex items-center gap-1">
-              <input type="radio" name="gender" checked={form.gender === "female"} onChange={() => setField("gender", "female")} />
-              Female
-            </label>
+        <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-lg font-semibold text-slate-900">Personal Information</h3>
+          <div className="grid gap-2 md:grid-cols-[260px_1fr]">
+            <label className="border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">Student Photo *</label>
+            <input type="file" className="border border-slate-300 bg-white px-3 py-2 text-sm" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-[260px_1fr]">
+            <label className="border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">Full Name of the Applicant *</label>
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.fullName} onChange={(e) => setField("fullName", e.target.value)} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-[260px_1fr]">
+            <label className="border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">Father&apos;s Name *</label>
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.fatherName} onChange={(e) => setField("fatherName", e.target.value)} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-[260px_1fr]">
+            <label className="border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">Mother&apos;s Name *</label>
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.motherName} onChange={(e) => setField("motherName", e.target.value)} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-3">
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Date of Birth *" type="date" value={form.dob} onChange={(e) => setField("dob", e.target.value)} />
+            <div className="flex items-center gap-4 rounded-sm border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">
+              <span className="font-medium">Gender *</span>
+              <label className="inline-flex items-center gap-1">
+                <input type="radio" name="gender" checked={form.gender === "male"} onChange={() => setField("gender", "male")} />
+                Male
+              </label>
+              <label className="inline-flex items-center gap-1">
+                <input type="radio" name="gender" checked={form.gender === "female"} onChange={() => setField("gender", "female")} />
+                Female
+              </label>
+            </div>
+            <select className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
+              <option>Category *</option>
+            </select>
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-4">
-          <select className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
-            <option>Qualification</option>
-          </select>
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="College / School Name" />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Year of Passing" />
-          <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="% Obtained" />
+        <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-lg font-semibold text-slate-900">Contact Details</h3>
+          <div className="grid gap-2 md:grid-cols-[260px_1fr]">
+            <label className="border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">Complete Address *</label>
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value={form.address} onChange={(e) => setField("address", e.target.value)} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-4">
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="City *" value={form.city} onChange={(e) => setField("city", e.target.value)} />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="State *" value={form.state} onChange={(e) => setField("state", e.target.value)} />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Country" value="INDIA" readOnly />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="PIN Code *" value={form.pin} onChange={(e) => setField("pin", e.target.value.replace(/\D/g, "").slice(0, 6))} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-3">
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Telephone (optional)" />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Mobile *" value={form.mobile} onChange={(e) => setField("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Email ID *" value={form.email} onChange={(e) => setField("email", e.target.value)} />
+          </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-2">
-          <div className="border border-slate-300 bg-white p-2.5">
-            <p className="text-xs font-semibold text-slate-700">Certificate / Marksheet</p>
-            <p className="text-[11px] text-red-600">SIZE: 1000 x 1300px</p>
-            <input type="file" className="mt-2 w-full border border-slate-300 bg-white px-2 py-1.5 text-sm" onChange={(e) => setCert(e.target.files?.[0] ?? null)} />
+        <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-lg font-semibold text-slate-900">Admission Details</h3>
+          <div className="grid gap-2 md:grid-cols-[1.1fr_1.3fr_1fr_1.3fr]">
+            <input className="border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm" value="REGISTRATION TYPE" readOnly />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" value="DIRECT" readOnly />
+            <select
+              className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600"
+              value={form.course}
+              onChange={(event) => setField("course", event.target.value)}
+            >
+              <option value="">Select Code</option>
+              <option value="ADCA">ADCA</option>
+              <option value="DCA">DCA</option>
+              <option value="Tally">Tally</option>
+            </select>
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Course Fees" />
           </div>
-          <div className="border border-slate-300 bg-white p-2.5">
-            <p className="text-xs font-semibold text-slate-700">Aadhar Card</p>
-            <p className="text-[11px] text-red-600">SIZE: 250 x 500px</p>
-            <input type="file" className="mt-2 w-full border border-slate-300 bg-white px-2 py-1.5 text-sm" onChange={(e) => setAadhar(e.target.files?.[0] ?? null)} />
+          <div className="grid gap-2 md:grid-cols-4">
+            <select className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
+              <option>Qualification</option>
+            </select>
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="College / School Name" />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Year of Passing" />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="% Obtained" />
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="border border-slate-300 bg-white p-2.5">
+              <p className="text-xs font-semibold text-slate-700">Certificate / Marksheet</p>
+              <p className="text-[11px] text-red-600">SIZE: 1000 x 1300px</p>
+              <input type="file" className="mt-2 w-full border border-slate-300 bg-white px-2 py-1.5 text-sm" onChange={(e) => setCert(e.target.files?.[0] ?? null)} />
+            </div>
+            <div className="border border-slate-300 bg-white p-2.5">
+              <p className="text-xs font-semibold text-slate-700">Aadhar Card</p>
+              <p className="text-[11px] text-red-600">SIZE: 250 x 500px</p>
+              <input type="file" className="mt-2 w-full border border-slate-300 bg-white px-2 py-1.5 text-sm" onChange={(e) => setAadhar(e.target.files?.[0] ?? null)} />
+            </div>
           </div>
         </div>
 

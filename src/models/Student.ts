@@ -15,7 +15,17 @@ export interface IStudent {
   email: string;
   currentAddress: string;
   permanentAddress: string;
-  course: string;
+  course: string; // or Schema.Types.ObjectId if referencing Course
+  courseId?: mongoose.Types.ObjectId;
+  session: string;
+  classRollNo?: string;
+  nationality: string;
+  category: string;
+  maritalStatus?: string;
+  religion?: string;
+  disability: boolean;
+  disabilityDetails?: string;
+  admissionFees: string;
   highestQualification: string;
   qualificationDoc?: string;
   photo?: string;
@@ -46,6 +56,16 @@ const StudentSchema = new Schema<IStudent>(
     currentAddress: { type: String, required: true },
     permanentAddress: { type: String, required: true },
     course: { type: String, required: true },
+    courseId: { type: Schema.Types.ObjectId, ref: "Course" },
+    session: { type: String, required: true },
+    classRollNo: { type: String },
+    nationality: { type: String, default: "Indian" },
+    category: { type: String, required: true },
+    maritalStatus: { type: String },
+    religion: { type: String },
+    disability: { type: Boolean, default: false },
+    disabilityDetails: { type: String },
+    admissionFees: { type: String, required: true },
     highestQualification: { type: String, required: true },
     qualificationDoc: { type: String },
     photo: { type: String },

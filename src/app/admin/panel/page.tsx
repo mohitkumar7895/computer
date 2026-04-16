@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu,
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
+import CourseManager from "@/components/admin/CourseManager";
+import { BookOpen } from "lucide-react";
 
 interface Application {
   _id: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -38,7 +40,7 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "applications" | "create" | "settings";
+type Tab = "applications" | "create" | "courses" | "centers" | "settings";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -49,6 +51,18 @@ export default function AdminPanelPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // New state
+  const [editingCenter, setEditingCenter] = useState<Application | null>(null);
+  const [editValues, setEditValues] = useState({
+    trainingPartnerName: "",
+    district: "",
+    state: "",
+    zones: "",
+    mobile: "",
+    email: "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editingApplication, setEditingApplication] = useState<Application | null>(null);
+  const [prefillApplication, setPrefillApplication] = useState<Application | null>(null);
   const [toastMsg, setToastMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // QR Settings
@@ -79,6 +93,71 @@ export default function AdminPanelPage() {
       setLoading(false);
     }
   }, [router]);
+
+  const openCenterEditor = (app: Application) => {
+    setToastMsg(null);
+    setEditingCenter(app);
+    setEditValues({
+      trainingPartnerName: app.trainingPartnerName,
+      district: app.district,
+      state: app.state,
+      zones: (app.zones ?? []).join(", "),
+      mobile: app.mobile,
+      email: app.email,
+    });
+  };
+
+  const closeCenterEditor = () => {
+    setEditingCenter(null);
+    setEditSaving(false);
+  };
+
+  const handleCenterSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingCenter) return;
+
+    const trainingPartnerName = editValues.trainingPartnerName.trim();
+    const district = editValues.district.trim();
+    const state = editValues.state.trim();
+    const zones = editValues.zones.split(",").map((zone) => zone.trim()).filter(Boolean);
+    const mobile = editValues.mobile.trim();
+    const email = editValues.email.trim();
+
+    if (!trainingPartnerName) { showToast("error", "Center name is required."); return; }
+    if (!district) { showToast("error", "District is required."); return; }
+    if (!state) { showToast("error", "State is required."); return; }
+    if (!/^[0-9]{10}$/.test(mobile)) { showToast("error", "Mobile number must be 10 digits."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("error", "Enter a valid email address."); return; }
+
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/applications/${editingCenter._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          update: {
+            trainingPartnerName,
+            district,
+            state,
+            zones,
+            mobile,
+            email,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) { showToast("error", data.message || "Failed to update center."); return; }
+
+      showToast("success", data.message || "Center updated successfully.");
+      closeCenterEditor();
+      await fetchApplications();
+    } catch {
+      showToast("error", "Unable to save center changes. Please try again.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   const fetchQr = useCallback(async () => {
     setQrLoading(true);
@@ -123,7 +202,76 @@ export default function AdminPanelPage() {
     }
   };
 
-  const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const openApplicationEditor = (application: Application) => {
+    setToastMsg(null);
+    setEditingApplication(application);
+  };
+
+  const openApplicationForCreateEdit = (application: Application) => {
+    setToastMsg(null);
+    setPrefillApplication(application);
+    setTab("create");
+  };
+
+  const closeApplicationEditor = () => {
+    setEditingApplication(null);
+  };
+
+  const printApplication = (application: Application) => {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) return;
+
+    const formattedZones = (application.zones ?? []).join(", ");
+    const infra = parseInfra(application.infrastructure || "{}");
+
+    const rows = Object.entries(infra).map(([key, val]) => `
+      <tr>
+        <td style="padding:8px;border:1px solid #ddd;">${key}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${val.rooms}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${val.seats}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${val.area}</td>
+      </tr>`).join("");
+
+    printWindow.document.write(`
+      <html><head><title>Print Application</title>
+      <style>body{font-family:Arial,sans-serif;margin:20px;color:#111}h1{font-size:22px;margin-bottom:10px}h2{font-size:16px;margin:20px 0 8px}table{border-collapse:collapse;width:100%;margin-top:10px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f8fafc;font-weight:700}</style>
+      </head><body>
+      <h1>Application Form - ${application.trainingPartnerName}</h1>
+      <p><strong>TP Code:</strong> ${application.tpCode || "N/A"}</p>
+      <p><strong>Status:</strong> ${application.status}</p>
+      <h2>Basic Information</h2>
+      <table><tbody>
+        <tr><th>Training Partner Name</th><td>${application.trainingPartnerName}</td></tr>
+        <tr><th>Training Partner Address</th><td>${application.trainingPartnerAddress}</td></tr>
+        <tr><th>Postal Address</th><td>${application.postalAddressOffice || "—"}</td></tr>
+        <tr><th>Zones</th><td>${formattedZones || "—"}</td></tr>
+        <tr><th>District</th><td>${application.district}</td></tr>
+        <tr><th>State</th><td>${application.state}</td></tr>
+        <tr><th>PIN</th><td>${application.pin}</td></tr>
+        <tr><th>Mobile</th><td>${application.mobile}</td></tr>
+        <tr><th>Email</th><td>${application.email}</td></tr>
+      </tbody></table>
+      <h2>Institution Details</h2>
+      <table><tbody>
+        <tr><th>Type</th><td>${application.statusOfInstitution}</td></tr>
+        <tr><th>Establishment Year</th><td>${application.yearOfEstablishment}</td></tr>
+        <tr><th>Chief Name</th><td>${application.chiefName}</td></tr>
+        <tr><th>Designation</th><td>${application.designation}</td></tr>
+        <tr><th>Education</th><td>${application.educationQualification}</td></tr>
+        <tr><th>Experience</th><td>${application.professionalExperience}</td></tr>
+        <tr><th>Date of Birth</th><td>${application.dob}</td></tr>
+        <tr><th>Payment Mode</th><td>${application.paymentMode === "gpay" ? "Google Pay" : "Online"}</td></tr>
+        <tr><th>Application Fee</th><td>${FEE_LABEL[application.processFee] ?? `₹${application.processFee}`}</td></tr>
+      </tbody></table>
+      <h2>Infrastructure</h2>
+      <table><thead><tr><th>Particulars</th><th>Rooms</th><th>Seats</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>
+      <script>window.print();window.onafterprint=()=>window.close();</script>
+      </body></html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleQrUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -160,7 +308,7 @@ export default function AdminPanelPage() {
     showToast("success", "QR code removed.");
   };
 
-  const handleSigUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSigUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -229,13 +377,17 @@ export default function AdminPanelPage() {
   const tabLabel: Record<Tab, string> = {
     applications: "ATC Applications",
     create: "Create ATC Application",
+    courses: "Course Management",
+    centers: "Manage Centers",
     settings: "Panel Settings",
   };
 
   const tabDesc: Record<Tab, string> = {
     applications: "Review and manage all submitted ATC applications",
     create: "Manually create an ATC application as admin",
-    settings: "Upload payment QR code shown on applicant receipts",
+    courses: "Define and manage courses by zones",
+    centers: "View and manage status of approved ATCs",
+    settings: "System configurations and assets",
   };
 
   return (
@@ -277,6 +429,8 @@ export default function AdminPanelPage() {
             {([
               { id: "applications" as Tab, icon: FileText, label: "Applications", badge: counts.pending },
               { id: "create" as Tab, icon: PlusCircle, label: "Create ATC" },
+              { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
+              { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
             ]).map((item) => (
               <button
@@ -417,6 +571,14 @@ export default function AdminPanelPage() {
                                 </button>
                               </>
                             )}
+                            <button type="button" onClick={() => openApplicationForCreateEdit(app)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">
+                              Edit
+                            </button>
+                            <button type="button" onClick={() => printApplication(app)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">
+                              Print
+                            </button>
                             <button onClick={() => setExpandedId(expandedId === app._id ? null : app._id)}
                               className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">
                               <Eye className="w-3.5 h-3.5" />
@@ -527,6 +689,32 @@ export default function AdminPanelPage() {
                     ))}
                   </div>
                 )}
+
+                {editingApplication && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+                      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">Edit Application</h3>
+                          <p className="text-sm text-slate-500">Update the full application form and save your changes.</p>
+                        </div>
+                        <button type="button" onClick={closeApplicationEditor} className="text-slate-500 hover:text-slate-800">Close</button>
+                      </div>
+                      <div className="p-6">
+                        <AdminAtcForm
+                          mode="edit"
+                          applicationId={editingApplication._id}
+                          initialData={editingApplication}
+                          onCancel={closeApplicationEditor}
+                          onSuccess={async () => {
+                            closeApplicationEditor();
+                            await fetchApplications();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -534,7 +722,172 @@ export default function AdminPanelPage() {
             {tab === "create" && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Application Form For Authorized Training Center</h3>
-                <AdminAtcForm onSuccess={() => { setTab("applications"); void fetchApplications(); }} />
+                <AdminAtcForm
+                  mode={prefillApplication ? "edit" : "create"}
+                  applicationId={prefillApplication?._id}
+                  initialData={prefillApplication ?? undefined}
+                  onCancel={() => setPrefillApplication(null)}
+                  onSuccess={() => {
+                    setPrefillApplication(null);
+                    setTab("applications");
+                    void fetchApplications();
+                  }}
+                />
+              </div>
+            )}
+
+            {/* ── COURSES TAB ── */}
+            {tab === "courses" && <CourseManager />}
+
+            {/* ── MANAGE CENTERS TAB ── */}
+            {tab === "centers" && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300 relative">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
+                      <tr>
+                        <th className="px-6 py-4">TP CODE / CENTER NAME</th>
+                        <th className="px-6 py-4">LOCATION</th>
+                        <th className="px-6 py-4">ZONES</th>
+                        <th className="px-6 py-4">ADMISSION STATUS</th>
+                        <th className="px-6 py-4 text-right">ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {applications.filter(a => a.status === "approved" || a.status === "rejected").length === 0 ? (
+                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-medium">No centers found.</td></tr>
+                      ) : (
+                        applications.filter(a => a.status === "approved" || a.status === "rejected").map((app) => (
+                          <tr key={app._id} className="hover:bg-slate-50 transition group">
+                            <td className="px-6 py-4">
+                              <p className="font-black text-slate-800 leading-none mb-1">{app.tpCode || "NEW-ATC"}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">{app.trainingPartnerName}</p>
+                            </td>
+                            <td className="px-6 py-4 text-slate-500 font-medium">{app.district}, {app.state}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-1">
+                                {app.zones?.map(z => (
+                                  <span key={z} className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-black uppercase border border-blue-100">{z}</span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${app.status === "approved" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
+                                 {app.status === "approved" ? "ENABLED (ACTIVE)" : "DISABLED (BLOCKED)"}
+                               </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openCenterEditor(app)}
+                                  className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-black uppercase hover:bg-slate-200 transition"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  disabled={actionLoading === app._id + "toggle"}
+                                  onClick={() => handleAction(app._id, app.status === "approved" ? "reject" : "approve")}
+                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm transition active:scale-95 ${app.status === "approved" ? "bg-red-600 text-white hover:bg-red-700 shadow-red-100" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100"}`}
+                                >
+                                  {actionLoading === app._id + "toggle" ? "..." : (app.status === "approved" ? "Disable Center" : "Enable Center")}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {editingCenter && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+                      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">Edit Center Details</h3>
+                          <p className="text-sm text-slate-500">Update center name, location, zones, email and mobile.</p>
+                        </div>
+                        <button type="button" onClick={closeCenterEditor} className="text-slate-400 hover:text-slate-600">Close</button>
+                      </div>
+                      <form className="space-y-5 p-6" onSubmit={handleCenterSave}>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Center Name</label>
+                            <input
+                              value={editValues.trainingPartnerName}
+                              onChange={(e) => setEditValues((prev) => ({ ...prev, trainingPartnerName: e.target.value }))}
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">District</label>
+                            <input
+                              value={editValues.district}
+                              onChange={(e) => setEditValues((prev) => ({ ...prev, district: e.target.value }))}
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">State</label>
+                            <input
+                              value={editValues.state}
+                              onChange={(e) => setEditValues((prev) => ({ ...prev, state: e.target.value }))}
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Zones</label>
+                            <input
+                              value={editValues.zones}
+                              onChange={(e) => setEditValues((prev) => ({ ...prev, zones: e.target.value }))}
+                              placeholder="Comma separated zones"
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Mobile</label>
+                            <input
+                              value={editValues.mobile}
+                              onChange={(e) => setEditValues((prev) => ({ ...prev, mobile: e.target.value.replace(/\D/g, "") }))}
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                              maxLength={10}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Email</label>
+                            <input
+                              value={editValues.email}
+                              onChange={(e) => setEditValues((prev) => ({ ...prev, email: e.target.value }))}
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={closeCenterEditor}
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={editSaving}
+                            className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                            {editSaving ? "Saving..." : "Save Changes"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

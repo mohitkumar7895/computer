@@ -96,13 +96,70 @@ const SelectWrapper = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-interface Props { onSuccess: () => void; }
+interface Props {
+  onSuccess: () => void;
+  onCancel?: () => void;
+  mode?: "create" | "edit";
+  applicationId?: string;
+  initialData?: Partial<FormState> & {
+    photo?: string;
+    paymentScreenshot?: string;
+    instituteDocument?: string;
+    infrastructure?: string;
+    status?: string;
+  };
+}
 
-export default function AdminAtcForm({ onSuccess }: Props) {
+export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", applicationId, initialData }: Props) {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (mode !== "edit" || !initialData) return;
+    setForm((current) => ({
+      ...current,
+      processFee: initialData.processFee ?? current.processFee,
+      trainingPartnerName: initialData.trainingPartnerName ?? current.trainingPartnerName,
+      trainingPartnerAddress: initialData.trainingPartnerAddress ?? current.trainingPartnerAddress,
+      postalAddressOffice: initialData.postalAddressOffice ?? current.postalAddressOffice,
+      zones: initialData.zones ?? current.zones,
+      totalName: initialData.totalName ?? current.totalName,
+      district: initialData.district ?? current.district,
+      state: initialData.state ?? current.state,
+      pin: initialData.pin ?? current.pin,
+      country: initialData.country ?? current.country,
+      mobile: initialData.mobile ?? current.mobile,
+      email: initialData.email ?? current.email,
+      statusOfInstitution: initialData.statusOfInstitution ?? current.statusOfInstitution,
+      yearOfEstablishment: initialData.yearOfEstablishment ?? current.yearOfEstablishment,
+      chiefName: initialData.chiefName ?? current.chiefName,
+      designation: initialData.designation ?? current.designation,
+      educationQualification: initialData.educationQualification ?? current.educationQualification,
+      professionalExperience: initialData.professionalExperience ?? current.professionalExperience,
+      dob: initialData.dob ?? current.dob,
+      paymentMode: initialData.paymentMode ?? current.paymentMode,
+      paidAmount: initialData.paidAmount ?? current.paidAmount,
+      transactionNo: initialData.transactionNo ?? current.transactionNo,
+    }));
+
+    setPhotoPreview(initialData.photo ?? null);
+    setScreenshotPreview(initialData.paymentScreenshot ?? null);
+    setDocPreview(initialData.instituteDocument ?? null);
+
+    try {
+      setInfra({
+        ...emptyInfra,
+        ...(initialData.infrastructure ? JSON.parse(initialData.infrastructure) : {}),
+      });
+    } catch {
+      setInfra(emptyInfra);
+    }
+  }, [mode, initialData]);
+
   const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
+  const [docPreview, setDocPreview] = useState<string | null>(null);
   const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfrastructureRow>>(emptyInfra);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -115,10 +172,6 @@ export default function AdminAtcForm({ onSuccess }: Props) {
       .then(data => setQrCode(data.value))
       .catch(() => {});
   }, []);
-
-  const selectedFee = useMemo(() => {
-    return FEE_OPTIONS.find(o => o.value === form.processFee);
-  }, [form.processFee]);
 
   const errors = useMemo(() => {
     const r: string[] = [];
@@ -147,9 +200,49 @@ export default function AdminAtcForm({ onSuccess }: Props) {
     setForm((c) => ({ ...c, [field]: value }));
 
   const onReset = () => {
+    if (mode === "edit" && initialData) {
+      setForm((current) => ({
+        ...current,
+        processFee: initialData.processFee ?? current.processFee,
+        trainingPartnerName: initialData.trainingPartnerName ?? current.trainingPartnerName,
+        trainingPartnerAddress: initialData.trainingPartnerAddress ?? current.trainingPartnerAddress,
+        postalAddressOffice: initialData.postalAddressOffice ?? current.postalAddressOffice,
+        zones: initialData.zones ?? current.zones,
+        totalName: initialData.totalName ?? current.totalName,
+        district: initialData.district ?? current.district,
+        state: initialData.state ?? current.state,
+        pin: initialData.pin ?? current.pin,
+        country: initialData.country ?? current.country,
+        mobile: initialData.mobile ?? current.mobile,
+        email: initialData.email ?? current.email,
+        statusOfInstitution: initialData.statusOfInstitution ?? current.statusOfInstitution,
+        yearOfEstablishment: initialData.yearOfEstablishment ?? current.yearOfEstablishment,
+        chiefName: initialData.chiefName ?? current.chiefName,
+        designation: initialData.designation ?? current.designation,
+        educationQualification: initialData.educationQualification ?? current.educationQualification,
+        professionalExperience: initialData.professionalExperience ?? current.professionalExperience,
+        dob: initialData.dob ?? current.dob,
+        paymentMode: initialData.paymentMode ?? current.paymentMode,
+        paidAmount: initialData.paidAmount ?? current.paidAmount,
+        transactionNo: initialData.transactionNo ?? current.transactionNo,
+      }));
+      setInfra(initialData.infrastructure ? JSON.parse(initialData.infrastructure) : emptyInfra);
+      setPhoto(null);
+      setScreenshot(null);
+      setInstituteDocument(null);
+      setMessage(null);
+      setPhotoPreview(initialData.photo ?? null);
+      setScreenshotPreview(initialData.paymentScreenshot ?? null);
+      setDocPreview(initialData.instituteDocument ?? null);
+      return;
+    }
+
     setForm(initialFormState); setInfra(emptyInfra);
     setPhoto(null); setScreenshot(null); setInstituteDocument(null); setMessage(null);
+    setPhotoPreview(null); setScreenshotPreview(null); setDocPreview(null);
   };
+
+  const selectedFee = FEE_OPTIONS.find((fee) => fee.value === form.processFee) ?? null;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -165,20 +258,38 @@ export default function AdminAtcForm({ onSuccess }: Props) {
           payload.append(key, String(value));
         }
       });
-      if (photo) payload.append("photo", photo);
-      if (screenshot) payload.append("paymentScreenshot", screenshot);
-      if (instituteDocument) payload.append("instituteDocument", instituteDocument);
+      if (photo) {
+        payload.append("photo", photo);
+      } else if (photoPreview) {
+        payload.append("existingPhoto", photoPreview);
+      }
+      if (screenshot) {
+        payload.append("paymentScreenshot", screenshot);
+      } else if (screenshotPreview) {
+        payload.append("existingPaymentScreenshot", screenshotPreview);
+      }
+      if (instituteDocument) {
+        payload.append("instituteDocument", instituteDocument);
+      } else if (docPreview) {
+        payload.append("existingInstituteDocument", docPreview);
+      }
       payload.append("infrastructure", JSON.stringify(infra));
 
-      const response = await fetch("/api/admin/applications", { method: "POST", body: payload });
+      const url = mode === "edit" && applicationId
+        ? `/api/admin/applications/${applicationId}`
+        : "/api/admin/applications";
+      const method = mode === "edit" ? "PATCH" : "POST";
+
+      const response = await fetch(url, { method, body: payload });
       const data = (await response.json()) as { message: string, tpCode?: string, mobile?: string };
-      
       if (!response.ok) { setMessage({ type: "error", text: data.message }); return; }
 
-      const successText = data.tpCode 
-        ? `✅ ATC Approved! Login ID: ${data.tpCode} | Pass: ${data.mobile}`
-        : "ATC application created successfully!";
-      
+      const successText = mode === "edit"
+        ? "✅ Application updated successfully."
+        : data.tpCode
+          ? `✅ ATC Approved! Login ID: ${data.tpCode} | Pass: ${data.mobile}`
+          : "ATC application created successfully!";
+
       setMessage({ type: "success", text: successText });
       onReset();
       onSuccess();
@@ -415,7 +526,7 @@ export default function AdminAtcForm({ onSuccess }: Props) {
       {/* ── SECTION 3: Infrastructure ──────────────────────────── */}
       <SectionCard icon={Layers} title="Infrastructure Facility" subtitle="Enter N/A if not applicable" color="#059669">
         <div className="overflow-x-auto -mx-1">
-          <table className="w-full text-sm min-w-[480px]">
+          <table className="w-full text-sm min-w-120">
             <thead>
               <tr>
                 {["Particulars", "No. of Rooms", "Seating Capacity", "Total Area (Sq.Ft.)"].map((h, i) => (
@@ -425,15 +536,11 @@ export default function AdminAtcForm({ onSuccess }: Props) {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {infraFields.map((item, rowIdx) => (
+            <tbody>
+              {infraFields.map((item) => (
                 <Fragment key={item}>
-                  <tr className={rowIdx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                    <td className="py-2 pr-3">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-100">
-                        {item}
-                      </span>
-                    </td>
+                  <tr className="border-t border-slate-200">
+                    <td className="py-2 pr-3 font-semibold text-slate-600">{item}</td>
                     {(["rooms", "seats", "area"] as const).map((col) => (
                       <td key={col} className="py-2 pr-3">
                         <input
@@ -533,7 +640,7 @@ export default function AdminAtcForm({ onSuccess }: Props) {
       )}
 
       {/* ── Submit / Reset ─────────────────────────────────────── */}
-      <div className="flex items-center gap-3 pt-4">
+      <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center">
         <button
           type="submit"
           disabled={loading}
@@ -541,19 +648,31 @@ export default function AdminAtcForm({ onSuccess }: Props) {
           style={{ background: loading ? "#9ca3af" : "linear-gradient(135deg, #0a0aa1 0%, #1a1ac0 100%)" }}>
           {loading
             ? <><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />Processing...</>
-            : <><Send className="w-4 h-4" />Create & Approve ATC</>
+            : <><Send className="w-4 h-4" />{mode === "edit" ? "Save Changes" : "Create & Approve ATC"}</>
           }
         </button>
-        <button
-          type="reset"
-          className="flex items-center gap-2 px-6 py-3.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition">
-          <RotateCcw className="w-4 h-4" /> Reset
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition"
+            >
+              <X className="w-4 h-4" /> Cancel
+            </button>
+          )}
+          <button
+            type="reset"
+            className="flex items-center gap-2 px-6 py-3.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition"
+          >
+            <RotateCcw className="w-4 h-4" /> Reset
+          </button>
+        </div>
       </div>
       
       {/* QR Large Modal */}
       {isQrModalOpen && qrCode && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsQrModalOpen(false)}>
           <div className="relative max-w-lg w-full bg-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}>

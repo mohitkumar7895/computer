@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2, LayoutDashboard, LogOut, Bell, CheckCircle,
@@ -21,6 +21,10 @@ export default function AtcDashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [tab, setTab] = useState<"dashboard" | "students" | "profile">("dashboard");
   const [stats, setStats] = useState({ total: 0, active: 0, completing: 0, pending: 0 });
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [centerInfo, setCenterInfo] = useState({ trainingPartnerName: "", mobile: "", email: "" });
 
   useEffect(() => {
     fetch("/api/atc/me")
@@ -39,9 +43,70 @@ export default function AtcDashboardPage() {
       .catch(err => console.error("Stats fetch error:", err));
   }, [router]);
 
+  useEffect(() => {
+    if (!user) return;
+    setCenterInfo({
+      trainingPartnerName: user.trainingPartnerName,
+      mobile: user.mobile ?? "",
+      email: user.email ?? "",
+    });
+  }, [user]);
+
   const handleLogout = async () => {
     await fetch("/api/atc/logout", { method: "POST" });
     router.push("/atc/login");
+  };
+
+  const handleProfileSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaveMsg(null);
+    setSaving(true);
+
+    if (!centerInfo.trainingPartnerName.trim()) {
+      setSaveMsg({ type: "error", text: "Center name is required." });
+      setSaving(false);
+      return;
+    }
+
+    if (!/^[0-9]{10}$/.test(centerInfo.mobile)) {
+      setSaveMsg({ type: "error", text: "Mobile number must be 10 digits." });
+      setSaving(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(centerInfo.email)) {
+      setSaveMsg({ type: "error", text: "Please enter a valid email address." });
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/atc/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(centerInfo),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveMsg({ type: "error", text: data.message || "Update failed." });
+      } else {
+        setSaveMsg({ type: "success", text: data.message || "Center details updated." });
+        if (data.user) {
+          setUser({
+            id: data.user.id,
+            tpCode: data.user.tpCode,
+            trainingPartnerName: data.user.trainingPartnerName,
+            mobile: data.user.mobile,
+            email: data.user.email,
+          });
+        }
+        setEditMode(false);
+      }
+    } catch (error) {
+      setSaveMsg({ type: "error", text: "Network error. Please try again." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -217,27 +282,103 @@ export default function AtcDashboardPage() {
 
                   {/* Contact Info Block */}
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                      <User className="w-4 h-4 text-green-600" /> Account Information
-                    </h3>
-                    <div className="space-y-3">
-                      {[
-                        { icon: Building2, label: "Training Partner", value: user.trainingPartnerName },
-                        { icon: Mail, label: "Portal ID", value: user.tpCode },
-                        { icon: CheckCircle, label: "Status", value: "Approved & Active" },
-                        { icon: Calendar, label: "Session", value: new Date().getFullYear().toString() },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
-                          <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
-                            <item.icon className="w-4 h-4 text-green-600" />
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+                      <div>
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-1">
+                          <User className="w-4 h-4 text-green-600" /> Account Information
+                        </h3>
+                        <p className="text-sm text-slate-500">Edit your center contact details and team information here.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSaveMsg(null);
+                          setEditMode((current) => !current);
+                        }}
+                        className="inline-flex items-center justify-center rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-100 transition"
+                      >
+                        {editMode ? "Cancel Edit" : "Edit Center Info"}
+                      </button>
+                    </div>
+
+                    {saveMsg && (
+                      <div className={`mb-4 rounded-2xl px-4 py-3 text-sm font-semibold ${saveMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-700 border border-red-100"}`}>
+                        {saveMsg.text}
+                      </div>
+                    )}
+
+                    {editMode ? (
+                      <form className="space-y-4" onSubmit={handleProfileSave}>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-black uppercase tracking-[0.24em] text-slate-400 mb-2">Center Name</label>
+                            <input
+                              type="text"
+                              value={centerInfo.trainingPartnerName}
+                              onChange={(e) => setCenterInfo((prev) => ({ ...prev, trainingPartnerName: e.target.value }))}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                              placeholder="Authorized Training Center Name"
+                            />
                           </div>
                           <div>
-                            <p className="text-xs text-slate-500">{item.label}</p>
-                            <p className="text-sm font-semibold text-slate-800">{item.value}</p>
+                            <label className="block text-xs font-black uppercase tracking-[0.24em] text-slate-400 mb-2">Mobile Number</label>
+                            <input
+                              type="tel"
+                              value={centerInfo.mobile}
+                              onChange={(e) => setCenterInfo((prev) => ({ ...prev, mobile: e.target.value.replace(/\D/g, "") }))}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                              placeholder="10-digit mobile number"
+                              maxLength={10}
+                            />
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div>
+                          <label className="block text-xs font-black uppercase tracking-[0.24em] text-slate-400 mb-2">Email Address</label>
+                          <input
+                            type="email"
+                            value={centerInfo.email}
+                            onChange={(e) => setCenterInfo((prev) => ({ ...prev, email: e.target.value }))}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                            placeholder="center@example.com"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditMode(false)}
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={saving}
+                            className="rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            {saving ? "Saving..." : "Save Center Info"}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="space-y-3">
+                        {[
+                          { icon: Building2, label: "Training Partner", value: user.trainingPartnerName },
+                          { icon: Mail, label: "Email", value: user.email },
+                          { icon: Phone, label: "Mobile", value: user.mobile },
+                          { icon: CheckCircle, label: "Status", value: "Approved & Active" },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+                              <item.icon className="w-4 h-4 text-green-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500">{item.label}</p>
+                              <p className="text-sm font-semibold text-slate-800">{item.value}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Contact Support */}
