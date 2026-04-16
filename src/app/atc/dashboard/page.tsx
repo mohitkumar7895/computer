@@ -3,8 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Building2, LayoutDashboard, LogOut, Bell, CheckCircle,
-  Phone, Mail, User, Calendar, MapPin, Menu, XCircle, Users, PlusCircle
+  Building2, LayoutDashboard, LogOut, CheckCircle,
+  Phone, Mail, User, Calendar, Menu, XCircle, Users
 } from "lucide-react";
 import StudentManager from "@/components/atc/StudentManager";
 
@@ -12,6 +12,8 @@ interface AtcUser {
   id: string;
   tpCode: string;
   trainingPartnerName: string;
+  mobile?: string;
+  email?: string;
 }
 
 export default function AtcDashboardPage() {
@@ -102,7 +104,7 @@ export default function AtcDashboardPage() {
         }
         setEditMode(false);
       }
-    } catch (error) {
+    } catch {
       setSaveMsg({ type: "error", text: "Network error. Please try again." });
     } finally {
       setSaving(false);

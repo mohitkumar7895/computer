@@ -155,7 +155,13 @@ export default function BecomeAtcForm() {
     setLoading(true);
     try {
       const payload = new FormData();
-      Object.entries(form).forEach(([key, value]) => payload.append(key, value));
+      Object.entries(form).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          payload.append(key, JSON.stringify(value));
+        } else {
+          payload.append(key, String(value));
+        }
+      });
       if (photo) payload.append("photo", photo);
       if (screenshot) payload.append("paymentScreenshot", screenshot);
       if (instituteDocument) payload.append("instituteDocument", instituteDocument);
