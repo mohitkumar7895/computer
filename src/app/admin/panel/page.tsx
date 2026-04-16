@@ -12,7 +12,7 @@ import { BookOpen } from "lucide-react";
 
 interface Application {
   _id: string; trainingPartnerName: string; trainingPartnerAddress: string;
-  email: string; mobile: string; district: string; state: string;
+  email: string; mobile: string; district: string; state: string; pin?: string;
   chiefName: string; designation: string; status: "pending" | "approved" | "rejected";
   submittedByAdmin: boolean; processFee: string; yearOfEstablishment: string;
   paymentMode: string; statusOfInstitution: string; educationQualification: string;
@@ -247,7 +247,7 @@ export default function AdminPanelPage() {
         <tr><th>Zones</th><td>${formattedZones || "—"}</td></tr>
         <tr><th>District</th><td>${application.district}</td></tr>
         <tr><th>State</th><td>${application.state}</td></tr>
-        <tr><th>PIN</th><td>${application.pin}</td></tr>
+        <tr><th>PIN</th><td>${application.pin ?? "—"}</td></tr>
         <tr><th>Mobile</th><td>${application.mobile}</td></tr>
         <tr><th>Email</th><td>${application.email}</td></tr>
       </tbody></table>
