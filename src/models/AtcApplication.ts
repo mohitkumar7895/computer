@@ -29,6 +29,7 @@ export interface IAtcApplication {
   paidAmount: string;
   transactionNo: string;
   status: AtcApplicationStatus;
+  tpCode?: string; // Generated after approval
   submittedByAdmin: boolean; // true if Admin filled and directly approved
   createdAt: Date;
   updatedAt: Date;
@@ -61,6 +62,7 @@ const AtcApplicationSchema = new Schema<IAtcApplication>(
     paidAmount: { type: String, default: "" },
     transactionNo: { type: String, default: "" },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    tpCode: { type: String, default: "" },
     submittedByAdmin: { type: Boolean, default: false },
   },
   { timestamps: true },

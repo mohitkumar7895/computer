@@ -14,7 +14,7 @@ export default function Navbar() {
   const sectionLinks = useMemo(
     () =>
       NAV_LINKS.flatMap((item) => [item.href, ...(item.children?.map((child) => child.href) ?? [])]).filter((href) =>
-        href.startsWith("#"),
+        href.startsWith("#") && href.length > 1,
       ),
     [],
   );
@@ -22,8 +22,12 @@ export default function Navbar() {
   useEffect(() => {
     const entries = sectionLinks
       .map((href) => {
-        const section = document.querySelector(href);
-        return section ? { href, section } : null;
+        try {
+          const section = document.querySelector(href);
+          return section ? { href, section } : null;
+        } catch {
+          return null;
+        }
       })
       .filter((entry): entry is { href: string; section: Element } => entry !== null);
 
@@ -111,6 +115,10 @@ export default function Navbar() {
             <Link href="/atc/login" className="inline-flex items-center gap-1 hover:text-blue-200">
               <LogIn className="h-3 w-3" />
               ATC Login
+            </Link>
+            <Link href="/student/login" className="inline-flex items-center gap-1 hover:text-blue-200">
+              <LogIn className="h-3 w-3" />
+              Student Login
             </Link>
             <Link href="/download-section" className="inline-flex items-center gap-1 hover:text-blue-200">
               <Download className="h-3 w-3" />

@@ -1,0 +1,53 @@
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import { AtcStudent } from "@/models/Student";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET as string;
+
+export async function POST(request: Request) {
+  try {
+    const { registrationNo, password } = await request.json();
+
+    if (!registrationNo || !password) {
+      return NextResponse.json({ message: "Registration No and Password are required." }, { status: 400 });
+    }
+
+    await connectDB();
+    const student = await AtcStudent.findOne({ registrationNo });
+
+    if (!student) {
+      return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
+    }
+
+    const isMatch = await bcrypt.compare(password, student.password || "");
+    if (!isMatch) {
+      return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
+    }
+
+    if (student.status !== "active") {
+      return NextResponse.json({ message: "Your account is not active. Contact your center." }, { status: 403 });
+    }
+
+    const token = jwt.sign(
+      { id: student._id, registrationNo: student.registrationNo, name: student.name, role: "student" },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const response = NextResponse.json({ message: "Login successful", name: student.name }, { status: 200 });
+    response.cookies.set("student_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    return response;
+  } catch (error) {
+    console.error("[student login error]", error);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}

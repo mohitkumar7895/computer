@@ -388,14 +388,17 @@ export default function AdminPanelPage() {
                               {statusBadge(app.status)}
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">{app.email} · {app.mobile} · {app.district}, {app.state}</p>
-                            <p className="text-xs text-blue-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-                              <span>{FEE_LABEL[app.processFee] ?? `₹${app.processFee}`}</span>
+                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase tracking-tighter">
+                                {FEE_LABEL[app.processFee] ?? `₹${app.processFee}`}
+                              </span>
                               {app.tpCode && (
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md border border-blue-200 uppercase text-[10px]">
-                                  TP: {app.tpCode}
+                                <span className="px-3 py-1 bg-green-600 text-white rounded-lg font-black text-[11px] tracking-wider shadow-sm flex items-center gap-1.5">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  ID: {app.tpCode}
                                 </span>
                               )}
-                            </p>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {app.status === "pending" && (

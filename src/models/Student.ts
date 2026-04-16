@@ -11,12 +11,20 @@ export interface IStudent {
   dob: string;
   gender: string;
   mobile: string;
+  parentsMobile?: string;
   email: string;
-  address: string;
+  currentAddress: string;
+  permanentAddress: string;
   course: string;
-  qualification: string;
+  highestQualification: string;
+  qualificationDoc?: string;
   photo?: string;
   idProof?: string;
+  aadharNo?: string;
+  aadharDoc?: string;
+  studentSignature?: string;
+  referredBy?: string;
+  password?: string; // hashed
   status: "active" | "inactive";
   createdAt: Date;
   updatedAt: Date;
@@ -33,15 +41,23 @@ const StudentSchema = new Schema<IStudent>(
     dob: { type: String, required: true },
     gender: { type: String, required: true },
     mobile: { type: String, required: true },
+    parentsMobile: { type: String },
     email: { type: String, default: "" },
-    address: { type: String, required: true },
+    currentAddress: { type: String, required: true },
+    permanentAddress: { type: String, required: true },
     course: { type: String, required: true },
-    qualification: { type: String, required: true },
+    highestQualification: { type: String, required: true },
+    qualificationDoc: { type: String },
     photo: { type: String },
     idProof: { type: String },
+    aadharNo: { type: String },
+    aadharDoc: { type: String },
+    studentSignature: { type: String },
+    referredBy: { type: String },
+    password: { type: String },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   { timestamps: true }
 );
 
-export const Student = models.Student ?? model<IStudent>("Student", StudentSchema);
+export const AtcStudent = models.AtcStudent || model<IStudent>("AtcStudent", StudentSchema);

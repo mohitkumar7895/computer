@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, type FormEvent, useMemo, useState } from "react";
+import { ShieldCheck } from "lucide-react";
 
 type InfrastructureRow = { rooms: string; seats: string; area: string };
 type FormState = {
@@ -9,6 +10,7 @@ type FormState = {
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
   chiefName: string; designation: string; educationQualification: string;
   professionalExperience: string; dob: string; paymentMode: string;
+  customTpCode?: string; customPassword?: string;
 };
 
 const initialFormState: FormState = {
@@ -16,6 +18,7 @@ const initialFormState: FormState = {
   district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
   educationQualification: "", professionalExperience: "", dob: "", paymentMode: "",
+  customTpCode: "", customPassword: "",
 };
 
 const infraFields = ["Staff Room", "Class Room", "Computer Lab", "Reception", "Toilets", "Any Other"] as const;
@@ -273,6 +276,36 @@ export default function AdminAtcForm({ onSuccess }: Props) {
           <label className={lc}>Payment Transaction Screenshot (Manual Entry)</label>
           <input type="file" accept="image/*" className={fc} onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)} />
         </div>
+      </div>
+
+      {/* Account Credentials */}
+      <div className="bg-slate-50 p-6 rounded-2xl border border-blue-100">
+        <h3 className="text-sm font-bold text-blue-800 mb-4 flex items-center gap-2 uppercase tracking-wider">
+          <ShieldCheck className="w-4 h-4" /> ATC Login Credentials (Optional)
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={lc}>Custom Portal ID (TP Code)</label>
+            <input 
+              className={fc} 
+              value={form.customTpCode} 
+              onChange={(e) => setField("customTpCode", e.target.value.toUpperCase())} 
+              placeholder="e.g. ATC-2024-5555 (Leave blank for auto)" 
+            />
+          </div>
+          <div>
+            <label className={lc}>Custom Password</label>
+            <input 
+              className={fc} 
+              value={form.customPassword} 
+              onChange={(e) => setField("customPassword", e.target.value)} 
+              placeholder="Min 6 chars (Leave blank for mobile)" 
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-[10px] text-blue-500 font-semibold italic">
+          * If left blank, ID will be auto-generated and Password will be the ATC mobile number.
+        </p>
       </div>
 
       {message && (

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { Student } from "@/models/Student";
+import { AtcStudent } from "@/models/Student";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -22,7 +23,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   await connectDB();
-  const students = await Student.find({ atcId: user.id }).sort({ createdAt: -1 }).lean();
+  const students = await AtcStudent.find({ atcId: user.id }).sort({ createdAt: -1 }).lean();
   return NextResponse.json({ students });
 }
 
@@ -33,53 +34,84 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     // Validate required fields
-    const reqFields = ["name", "fatherName", "motherName", "dob", "gender", "mobile", "address", "course", "qualification"];
+    const reqFields = ["name", "fatherName", "motherName", "dob", "gender", "mobile", "currentAddress", "permanentAddress", "course", "highestQualification"];
     for (const f of reqFields) {
       if (!formData.get(f)) return NextResponse.json({ message: `Missing required field: ${f}` }, { status: 400 });
     }
 
     await connectDB();
 
-    // File conversions
-    let photoBase64 = "";
-    const photoFile = formData.get("photo") as File | null;
-    if (photoFile && photoFile.size > 0) {
-      const buffer = await photoFile.arrayBuffer();
-      photoBase64 = `data:${photoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    // Helper for base64 with safety checks
+    const toBase64 = async (file: any) => {
+      try {
+        if (!file || typeof file === "string" || !file.size) return "";
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        return `data:${file.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
+      } catch (e) {
+        console.error("toBase64 error:", e);
+        return "";
+      }
+    };
+
+    const photo = await toBase64(formData.get("photo"));
+    const idProof = await toBase64(formData.get("idProof"));
+    const qualificationDoc = await toBase64(formData.get("qualificationDoc"));
+    const aadharDoc = await toBase64(formData.get("aadharDoc"));
+    const studentSignature = await toBase64(formData.get("studentSignature"));
+
+    // Verify JWT has all required fields
+    if (!user.id || !user.tpCode) {
+      return NextResponse.json({ message: "Invalid session. Please login again." }, { status: 401 });
     }
 
-    let idProofBase64 = "";
-    const idProofFile = formData.get("idProof") as File | null;
-    if (idProofFile && idProofFile.size > 0) {
-      const buffer = await idProofFile.arrayBuffer();
-      idProofBase64 = `data:${idProofFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    // Generate Reg No: TPCODE-YYMM-RANDOM (More reliable)
+    const count = await AtcStudent.countDocuments({ tpCode: user.tpCode });
+    const dateCode = new Date().toISOString().slice(2,7).replace("-", ""); // YYMM
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
+    const regNo = `${user.tpCode}-${dateCode}-${String(count + 1).padStart(3, "0")}-${randomSuffix}`;
+
+    const studentMobile = String(formData.get("mobile") || "").trim();
+    if (!studentMobile || studentMobile.length < 10) {
+      return NextResponse.json({ message: "Mobile number is required and must be 10 digits." }, { status: 400 });
     }
+    const hashedPassword = await bcrypt.hash(studentMobile, 10);
 
-    // Generate Reg No: TPCODE-YYMM-XXXX
-    const count = await Student.countDocuments({ tpCode: user.tpCode });
-    const regNo = `${user.tpCode}-${new Date().toISOString().slice(2,7).replace("-", "")}-${String(count + 1).padStart(4, "0")}`;
-
-    const student = await Student.create({
+    const studentData = {
       atcId: user.id,
       tpCode: user.tpCode,
       registrationNo: regNo,
-      name: String(formData.get("name")),
-      fatherName: String(formData.get("fatherName")),
-      motherName: String(formData.get("motherName")),
-      dob: String(formData.get("dob")),
-      gender: String(formData.get("gender")),
-      mobile: String(formData.get("mobile")),
-      email: String(formData.get("email") || ""),
-      address: String(formData.get("address")),
-      course: String(formData.get("course")),
-      qualification: String(formData.get("qualification")),
-      photo: photoBase64,
-      idProof: idProofBase64,
-    });
+      name: String(formData.get("name") || "N/A").trim(),
+      fatherName: String(formData.get("fatherName") || "N/A").trim(),
+      motherName: String(formData.get("motherName") || "N/A").trim(),
+      dob: String(formData.get("dob") || ""),
+      gender: String(formData.get("gender") || "Male"),
+      mobile: studentMobile,
+      parentsMobile: String(formData.get("parentsMobile") || "").trim(),
+      email: String(formData.get("email") || "").trim().toLowerCase(),
+      currentAddress: String(formData.get("currentAddress") || "N/A").trim(),
+      permanentAddress: String(formData.get("permanentAddress") || "N/A").trim(),
+      course: String(formData.get("course") || "N/A").trim(),
+      highestQualification: String(formData.get("highestQualification") || "N/A").trim(),
+      qualificationDoc: await toBase64(formData.get("qualificationDoc")),
+      photo: await toBase64(formData.get("photo")),
+      idProof: await toBase64(formData.get("idProof")),
+      aadharNo: String(formData.get("aadharNo") || "").trim(),
+      aadharDoc: await toBase64(formData.get("aadharDoc")),
+      studentSignature: await toBase64(formData.get("studentSignature")),
+      referredBy: String(formData.get("referredBy") || "").trim(),
+      password: hashedPassword,
+      status: "active"
+    };
+
+    const student = await AtcStudent.create(studentData);
 
     return NextResponse.json({ message: "Student admitted successfully", student }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[add student error]", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ 
+      message: error?.message || "Internal server error during student creation", 
+      details: error?.errors ? Object.keys(error.errors) : [error.toString()]
+    }, { status: 500 });
   }
 }

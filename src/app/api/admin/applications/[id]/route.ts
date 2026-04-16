@@ -68,23 +68,20 @@ export async function PATCH(
 
     // Approve — create AtcUser account
     application.status = "approved";
-    await application.save();
 
     // Check if AtcUser already exists for this email
     const existingUser = await AtcUser.findOne({ email: application.email });
+    let tpCode = application.tpCode;
+
     if (!existingUser) {
-      // Prevent Duplicate Key Error from `countDocuments` by finding the actual max ID
       let nextId = 1;
       const lastUser = await AtcUser.findOne().sort({ createdAt: -1 });
       if (lastUser?.tpCode) {
         const parts = lastUser.tpCode.split("-");
-        if (parts.length === 3) {
-          nextId = parseInt(parts[2], 10) + 1;
-        }
+        if (parts.length === 3) nextId = parseInt(parts[2], 10) + 1;
       }
       
-      const tpCode = generateTpCode(isNaN(nextId) ? 1 : nextId);
-      // Default password = mobile number
+      tpCode = generateTpCode(isNaN(nextId) ? 1 : nextId);
       const hashedPassword = await bcrypt.hash(application.mobile, 12);
 
       await AtcUser.create({
@@ -95,15 +92,18 @@ export async function PATCH(
         password: hashedPassword,
         applicationId: application._id,
       });
-
-      return NextResponse.json({
-        message: "Application approved and ATC account created.",
-        tpCode,
-        defaultPassword: application.mobile,
-      });
+    } else {
+      tpCode = existingUser.tpCode;
     }
 
-    return NextResponse.json({ message: "Application approved." });
+    application.tpCode = tpCode;
+    await application.save();
+
+    return NextResponse.json({
+      message: "Application approved successfully.",
+      tpCode,
+      defaultPassword: application.mobile,
+    });
   } catch (error: any) {
     console.error("[ATC Approval Error]", error);
     return NextResponse.json(

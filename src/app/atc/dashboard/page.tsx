@@ -19,7 +19,8 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "students" | "profile">("dashboard");
+  const [stats, setStats] = useState({ total: 0, active: 0, completing: 0, pending: 0 });
 
   useEffect(() => {
     fetch("/api/atc/me")
@@ -30,6 +31,12 @@ export default function AtcDashboardPage() {
       })
       .catch(() => router.push("/atc/login"))
       .finally(() => setLoading(false));
+
+    // Fetch Stats
+    fetch("/api/atc/stats")
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error("Stats fetch error:", err));
   }, [router]);
 
   const handleLogout = async () => {
@@ -89,6 +96,12 @@ export default function AtcDashboardPage() {
           >
             <Users className="w-4 h-4" /> My Students
           </button>
+          <button
+            onClick={() => { setTab("profile"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "profile" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+          >
+            <User className="w-4 h-4" /> Profile
+          </button>
         </nav>
 
         <div className="px-4 py-6 border-t border-white/10">
@@ -115,20 +128,19 @@ export default function AtcDashboardPage() {
             </div>
           </div>
           <div className="hidden lg:block">
-            <h1 className="text-xl font-bold text-slate-800">{tab === "dashboard" ? "Dashboard" : "Student Management"}</h1>
+            <h1 className="text-xl font-bold text-slate-800">{tab === "dashboard" ? "Dashboard" : tab === "students" ? "Student Management" : "My Profile"}</h1>
             <p className="text-xs text-slate-500 mt-0.5">{currentDate}</p>
           </div>
           <div className="lg:hidden">
             <span className="text-[10px] bg-green-50 text-green-700 px-3 py-1 rounded-full font-bold uppercase">{tab}</span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="hidden sm:flex relative p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500" />
-            </button>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow">
+            <button 
+              onClick={() => setTab("profile")}
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow hover:scale-105 transition"
+            >
               {user.trainingPartnerName.charAt(0).toUpperCase()}
-            </div>
+            </button>
             <button onClick={handleLogout} className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition">
               <LogOut className="w-4 h-4" /> Logout
             </button>
@@ -137,7 +149,7 @@ export default function AtcDashboardPage() {
 
         {/* Content */}
         <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-          {tab === "dashboard" && (
+          {(tab === "dashboard" || tab === "profile") && (
             <>
               {/* Welcome Banner */}
               <div className="bg-gradient-to-r from-[#0a2e1a] via-[#0d4d2e] to-[#0a7a3b] rounded-2xl p-6 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -151,101 +163,100 @@ export default function AtcDashboardPage() {
                   </h2>
                   <p className="text-green-200 text-sm mt-1">Your Authorized Training Center portal is ready.</p>
                 </div>
-                <div className="bg-white/10 border border-white/20 rounded-xl px-5 py-3 text-center">
-                  <p className="text-xs text-green-300 font-semibold mb-0.5">Your TP Code</p>
-                  <p className="text-2xl font-extrabold tracking-wider">{user.tpCode}</p>
-                </div>
+                {tab === "profile" && (
+                  <div className="bg-white/10 border border-white/20 rounded-xl px-5 py-3 text-center">
+                    <p className="text-xs text-green-300 font-semibold mb-0.5">Your TP Code</p>
+                    <p className="text-2xl font-extrabold tracking-wider">{user.tpCode}</p>
+                  </div>
+                )}
               </div>
 
-              {/* Info Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { label: "TP Code", value: user.tpCode, icon: Building2, color: "green" },
-                  { label: "Portal Status", value: "Active", icon: CheckCircle, color: "emerald" },
-                  { label: "Role", value: "ATC Partner", icon: User, color: "teal" },
-                  { label: "Access Level", value: "Standard", icon: LayoutDashboard, color: "green" },
-                ].map((card) => (
-                  <div key={card.label} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl bg-${card.color}-50 flex items-center justify-center shrink-0`}>
-                      <card.icon className={`w-5 h-5 text-${card.color}-600`} />
+              {tab === "dashboard" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { label: "Total Students", value: stats.total || 0, icon: Users, bgColor: "bg-blue-50", textColor: "text-blue-600", dotColor: "bg-blue-100", labelColor: "text-blue-700" },
+                    { label: "Active Students", value: stats.active || 0, icon: CheckCircle, bgColor: "bg-green-50", textColor: "text-green-600", dotColor: "bg-green-100", labelColor: "text-green-700" },
+                    { label: "Course Completing", value: stats.completing || 0, icon: Calendar, bgColor: "bg-orange-50", textColor: "text-orange-600", dotColor: "bg-orange-100", labelColor: "text-orange-700" },
+                    { label: "Disabled / Pending", value: stats.pending || 0, icon: XCircle, bgColor: "bg-red-50", textColor: "text-red-600", dotColor: "bg-red-100", labelColor: "text-red-700" },
+                  ].map((card) => (
+                    <div key={card.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition hover:shadow-md">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center`}>
+                          <card.icon className={`w-5 h-5 ${card.textColor}`} />
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${card.dotColor} ${card.labelColor} uppercase tracking-wider`}>Live</span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-tight">{card.label}</p>
+                      <p className="text-2xl font-black text-slate-800 mt-1">{card.value}</p>
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {tab === "profile" && (
+                <>
+                  {/* Info Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: "TP Code", value: user.tpCode, icon: Building2, bgColor: "bg-green-50", textColor: "text-green-600" },
+                      { label: "Portal Status", value: "Active", icon: CheckCircle, bgColor: "bg-emerald-50", textColor: "text-emerald-600" },
+                      { label: "Role", value: "ATC Partner", icon: User, bgColor: "bg-teal-50", textColor: "text-teal-600" },
+                      { label: "Access Level", value: "Standard", icon: LayoutDashboard, bgColor: "bg-green-50", textColor: "text-green-600" },
+                    ].map((card) => (
+                      <div key={card.label} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center shrink-0`}>
+                          <card.icon className={`w-5 h-5 ${card.textColor}`} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500 font-medium">{card.label}</p>
+                          <p className="font-bold text-slate-800 text-sm mt-0.5">{card.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Contact Info Block */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <User className="w-4 h-4 text-green-600" /> Account Information
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { icon: Building2, label: "Training Partner", value: user.trainingPartnerName },
+                        { icon: Mail, label: "Portal ID", value: user.tpCode },
+                        { icon: CheckCircle, label: "Status", value: "Approved & Active" },
+                        { icon: Calendar, label: "Session", value: new Date().getFullYear().toString() },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                          <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+                            <item.icon className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">{item.label}</p>
+                            <p className="text-sm font-semibold text-slate-800">{item.value}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Contact Support */}
+                  <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs text-slate-500 font-medium">{card.label}</p>
-                      <p className="font-bold text-slate-800 text-sm mt-0.5">{card.value}</p>
+                      <h3 className="font-bold text-lg">Need Help?</h3>
+                      <p className="text-slate-300 text-sm mt-0.5">Contact our support team for any assistance.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <a href="tel:+919272638590" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
+                        <Phone className="w-4 h-4" /> +91 9272638590
+                      </a>
+                      <a href="mailto:info@yukticomputer.com" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
+                        <Mail className="w-4 h-4" /> Email Support
+                      </a>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Quick Info Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Contact Info Block */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <User className="w-4 h-4 text-green-600" /> Account Information
-                  </h3>
-                  <div className="space-y-3">
-                    {[
-                      { icon: Building2, label: "Training Partner", value: user.trainingPartnerName },
-                      { icon: Mail, label: "Portal ID", value: user.tpCode },
-                      { icon: CheckCircle, label: "Status", value: "Approved & Active" },
-                      { icon: Calendar, label: "Session", value: new Date().getFullYear().toString() },
-                    ].map((item) => (
-                      <div key={item.label} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
-                        <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
-                          <item.icon className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500">{item.label}</p>
-                          <p className="text-sm font-semibold text-slate-800">{item.value}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Notice Board */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-green-600" /> Notice Board
-                  </h3>
-                  <div className="space-y-3">
-                    {[
-                      { title: "Welcome to ATC Portal", desc: "Your application has been approved. You can now access the ATC dashboard.", date: "Today", hot: true },
-                      { title: "Default Password", desc: "Please change your default password (mobile number) for security.", date: "Action Required", hot: true },
-                      { title: "Upcoming Features", desc: "Student registration, course management and more features coming soon.", date: "Info", hot: false },
-                    ].map((notice, i) => (
-                      <div key={i} className="flex gap-3 py-2.5 border-b border-slate-50 last:border-0">
-                        <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${notice.hot ? "bg-green-500" : "bg-slate-300"}`} />
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{notice.title}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{notice.desc}</p>
-                          <p className="text-xs text-green-600 font-semibold mt-1">{notice.date}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact Support */}
-              <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-lg">Need Help?</h3>
-                  <p className="text-slate-300 text-sm mt-0.5">Contact our support team for any assistance.</p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <a href="tel:+919272638590" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
-                    <Phone className="w-4 h-4" /> +91 9272638590
-                  </a>
-                  <a href="mailto:info@yukticomputer.com" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
-                    <Mail className="w-4 h-4" /> Email Support
-                  </a>
-                  <a href="/" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
-                    <MapPin className="w-4 h-4" /> Visit Website
-                  </a>
-                </div>
-              </div>
+                </>
+              )}
             </>
           )}
 

@@ -5,6 +5,7 @@ import { AtcApplication } from "@/models/AtcApplication";
 import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
+export const dynamic = 'force-dynamic';
 
 async function verifyAdmin(request: Request) {
   // Try cookie first (httpOnly), fallback to Authorization header (for client-side fetch)
@@ -34,13 +35,23 @@ export async function GET(request: Request) {
 
   // Get all ATC users to map tpCode
   const { AtcUser } = await import("@/models/AtcUser");
-  const users = await AtcUser.find({}, "tpCode applicationId").lean();
-  const tpCodeMap = new Map(users.map((u) => [u.applicationId.toString(), u.tpCode]));
+  const users = await AtcUser.find({}, "tpCode email applicationId").lean();
+  
+  const tpCodeMap = new Map();
+  const emailMap = new Map();
+  
+  users.forEach((u) => {
+    if (u.applicationId) tpCodeMap.set(u.applicationId.toString(), u.tpCode);
+    if (u.email) emailMap.set(u.email.trim().toLowerCase(), u.tpCode);
+  });
 
-  const enrichedApps = applications.map((app) => ({
-    ...app,
-    tpCode: tpCodeMap.get(app._id.toString()) || null,
-  }));
+  const enrichedApps = applications.map((app) => {
+    const emailKey = (app.email || "").trim().toLowerCase();
+    return {
+      ...app,
+      tpCode: app.tpCode || tpCodeMap.get(app._id.toString()) || emailMap.get(emailKey) || null,
+    };
+  });
 
   return NextResponse.json({ applications: enrichedApps });
 }
@@ -135,16 +146,25 @@ export async function POST(request: Request) {
     const existingUser = await AtcUser.findOne({ email: application.email });
     
     if (!existingUser) {
-      let nextId = 1;
-      const lastUser = await AtcUser.findOne().sort({ createdAt: -1 });
-      if (lastUser?.tpCode) {
-        const parts = lastUser.tpCode.split("-");
-        if (parts.length === 3) nextId = parseInt(parts[2], 10) + 1;
+      let tpCode = String(formData.get("customTpCode") || "").trim();
+      let rawPassword = String(formData.get("customPassword") || "").trim();
+
+      if (!tpCode) {
+        let nextId = 1;
+        const lastUser = await AtcUser.findOne().sort({ createdAt: -1 });
+        if (lastUser?.tpCode) {
+          const parts = lastUser.tpCode.split("-");
+          if (parts.length === 3) nextId = parseInt(parts[2], 10) + 1;
+        }
+        tpCode = `ATC-${new Date().getFullYear()}-${String(isNaN(nextId) ? 1 : nextId).padStart(4, "0")}`;
       }
-      const validNextId = isNaN(nextId) ? 1 : nextId;
-      const tpCode = `ATC-${new Date().getFullYear()}-${String(validNextId).padStart(4, "0")}`;
+
+      if (!rawPassword) {
+        rawPassword = application.mobile;
+      }
+
       const bcrypt = (await import("bcryptjs")).default;
-      const hashedPassword = await bcrypt.hash(application.mobile, 12);
+      const hashedPassword = await bcrypt.hash(rawPassword, 12);
 
       await AtcUser.create({
         tpCode,
@@ -155,10 +175,14 @@ export async function POST(request: Request) {
         applicationId: application._id,
       });
 
+      // Save tpCode back to application
+      application.tpCode = tpCode;
+      await application.save();
+
       return NextResponse.json({ 
         message: "Application auto-approved.", 
         tpCode, 
-        mobile: application.mobile 
+        mobile: rawPassword 
       }, { status: 201 });
     }
 
