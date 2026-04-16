@@ -26,11 +26,11 @@ interface Application {
 
 
 // Helper to parse infrastructure
-const parseInfra = (infraStr: string | undefined) => {
+const parseInfra = (infraStr: string | undefined): Record<string, { rooms: string; seats: string; area: string }> => {
   try {
     return JSON.parse(infraStr || "{}") as Record<string, { rooms: string; seats: string; area: string }>;
   } catch {
-    return null;
+    return {};
   }
 };
 
