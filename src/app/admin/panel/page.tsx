@@ -9,6 +9,13 @@ import {
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
 import { BookOpen } from "lucide-react";
+import {
+  DEFAULT_FEE_OPTIONS,
+  FeeOption,
+  getFeeLabel,
+  parseFeeOptions,
+  SETTINGS_PROCESS_FEE_KEY,
+} from "@/utils/atcSettings";
 
 interface Application {
   _id: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -75,10 +82,16 @@ export default function AdminPanelPage() {
   const [sigLoading, setSigLoading] = useState(false);
   const [sigSaving, setSigSaving] = useState(false);
 
+  const [feePlans, setFeePlans] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
+  const [feeSaving, setFeeSaving] = useState(false);
+  const [feeSaveMsg, setFeeSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
     setTimeout(() => setToastMsg(null), 5000);
   };
+
+  const feeLabel = (value: string) => getFeeLabel(feePlans, value, FEE_LABEL);
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
@@ -159,7 +172,7 @@ export default function AdminPanelPage() {
     }
   };
 
-  const fetchQr = useCallback(async () => {
+  const fetchSettings = useCallback(async () => {
     setQrLoading(true);
     setSigLoading(true);
     try {
@@ -170,6 +183,10 @@ export default function AdminPanelPage() {
       const sRes = await fetch("/api/admin/settings?key=auth_signature");
       const sData = (await sRes.json()) as { value: string | null };
       setSigPreview(sData.value ?? null);
+
+      const fRes = await fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`);
+      const fData = (await fRes.json()) as { value: string | null };
+      setFeePlans(parseFeeOptions(fData.value));
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
@@ -177,7 +194,7 @@ export default function AdminPanelPage() {
   }, []);
 
   useEffect(() => { void fetchApplications(); }, [fetchApplications]);
-  useEffect(() => { if (tab === "settings") void fetchQr(); }, [tab, fetchQr]);
+  useEffect(() => { if (tab === "settings") void fetchSettings(); }, [tab, fetchSettings]);
 
   const handleAction = async (id: string, action: "approve" | "reject") => {
     setActionLoading(id + action);
@@ -261,7 +278,7 @@ export default function AdminPanelPage() {
         <tr><th>Experience</th><td>${application.professionalExperience}</td></tr>
         <tr><th>Date of Birth</th><td>${application.dob}</td></tr>
         <tr><th>Payment Mode</th><td>${application.paymentMode === "gpay" ? "Google Pay" : "Online"}</td></tr>
-        <tr><th>Application Fee</th><td>${FEE_LABEL[application.processFee] ?? `₹${application.processFee}`}</td></tr>
+        <tr><th>Application Fee</th><td>${feeLabel(application.processFee)}</td></tr>
       </tbody></table>
       <h2>Infrastructure</h2>
       <table><thead><tr><th>Particulars</th><th>Rooms</th><th>Seats</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>
@@ -343,6 +360,52 @@ export default function AdminPanelPage() {
       body: JSON.stringify({ key: "auth_signature", value: "" }),
     });
     showToast("success", "Signature removed.");
+  };
+
+  const updateFeePlan = (index: number, field: keyof FeeOption, value: string) => {
+    setFeePlans((prev) => prev.map((item, idx) => idx === index ? { ...item, [field]: value } : item));
+  };
+
+  const addFeePlan = () => {
+    setFeePlans((prev) => [...prev, { value: "", label: "" }]);
+  };
+
+  const removeFeePlan = (index: number) => {
+    setFeePlans((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleFeePlansSave = async () => {
+    const validPlans = feePlans
+      .map((plan) => ({ value: plan.value.trim(), label: plan.label.trim() }))
+      .filter((plan) => plan.value && plan.label);
+
+    if (validPlans.length === 0) {
+      setFeeSaveMsg({ type: "error", text: "Please add at least one valid fee plan." });
+      return;
+    }
+
+    setFeeSaving(true);
+    setFeeSaveMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: SETTINGS_PROCESS_FEE_KEY, value: JSON.stringify(validPlans) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeeSaveMsg({ type: "error", text: data.message || "Failed to save fee plans." });
+        return;
+      }
+
+      setFeePlans(validPlans);
+      setFeeSaveMsg({ type: "success", text: "Affiliation fee plans saved successfully." });
+      showToast("success", "Affiliation fee plans saved successfully.");
+    } catch {
+      setFeeSaveMsg({ type: "error", text: "Unable to save fee plans." });
+    } finally {
+      setFeeSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -546,7 +609,7 @@ export default function AdminPanelPage() {
                             <p className="text-xs text-slate-500 mt-0.5">{app.email} · {app.mobile} · {app.district}, {app.state}</p>
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
                               <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase tracking-tighter">
-                                {FEE_LABEL[app.processFee] ?? `₹${app.processFee}`}
+                                {feeLabel(app.processFee)}
                               </span>
                               {app.tpCode && (
                                 <span className="px-3 py-1 bg-green-600 text-white rounded-lg font-black text-[11px] tracking-wider shadow-sm flex items-center gap-1.5">
@@ -599,7 +662,7 @@ export default function AdminPanelPage() {
                                 { label: "Education", value: app.educationQualification },
                                 { label: "Experience", value: app.professionalExperience },
                                 { label: "Date of Birth", value: app.dob },
-                                { label: "Affiliation Fee", value: FEE_LABEL[app.processFee] ?? `₹${app.processFee}` },
+                                { label: "Affiliation Fee", value: feeLabel(app.processFee) },
                                 { label: "Year Est.", value: app.yearOfEstablishment },
                                 { label: "Institution Type", value: app.statusOfInstitution },
                                 { label: "Payment Mode", value: app.paymentMode === "gpay" ? "Google Pay" : "Online" },
@@ -957,6 +1020,85 @@ export default function AdminPanelPage() {
 
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
                     <strong>Tip:</strong> Upload your Google Pay UPI QR code image. Applicants will see this QR when they submit the Become ATC form, on their payment receipt.
+                  </div>
+                </div>
+
+                {/* Affiliation Fee Plans */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <BookOpen className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">Affiliation Fee Plans</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Manage the plan options shown to centers during application.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {feePlans.map((plan, index) => (
+                      <div key={`${plan.value}-${index}`} className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-12 sm:col-span-3">
+                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Amount</label>
+                          <input
+                            type="text"
+                            value={plan.value}
+                            onChange={(e) => updateFeePlan(index, "value", e.target.value.replace(/\D/g, ""))}
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            placeholder="2000"
+                          />
+                        </div>
+                        <div className="col-span-12 sm:col-span-8">
+                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Label</label>
+                          <input
+                            type="text"
+                            value={plan.label}
+                            onChange={(e) => updateFeePlan(index, "label", e.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            placeholder="TP FOR 1 YEAR — Rs. 2000 + 18% GST (Total ₹2,360)"
+                          />
+                        </div>
+                        <div className="col-span-12 sm:col-span-1 flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => removeFeePlan(index)}
+                            className="rounded-2xl border border-red-200 bg-white px-3 py-3 text-red-600 text-sm font-semibold hover:bg-red-50 transition"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={addFeePlan}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Add Plan
+                    </button>
+
+                    {feeSaveMsg && (
+                      <div className={`rounded-2xl px-4 py-3 text-sm ${feeSaveMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                        {feeSaveMsg.text}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleFeePlansSave}
+                        disabled={feeSaving}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition disabled:opacity-50"
+                      >
+                        {feeSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        {feeSaving ? "Saving..." : "Save Fee Plans"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-600">
+                    Tip: Add plan amount and the full display label. The selected plan will be shown to applicants and in receipts automatically.
                   </div>
                 </div>
 

@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Printer, Home } from "lucide-react";
+import {
+  DEFAULT_FEE_OPTIONS,
+  FeeOption,
+  parseFeeOptions,
+  SETTINGS_PROCESS_FEE_KEY,
+} from "@/utils/atcSettings";
 
 export type InfraRow = { rooms: string; seats: string; area: string };
 
@@ -50,6 +56,7 @@ interface Props {
 export default function PaymentReceipt({ data, onBack }: Props) {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [authSignature, setAuthSignature] = useState<string | null>(null);
+  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
 
   useEffect(() => {
     fetch("/api/admin/settings?key=qr_code")
@@ -61,9 +68,30 @@ export default function PaymentReceipt({ data, onBack }: Props) {
       .then((r) => r.json())
       .then((d: { value: string | null }) => setAuthSignature(d.value ?? null))
       .catch(() => null);
+
+    fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
+      .then((r) => r.json())
+      .then((d: { value: string | null }) => setFeeOptions(parseFeeOptions(d.value)))
+      .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));
   }, []);
 
-  const feeInfo = FEE_MAP[data.processFee] ?? { plan: data.processFee, charge: data.processFee, total: data.processFee };
+  const normalizeFeeLabel = (label: string) => {
+    const parts = label.split("—").map((part) => part.trim());
+    const plan = parts[0] || label;
+    const rest = parts[1] || "";
+    const totalMatch = rest.match(/\(([^)]+)\)/);
+    const charge = rest.replace(/\([^)]*\)/, "").trim() || plan;
+    return {
+      plan: plan || label,
+      charge: charge || label,
+      total: totalMatch?.[1] ?? (charge || label),
+    };
+  };
+
+  const selectedOption = feeOptions.find((o) => o.value === data.processFee);
+  const feeInfo = selectedOption
+    ? normalizeFeeLabel(selectedOption.label)
+    : FEE_MAP[data.processFee] ?? { plan: data.processFee, charge: data.processFee, total: data.processFee };
   const paymentTitle =
     data.paymentMode === "gpay"
       ? "PAY OPTION - GOOGLE PAY (G-PAY)"

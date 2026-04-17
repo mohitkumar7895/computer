@@ -7,6 +7,14 @@ import {
   BookOpen, Briefcase, Calendar, Camera, Home, QrCode, X, FileText
 } from "lucide-react";
 import PaymentReceipt, { type ReceiptData, type InfraRow } from "./PaymentReceipt";
+import {
+  FeeOption,
+  DEFAULT_FEE_OPTIONS,
+  DISTRICTS_BY_STATE,
+  getYearOptions,
+  parseFeeOptions,
+  SETTINGS_PROCESS_FEE_KEY,
+} from "@/utils/atcSettings";
 
 type FormState = {
   processFee: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -36,22 +44,7 @@ const emptyInfra: Record<(typeof infraFields)[number], InfraRow> = {
   "Any Other": { rooms: "N/A", seats: "N/A", area: "N/A" },
 };
 
-const FEE_OPTIONS = [
-  { value: "2000", label: "TP FOR 1 YEAR — Rs. 2000 + 18% GST  (Total ₹2,360)" },
-  { value: "3000", label: "TP FOR 2 YEARS — Rs. 3000 + 18% GST  (Total ₹3,540)" },
-  { value: "5000", label: "TP FOR 3 YEARS — Rs. 5000 + 18% GST  (Total ₹5,900)" },
-];
-
-const INDIAN_STATES = [
-  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat",
-  "Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh",
-  "Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab",
-  "Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh",
-  "Uttarakhand","West Bengal",
-  "Andaman and Nicobar Islands","Chandigarh",
-  "Dadra and Nagar Haveli and Daman and Diu","Delhi",
-  "Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry",
-];
+const INDIAN_STATES = Object.keys(DISTRICTS_BY_STATE);
 
 // ── Reusable styled components ─────────────────────────────────────────────
 const inputCls = [
@@ -105,6 +98,7 @@ export default function BecomeAtcForm() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
   const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfraRow>>(emptyInfra);
 
   useEffect(() => {
@@ -112,11 +106,26 @@ export default function BecomeAtcForm() {
       .then(res => res.json())
       .then(data => setQrCode(data.value))
       .catch(() => {});
+
+    fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
+      .then(res => res.json())
+      .then(data => setFeeOptions(parseFeeOptions(data.value)))
+      .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));
   }, []);
 
+  const districtOptions = DISTRICTS_BY_STATE[form.state] ?? [];
+
+  const setStateField = (value: string) => {
+    setForm((current) => ({
+      ...current,
+      state: value,
+      district: DISTRICTS_BY_STATE[value]?.includes(current.district) ? current.district : "",
+    }));
+  };
+
   const selectedFee = useMemo(() => {
-    return FEE_OPTIONS.find(o => o.value === form.processFee);
-  }, [form.processFee]);
+    return feeOptions.find(o => o.value === form.processFee);
+  }, [form.processFee, feeOptions]);
 
   const errors = useMemo(() => {
     const r: string[] = [];
@@ -233,7 +242,10 @@ export default function BecomeAtcForm() {
               <SelectWrapper>
                 <select className={selectCls} value={form.processFee} onChange={(e) => setField("processFee", e.target.value)}>
                   <option value="">— Select Plan —</option>
-                  {FEE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {feeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {form.processFee && !feeOptions.some((o) => o.value === form.processFee) && (
+                    <option value={form.processFee}>{form.processFee}</option>
+                  )}
                 </select>
               </SelectWrapper>
             </div>
@@ -269,20 +281,37 @@ export default function BecomeAtcForm() {
               </div>
             </div>
 
-            {/* District */}
-            <div>
-              <Label>District *</Label>
-              <input className={inputCls} placeholder="Enter district" value={form.district}
-                onChange={(e) => setField("district", e.target.value)} />
-            </div>
-
             {/* State */}
             <div>
               <Label>State *</Label>
               <SelectWrapper>
-                <select className={selectCls} value={form.state} onChange={(e) => setField("state", e.target.value)}>
+                <select className={selectCls} value={form.state} onChange={(e) => setStateField(e.target.value)}>
                   <option value="">— Select State —</option>
-                  {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
+                  {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </SelectWrapper>
+            </div>
+
+            {/* District */}
+            <div>
+              <Label>District *</Label>
+              <SelectWrapper>
+                <select
+                  className={selectCls}
+                  value={form.district}
+                  onChange={(e) => setField("district", e.target.value)}
+                  disabled={!form.state || districtOptions.length === 0}
+                >
+                  <option value="">
+                    {form.state
+                      ? districtOptions.length
+                        ? "— Select District —"
+                        : "No districts available"
+                      : "Select state first"}
+                  </option>
+                  {districtOptions.map((district) => (
+                    <option key={district} value={district}>{district}</option>
+                  ))}
                 </select>
               </SelectWrapper>
             </div>
@@ -343,8 +372,8 @@ export default function BecomeAtcForm() {
               <SelectWrapper>
                 <select className={selectCls} value={form.yearOfEstablishment} onChange={(e) => setField("yearOfEstablishment", e.target.value)}>
                   <option value="">— Select Year —</option>
-                  {Array.from({ length: 50 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
-                    <option key={y}>{y}</option>
+                  {getYearOptions(50).map((y) => (
+                    <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
               </SelectWrapper>
