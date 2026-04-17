@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback, type FormEvent, type ChangeEvent } fr
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
-  LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu,
+  LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers,
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
+import ExamSetManager from "@/components/admin/ExamSetManager";
+import CenterAssignmentManager from "@/components/admin/CenterAssignmentManager";
 import { BookOpen } from "lucide-react";
 import {
   DEFAULT_FEE_OPTIONS,
@@ -47,7 +49,7 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "applications" | "create" | "courses" | "centers" | "settings";
+type Tab = "applications" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "settings";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -441,6 +443,8 @@ export default function AdminPanelPage() {
     applications: "ATC Applications",
     create: "Create ATC Application",
     courses: "Course Management",
+    questionSets: "Exam Sets",
+    assignments: "Exam Assignments",
     centers: "Manage Centers",
     settings: "Panel Settings",
   };
@@ -449,7 +453,9 @@ export default function AdminPanelPage() {
     applications: "Review and manage all submitted ATC applications",
     create: "Manually create an ATC application as admin",
     courses: "Define and manage courses by zones",
-    centers: "View and manage status of approved ATCs",
+    questionSets: "Build question sets and populate the exam bank",
+    assignments: "Assign exam sets and schedule tests for approved centers",
+    centers: "View and manage status of approved ATC centers",
     settings: "System configurations and assets",
   };
 
@@ -493,6 +499,8 @@ export default function AdminPanelPage() {
               { id: "applications" as Tab, icon: FileText, label: "Applications", badge: counts.pending },
               { id: "create" as Tab, icon: PlusCircle, label: "Create ATC" },
               { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
+              { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
+              { id: "assignments" as Tab, icon: Layers, label: "Exam Assignments" },
               { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
             ]).map((item) => (
@@ -801,6 +809,12 @@ export default function AdminPanelPage() {
 
             {/* ── COURSES TAB ── */}
             {tab === "courses" && <CourseManager />}
+
+            {/* ── EXAM SETS TAB ── */}
+            {tab === "questionSets" && <ExamSetManager />}
+
+            {/* ── ASSIGNMENTS TAB ── */}
+            {tab === "assignments" && <CenterAssignmentManager approvedCenters={applications.filter((a) => a.status === "approved")} />}
 
             {/* ── MANAGE CENTERS TAB ── */}
             {tab === "centers" && (

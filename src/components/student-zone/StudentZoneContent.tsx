@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import DirectAdmissionForm from "@/components/student-zone/DirectAdmissionForm";
 import OnlineExamPortal from "@/components/student-zone/OnlineExamPortal";
+import AdmitCardViewer from "@/components/student-zone/AdmitCardViewer";
 import type { StudentZoneItem } from "@/data/studentZone";
 
 type StudentZoneContentProps = {
@@ -106,11 +107,7 @@ export default function StudentZoneContent({ item }: StudentZoneContentProps) {
   }
 
   if (item.pageType === "download-admit-card") {
-    return (
-      <FormCard title="Examination Process">
-        <SearchForm buttonText="AdmitCard" />
-      </FormCard>
-    );
+    return <AdmitCardViewer />;
   }
 
   if (item.pageType === "registered-student") {

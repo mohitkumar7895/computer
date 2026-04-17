@@ -31,11 +31,13 @@ export async function GET() {
     // approved zones of the ATC
     const approvedZones = user.zones || [];
 
-    // fetch courses that belong to those zones
-    const courses = await Course.find({ 
-      zone: { $in: approvedZones },
-      status: "active" 
-    }).sort({ name: 1 });
+    // fetch courses that belong to those zones; if no zones are assigned, return all active courses
+    const query: Record<string, unknown> = { status: "active" };
+    if (approvedZones.length > 0) {
+      query.zone = { $in: approvedZones };
+    }
+
+    const courses = await Course.find(query).sort({ name: 1 });
 
     return NextResponse.json(courses);
   } catch (error: any) {

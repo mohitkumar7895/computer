@@ -272,12 +272,15 @@ export default function StudentManager() {
                 </div>
                 <div>
                   <label className={labelCls}>Course *</label>
-                  <select required name="course" className={inputCls}>
-                    <option value="">Select Course</option>
+                  <select required name="course" className={inputCls} disabled={availableCourses.length === 0}>
+                    <option value="">{availableCourses.length > 0 ? "Select Course" : "No courses available"}</option>
                     {availableCourses.map(c => (
                       <option key={c._id} value={c.name}>{c.name}</option>
                     ))}
                   </select>
+                  {availableCourses.length === 0 && (
+                    <p className="mt-2 text-[11px] text-slate-500">No active courses are available for your center. Contact admin to assign courses or zones.</p>
+                  )}
                 </div>
               </div>
             </div>
