@@ -111,6 +111,7 @@ export async function POST(request: Request) {
       studentSignature: await toBase64(formData.get("studentSignature")),
       referredBy: String(formData.get("referredBy") || "").trim(),
       password: hashedPassword,
+      examMode: String(formData.get("examMode") || "online").trim(),
       status: "active"
     };
 
@@ -123,5 +124,25 @@ export async function POST(request: Request) {
       message: error?.message || "Internal server error during student creation", 
       details: error?.errors ? Object.keys(error.errors) : [error.toString()]
     }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request) {
+  const user = await getAtcUser();
+  if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+  try {
+    const { studentId, ...updateData } = await request.json();
+    await connectDB();
+
+    const student = await AtcStudent.findOne({ _id: studentId, atcId: user.id });
+    if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
+
+    Object.assign(student, updateData);
+    await student.save();
+
+    return NextResponse.json({ message: "Student updated successfully", student });
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

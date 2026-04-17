@@ -13,6 +13,7 @@ interface Student {
   status: string;
   createdAt: string;
   photo?: string;
+  examMode?: string;
 }
 
 interface Course {
@@ -30,6 +31,10 @@ export default function StudentManager() {
   const [sameAddress, setSameAddress] = useState(false);
   const [currentAddr, setCurrentAddr] = useState("");
   const [disability, setDisability] = useState("No");
+
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", examMode: "online" });
+  const [updating, setUpdating] = useState(false);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -84,6 +89,28 @@ export default function StudentManager() {
       setMsg({ type: "error", text: err.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    setUpdating(true);
+    try {
+      const res = await fetch("/api/atc/students", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: selectedStudent._id, ...editForm }),
+      });
+      if (res.ok) {
+        setMsg({ type: "success", text: "Student updated successfully" });
+        setSelectedStudent(null);
+        void fetchStudents();
+      }
+    } catch {
+      setMsg({ type: "error", text: "Update failed" });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -144,6 +171,7 @@ export default function StudentManager() {
                       <th className="px-6 py-4">Opted Course</th>
                       <th className="px-6 py-4">Admission Date</th>
                       <th className="px-6 py-4 text-center">Status</th>
+                      <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -151,13 +179,12 @@ export default function StudentManager() {
                       <tr key={s._id} className="hover:bg-slate-50/50 transition cursor-default group">
                         <td className="px-6 py-5">
                           <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 group-hover:bg-white transition-colors">
-                            {s.registrationNo}
+                            {s.registrationNo || "PENDING"}
                           </span>
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
                             {s.photo ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img src={s.photo} alt={s.name} className="w-9 h-9 rounded-xl object-cover border border-slate-200" />
                             ) : (
                               <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200"><User className="w-4 h-4 text-slate-400" /></div>
@@ -175,9 +202,39 @@ export default function StudentManager() {
                         </td>
                         <td className="px-6 py-5 text-slate-500 font-medium">{new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
                         <td className="px-6 py-5 text-center">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-tighter shadow-sm shadow-emerald-50">
-                            {s.status}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
+                              s.registrationNo ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-600 border border-amber-200"
+                            }`}>
+                              {s.registrationNo ? "Enrolled" : "Draft"}
+                            </span>
+                            {s.examMode && (
+                              <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase text-center">{s.examMode} Mode</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          {s.registrationNo ? (
+                            <button className="text-[10px] font-black uppercase text-slate-300 cursor-not-allowed italic" title="Cannot edit registered students">
+                               Locked
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setSelectedStudent(s);
+                                setEditForm({
+                                  name: s.name,
+                                  fatherName: s.fatherName,
+                                  mobile: s.mobile,
+                                  course: s.course,
+                                  examMode: (s as any).examMode || "online"
+                                });
+                              }}
+                              className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
+                            >
+                               Edit
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -254,14 +311,26 @@ export default function StudentManager() {
               <h4 className="flex items-center gap-2 text-sm font-black text-slate-800 uppercase tracking-wide border-l-4 border-green-500 pl-3">
                 <CreditCard className="w-4 h-4 text-green-500" /> Admission Details
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 <div>
                   <label className={labelCls}>Session *</label>
                   <input required name="session" className={inputCls} placeholder="e.g. 2024-25" />
                 </div>
                 <div>
-                  <label className={labelCls}>Class Roll No (Optional)</label>
-                  <input name="classRollNo" className={inputCls} placeholder="e.g. 101" />
+                  <label className={labelCls}>Course *</label>
+                  <select required name="course" className={inputCls} disabled={availableCourses.length === 0} onChange={() => void fetchCourses()}>
+                    <option value="">{availableCourses.length > 0 ? "Select Course" : "Select Course"}</option>
+                    {availableCourses.map(c => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                   <label className={labelCls}>Preferred Mode *</label>
+                   <select required name="examMode" className={inputCls}>
+                      <option value="online">Online Mode</option>
+                      <option value="offline">Offline Mode</option>
+                   </select>
                 </div>
                 <div>
                   <label className={labelCls}>Admission Fees *</label>
@@ -269,18 +338,6 @@ export default function StudentManager() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                     <input required name="admissionFees" className={inputCls + " pl-8 text-green-700 font-bold"} placeholder="Amount" />
                   </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Course *</label>
-                  <select required name="course" className={inputCls} disabled={availableCourses.length === 0}>
-                    <option value="">{availableCourses.length > 0 ? "Select Course" : "No courses available"}</option>
-                    {availableCourses.map(c => (
-                      <option key={c._id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                  {availableCourses.length === 0 && (
-                    <p className="mt-2 text-[11px] text-slate-500">No active courses are available for your center. Contact admin to assign courses or zones.</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -373,6 +430,100 @@ export default function StudentManager() {
           </form>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                 </div>
+                 Edit Student Record
+              </h3>
+              <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                 <RefreshCw className="w-5 h-5 rotate-45" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdate} className="p-8 space-y-6">
+              <div className="space-y-4">
+                 <div className="space-y-1.5">
+                    <label className={labelCls}>Student Name</label>
+                    <input 
+                      value={editForm.name}
+                      onChange={e => setEditForm({...editForm, name: e.target.value})}
+                      className={inputCls}
+                      required
+                    />
+                 </div>
+                 <div className="space-y-1.5">
+                    <label className={labelCls}>Father Name</label>
+                    <input 
+                      value={editForm.fatherName}
+                      onChange={e => setEditForm({...editForm, fatherName: e.target.value})}
+                      className={inputCls}
+                      required
+                    />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                       <label className={labelCls}>Mobile No</label>
+                       <input 
+                         value={editForm.mobile}
+                         onChange={e => setEditForm({...editForm, mobile: e.target.value})}
+                         className={inputCls}
+                         required
+                         maxLength={10}
+                       />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className={labelCls}>Exam Mode</label>
+                       <select 
+                         value={editForm.examMode}
+                         onChange={e => setEditForm({...editForm, examMode: e.target.value})}
+                         className={inputCls}
+                         required
+                       >
+                          <option value="online">Online Mode</option>
+                          <option value="offline">Offline Mode</option>
+                       </select>
+                    </div>
+                 </div>
+                 <div className="space-y-1.5">
+                    <label className={labelCls}>Course</label>
+                    <select 
+                      value={editForm.course}
+                      onChange={e => setEditForm({...editForm, course: e.target.value})}
+                      className={inputCls}
+                      required
+                    >
+                       {availableCourses.map(c => (
+                         <option key={c._id} value={c.name}>{c.name}</option>
+                       ))}
+                    </select>
+                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                 <button 
+                   type="button" 
+                   onClick={() => setSelectedStudent(null)}
+                   className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                   type="submit" 
+                   disabled={updating}
+                   className="py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 transition shadow-lg shadow-blue-100 disabled:opacity-50"
+                 >
+                   {updating ? "UPDATING..." : "SAVE CHANGES"}
+                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,12 +4,13 @@ import { useEffect, useState, useCallback, type FormEvent, type ChangeEvent } fr
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
-  LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers,
+  LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
 import CenterAssignmentManager from "@/components/admin/CenterAssignmentManager";
+import ExamRequestManager from "@/components/admin/ExamRequestManager";
 import { BookOpen } from "lucide-react";
 import {
   DEFAULT_FEE_OPTIONS,
@@ -49,7 +50,7 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "applications" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "settings";
+type Tab = "applications" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "settings";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -446,6 +447,7 @@ export default function AdminPanelPage() {
     questionSets: "Exam Sets",
     assignments: "Exam Assignments",
     centers: "Manage Centers",
+    examRequests: "Exam Requests",
     settings: "Panel Settings",
   };
 
@@ -456,6 +458,7 @@ export default function AdminPanelPage() {
     questionSets: "Build question sets and populate the exam bank",
     assignments: "Assign exam sets and schedule tests for approved centers",
     centers: "View and manage status of approved ATC centers",
+    examRequests: "Manage online/offline exam requests and results",
     settings: "System configurations and assets",
   };
 
@@ -502,6 +505,7 @@ export default function AdminPanelPage() {
               { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
               { id: "assignments" as Tab, icon: Layers, label: "Exam Assignments" },
               { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
+              { id: "examRequests" as Tab, icon: Monitor, label: "Exam Requests" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
             ]).map((item) => (
               <button
@@ -811,7 +815,7 @@ export default function AdminPanelPage() {
             {tab === "courses" && <CourseManager />}
 
             {/* ── EXAM SETS TAB ── */}
-            {tab === "questionSets" && <ExamSetManager />}
+            {tab === "questionSets" && <ExamSetManager role="admin" />}
 
             {/* ── ASSIGNMENTS TAB ── */}
             {tab === "assignments" && <CenterAssignmentManager approvedCenters={applications.filter((a) => a.status === "approved")} />}
@@ -967,6 +971,9 @@ export default function AdminPanelPage() {
                 )}
               </div>
             )}
+
+            {/* ── EXAM REQUESTS TAB ── */}
+            {tab === "examRequests" && <ExamRequestManager />}
 
             {/* ── SETTINGS TAB ── */}
             {tab === "settings" && (

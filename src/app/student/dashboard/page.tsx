@@ -6,13 +6,17 @@ import {
   GraduationCap, BookOpen, ScrollText, User, 
   Settings, LogOut, CheckCircle, Calendar, 
   MapPin, Phone, Mail, Award, Clock, Download,
-  Fingerprint, CreditCard, ShieldCheck
+  Fingerprint, CreditCard, ShieldCheck, LayoutDashboard,
+  Menu, XCircle, Bell, ChevronRight, Share2, ReceiptText
 } from "lucide-react";
+import ExamManager from "@/components/student/ExamManager";
 
 export default function StudentDashboardPage() {
   const router = useRouter();
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "idcard" | "profile">("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/student/me")
@@ -33,270 +37,398 @@ export default function StudentDashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!student) return null;
 
+  const NavItem = ({ tab, icon: Icon, label }: { tab: typeof activeTab, icon: any, label: string }) => (
+    <button
+      onClick={() => {
+        setActiveTab(tab);
+        setIsSidebarOpen(false);
+      }}
+      className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl transition-all duration-300 group ${
+        activeTab === tab 
+          ? "bg-white text-blue-600 shadow-lg shadow-blue-900/10" 
+          : "text-blue-100 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${activeTab === tab ? "text-blue-600" : "text-blue-300"}`} />
+      <span className="font-bold text-sm tracking-tight">{label}</span>
+      {activeTab === tab && <div className="ml-auto w-1.5 h-1.5 bg-blue-600 rounded-full" />}
+    </button>
+  );
+
   return (
-    <>
-      <style>{`
+    <div className="min-h-screen bg-slate-50 flex overflow-hidden">
+      {/* Sidebar Mobile Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a0a2e] to-[#0a0aa1] text-white z-50 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex flex-col h-full p-6">
+          {/* Logo Section */}
+          <div className="flex items-center gap-4 mb-10 px-2 lg:mt-0">
+            <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-xl transform group transition-transform hover:rotate-6">
+              <GraduationCap className="text-blue-400 w-7 h-7" />
+            </div>
+            <div>
+              <p className="font-black text-lg leading-tight tracking-tight uppercase">Yukti Portal</p>
+              <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-0.5">Student Access</p>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 space-y-2">
+            <NavItem tab="dashboard" icon={LayoutDashboard} label="Dashboard" />
+            <NavItem tab="exams" icon={Award} label="My Exams" />
+            <NavItem tab="idcard" icon={CreditCard} label="Identity Card" />
+            <NavItem tab="profile" icon={User} label="Academic Profile" />
+          </nav>
+
+          {/* Support Section */}
+          <div className="mt-auto pt-6 border-t border-white/10">
+            <div className="bg-white/5 rounded-2xl p-5 border border-white/10 mb-6">
+              <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest mb-1">Support Plan</p>
+              <p className="text-xs font-bold text-white mb-2 italic">Need academic help?</p>
+              <button className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition">
+                Contact Office
+              </button>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-all font-bold text-sm"
+            >
+              <LogOut className="w-4 h-4" /> Logout
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        {/* Top Header */}
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2.5 hover:bg-slate-100 rounded-xl transition text-slate-600">
+              <Menu size={20} />
+            </button>
+            <div>
+               <h1 className="text-xl font-black text-slate-800 capitalize tracking-tight">{activeTab}</h1>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Academic Session {new Date().getFullYear()}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button className="relative w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-600 transition group">
+              <Bell size={20} />
+              <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+            </button>
+            <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
+            <div className="flex items-center gap-4 pr-1">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-black text-slate-800 tracking-tight uppercase">{student.name}</p>
+                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-0.5">Verified Account</p>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-0.5 shadow-lg shadow-blue-100 ring-2 ring-white">
+                <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-white text-xs font-black">
+                   {student.name.charAt(0).toUpperCase()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-10 bg-slate-50/50">
+          <div className="max-w-6xl mx-auto space-y-10 pb-10">
+            
+            {/* TABS CONTENT */}
+            {activeTab === "dashboard" && (
+              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Welcome Banner */}
+                <div className="relative bg-gradient-to-br from-[#0a0a2e] via-[#0a0aa1] to-blue-600 rounded-[3rem] p-10 lg:p-14 text-white shadow-2xl shadow-blue-900/20 overflow-hidden group">
+                   <div className="relative z-10 max-w-2xl">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full border border-white/20 backdrop-blur-md mb-8">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">{student.status} Enrollment</span>
+                    </div>
+                    <h2 className="text-4xl lg:text-6xl font-black mb-6 tracking-tighter leading-[1.1]">
+                      Shape your future with <span className="text-blue-300 italic">Precision.</span>
+                    </h2>
+                    <p className="text-blue-100 text-lg font-medium opacity-80 leading-relaxed mb-10">
+                      Welcome, <span className="text-white font-bold">{student.name}</span>. You are currently enrolled in our specialized <span className="text-white px-2 bg-white/10 rounded-lg">{student.course}</span> program.
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      <button onClick={() => setActiveTab("exams")} className="px-8 py-4 bg-white text-blue-900 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95">
+                        Start Exam Logic
+                      </button>
+                      <button onClick={() => setActiveTab("idcard")} className="px-8 py-4 bg-white/10 border border-white/20 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-white/20 transition-all">
+                        View ID Details
+                      </button>
+                    </div>
+                   </div>
+                   
+                   <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none">
+                     <GraduationCap size={400} className="absolute -right-20 -top-20 transform rotate-12" />
+                   </div>
+                   <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-blue-400/20 rounded-full blur-[100px]" />
+                </div>
+
+                {/* Quick Academic Summary */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                   {[
+                     { l: 'Reg Number', v: student.registrationNo, i: Fingerprint, c: 'blue' },
+                     { l: 'TP Center Code', v: student.tpCode, i: MapPin, c: 'indigo' },
+                     { l: 'Current Course', v: student.course, i: BookOpen, c: 'emerald' },
+                     { l: 'Account Status', v: student.status, i: CheckCircle, c: 'green' }
+                   ].map(card => (
+                     <div key={card.l} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm transition-all hover:shadow-xl hover:shadow-slate-200/50 group">
+                        <div className={`w-12 h-12 rounded-2xl bg-${card.c}-50 flex items-center justify-center text-${card.c}-600 mb-6 group-hover:scale-110 transition-transform`}>
+                          <card.i size={20} />
+                        </div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.l}</p>
+                        <p className="text-sm font-black text-slate-800 tracking-tight truncate">{card.v}</p>
+                     </div>
+                   ))}
+                </div>
+
+                {/* Recent Notices */}
+                <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm overflow-hidden relative">
+                   <div className="flex items-center justify-between mb-8">
+                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                       < Bell className="text-blue-600" /> Academic Notices
+                     </h3>
+                     <button className="text-xs font-black text-blue-600 uppercase tracking-widest hover:underline decoration-2">View History</button>
+                   </div>
+                   <div className="space-y-4">
+                      <div className="flex items-start gap-5 p-6 bg-slate-50/50 rounded-3xl border border-slate-50 relative group cursor-default">
+                         <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-xs shrink-0">01</div>
+                         <div className="flex-1">
+                            <p className="text-xs font-black text-slate-800 mb-1">Welcome to the Portal</p>
+                            <p className="text-xs text-slate-500 leading-relaxed italic">Your student portal registration is confirmed. You can now access all services including Online exams.</p>
+                         </div>
+                         <div className="absolute top-6 right-6 text-[10px] font-bold text-slate-300">Just Now</div>
+                      </div>
+                      <div className="flex items-start gap-5 p-6 bg-white rounded-3xl border border-slate-50 relative group cursor-default opacity-50">
+                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black text-xs shrink-0">02</div>
+                         <div className="flex-1">
+                            <p className="text-xs font-black text-slate-400 mb-1">Verify Identity</p>
+                            <p className="text-xs text-slate-400 leading-relaxed italic italic">Ensure your profile details match your official documents.</p>
+                         </div>
+                         <div className="absolute top-6 right-6 text-[10px] font-bold text-slate-300 italic">Locked</div>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "exams" && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <ExamManager student={student} />
+              </div>
+            )}
+
+            {activeTab === "idcard" && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
+                <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
+                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+                      <div>
+                        <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Virtual Identity</h2>
+                        <p className="text-slate-500 font-medium mt-1">Export your official academic identification card.</p>
+                      </div>
+                      <button 
+                        onClick={() => window.print()}
+                        className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition transform active:scale-95"
+                      >
+                         <Download size={16} /> Print ID Document
+                      </button>
+                   </div>
+
+                   <div className="flex justify-center py-10" id="student-id-card-container">
+                      <div id="student-id-card" className="w-[340px] h-[520px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden relative border border-slate-200 print:shadow-none print:border-slate-300">
+                        {/* Front Design */}
+                        <div className="h-[43%] bg-[#0a0a2e] p-8 text-center relative overflow-hidden">
+                           <div className="flex flex-col items-center relative z-10">
+                              <div className="flex items-center gap-2 mb-8">
+                                <GraduationCap className="text-blue-500" />
+                                <span className="text-white text-[12px] font-black tracking-widest uppercase italic">Yukti Education</span>
+                              </div>
+                              <div className="relative">
+                                 {student.photo ? (
+                                   <img src={student.photo} alt={student.name} className="w-32 h-32 rounded-[2rem] border-4 border-white shadow-2xl object-cover" />
+                                 ) : (
+                                   <div className="w-32 h-32 rounded-[2rem] bg-white flex items-center justify-center shadow-2xl">
+                                      <User size={60} className="text-slate-200" />
+                                   </div>
+                                 )}
+                                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[9px] font-black px-4 py-1.5 rounded-full border-2 border-white shadow-lg uppercase tracking-widest ring-4 ring-blue-600/20">Verified</div>
+                              </div>
+                           </div>
+                           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-400 via-transparent to-transparent pointer-events-none" />
+                        </div>
+
+                        {/* Details View */}
+                        <div className="p-10 pt-12 text-center bg-white relative">
+                           <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-1">{student.name}</h3>
+                           <p className="text-blue-600 font-black text-[11px] uppercase tracking-[0.25em] mb-10">{student.course}</p>
+                           
+                           <div className="space-y-4 px-2">
+                              <div className="grid grid-cols-2 pb-4 border-b border-slate-100 gap-6 text-left">
+                                 <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Student UID</p>
+                                    <p className="text-[10px] font-black text-slate-800 leading-none">{student.registrationNo}</p>
+                                 </div>
+                                 <div className="text-right">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Center</p>
+                                    <p className="text-[10px] font-black text-slate-800 leading-none">{student.tpCode}</p>
+                                 </div>
+                              </div>
+                              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Validated Contact</p>
+                                 <p className="text-xs font-black text-slate-800 leading-none">{student.mobile}</p>
+                              </div>
+                              <div className="flex justify-between items-center pb-4">
+                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Birth Date</p>
+                                 <p className="text-xs font-black text-slate-800 leading-none">{student.dob}</p>
+                              </div>
+                           </div>
+                           
+                           <div className="mt-14 flex flex-col items-center">
+                              <ShieldCheck className="w-10 h-10 text-slate-100" />
+                              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-2">Digital Academic Authenticator</p>
+                           </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600" />
+                      </div>
+                   </div>
+
+                   <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 text-amber-800 text-sm font-medium flex gap-4">
+                      <ShieldCheck className="shrink-0 text-amber-400" />
+                      <p>Carry your digital ID card on your mobile during examinations. It contains your unique <span className="font-bold">Registration UID</span> and official center authorization.</p>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "profile" && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* General Info */}
+                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
+                       <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                          <User className="text-blue-600" /> Candidate Profile
+                       </h3>
+                       <div className="space-y-8">
+                          {[
+                            { l: 'Full Name', v: student.name, i: User },
+                            { l: 'Father Name', v: student.fatherName, i: GraduationCap },
+                            { l: 'Mobile Number', v: student.mobile, i: Phone },
+                            { l: 'Email ID', v: student.email || 'Not Provided', i: Mail },
+                            { l: 'Date of Birth', v: student.dob, i: Calendar },
+                          ].map(it => (
+                            <div key={it.l} className="flex items-center gap-5">
+                               <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                  <it.i size={18} />
+                               </div>
+                               <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{it.l}</p>
+                                  <p className="text-sm font-bold text-slate-800">{it.v}</p>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    {/* Academic Info */}
+                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 flex flex-col">
+                       <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                          <BookOpen className="text-indigo-600" /> Academic Dossier
+                       </h3>
+                       <div className="space-y-8 flex-1">
+                          {[
+                            { l: 'Enrolled Course', v: student.course, i: Award },
+                            { l: 'Study Center', v: student.tpCode, i: MapPin },
+                            { l: 'Registration No', v: student.registrationNo, i: Fingerprint },
+                            { l: 'Status', v: student.status, i: CheckCircle },
+                            { l: 'Joining Type', v: 'New Admission', i: ReceiptText },
+                          ].map(it => (
+                            <div key={it.l} className="flex items-center gap-5">
+                               <div className="w-10 h-10 rounded-xl bg-indigo-50/50 flex items-center justify-center text-indigo-500">
+                                  <it.i size={18} />
+                               </div>
+                               <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{it.l}</p>
+                                  <p className="text-sm font-bold text-slate-800 uppercase leading-none mt-1">{it.v}</p>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                       
+                       <div className="mt-10 p-6 bg-indigo-900 rounded-3xl text-white relative overflow-hidden">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Enrolled Program</p>
+                          <p className="text-lg font-black tracking-tight">{student.course}</p>
+                          <Award className="absolute -bottom-4 -right-4 w-20 h-20 opacity-10 transform rotate-12" />
+                       </div>
+                    </div>
+
+                    {/* Address Block */}
+                    <div className="md:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
+                       <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                          <MapPin className="text-emerald-600" /> Location Details
+                       </h3>
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                          <div>
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">State / Region</p>
+                             <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">{student.state}</p>
+                          </div>
+                          <div>
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">District</p>
+                             <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">{student.district}</p>
+                          </div>
+                          <div className="md:col-span-2 lg:col-span-1">
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Current Address</p>
+                             <p className="text-sm font-bold text-slate-800 leading-relaxed">{student.currentAddress}</p>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      <style jsx global>{`
         @media print {
           @page { margin: 0; size: auto; }
-          body { visibility: hidden !important; background: white !important; }
-          #student-id-card-container { 
-            visibility: visible !important; 
-            position: fixed !important; 
-            top: 50% !important; 
-            left: 50% !important; 
-            transform: translate(-50%, -50%) scale(1.4) !important;
+          body * { visibility: hidden !important; }
+          #student-id-card-container, #student-id-card-container * {
+            visibility: visible !important;
+          }
+          #student-id-card-container {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) scale(1.3) !important;
+            width: 100% !important;
             display: flex !important;
             justify-content: center !important;
-            width: 100% !important;
           }
-          #student-id-card, #student-id-card * { 
-            visibility: visible !important; 
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          #student-id-card {
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
           }
         }
       `}</style>
-      <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg transform -rotate-3">
-                <GraduationCap className="text-white w-6 h-6" />
-              </div>
-              <span className="font-black text-slate-800 text-lg tracking-tight">Student Portal</span>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition"
-              >
-                <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* LEFT COLUMN: Welcome & Info */}
-          <div className="lg:col-span-8 space-y-8">
-            
-            {/* Welcome Section */}
-            <div className="bg-gradient-to-br from-[#0a0a2e] to-[#0a0aa1] rounded-[2.5rem] p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden group">
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-6 bg-white/10 w-fit px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-md">
-                  <Fingerprint className="w-4 h-4 text-blue-300" />
-                  <span className="text-[10px] uppercase font-black tracking-[0.2em]">Verified Student</span>
-                </div>
-                <h1 className="text-4xl sm:text-5xl font-black mb-4 tracking-tight leading-tight">
-                  Welcome back,<br/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100 italic">{student.name}!</span>
-                </h1>
-                <p className="text-blue-100 font-medium text-lg leading-relaxed max-w-lg opacity-90">
-                  Your journey in <span className="text-white font-bold border-b-2 border-blue-400 pb-0.5">{student.course}</span> continues. Access your resources and track your progress below.
-                </p>
-                
-                <div className="flex flex-wrap gap-4 mt-8">
-                  <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex flex-col items-center min-w-[120px]">
-                    <span className="text-blue-300 text-[10px] font-bold uppercase tracking-widest mb-1">Status</span>
-                    <span className="text-sm font-black flex items-center gap-1.5 uppercase">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                      {student.status}
-                    </span>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex flex-col items-center min-w-[120px]">
-                    <span className="text-blue-300 text-[10px] font-bold uppercase tracking-widest mb-1">Session</span>
-                    <span className="text-sm font-black uppercase">{new Date().getFullYear()}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400/20 rounded-full blur-[80px] group-hover:bg-blue-300/30 transition-all duration-700" />
-              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/30 rounded-full blur-[60px]" />
-              <ScrollText className="absolute bottom-10 right-10 text-white/5 w-40 h-40 transform rotate-12" />
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {[
-                { label: "Registration No", value: student.registrationNo, icon: ShieldCheck, bg: "bg-blue-600 text-white", labelCol: "text-blue-200" },
-                { label: "Center TP Code", value: student.tpCode, icon: BookOpen, bg: "bg-white text-slate-800 border-slate-100", labelCol: "text-slate-400" },
-                { label: "Enrolled Course", value: student.course, icon: GraduationCap, bg: "bg-white text-slate-800 border-slate-100", labelCol: "text-slate-400" },
-              ].map((stat, i) => (
-                <div key={i} className={`${stat.bg} p-6 rounded-[2rem] shadow-sm border flex flex-col justify-between h-full relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300`}>
-                  <stat.icon className={`w-8 h-8 mb-4 ${stat.labelCol.includes('blue') ? 'text-white/40' : 'text-blue-600/20'}`} />
-                  <div>
-                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${stat.labelCol}`}>{stat.label}</p>
-                    <p className="font-black text-sm tracking-tight">{stat.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ID CARD DOWNLOAD SECTION */}
-            <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 sm:p-10">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                    <CreditCard className="text-blue-600" /> Virtual Identity Card
-                  </h2>
-                  <p className="text-sm text-slate-500 font-medium mt-1">Carry your official student identification everywhere.</p>
-                </div>
-                <button 
-                  onClick={() => window.print()} 
-                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-black transition shadow-lg shrink-0"
-                >
-                  <Download className="w-4 h-4" /> Download ID Card
-                </button>
-              </div>
-
-              {/* ID CARD MOCKUP */}
-              <div className="flex justify-center" id="student-id-card-container">
-                <div id="student-id-card" className="w-[340px] h-[520px] bg-white rounded-3xl shadow-2xl overflow-hidden relative border border-slate-200 print:shadow-none print:border-slate-300">
-                  {/* Card Front */}
-                  <div className="h-[43%] bg-gradient-to-br from-[#0a0a2e] to-[#0a0aa1] p-6 relative flex flex-col items-center text-center">
-                    <div className="flex items-center gap-2 mb-6">
-                      <GraduationCap className="text-blue-400 w-5 h-5 fill-blue-400/20" />
-                      <span className="text-white text-[12px] font-black tracking-widest uppercase italic">YUKTI EDUCATION</span>
-                    </div>
-                    
-                    <div className="relative">
-                      {student.photo ? (
-                        <img src={student.photo} alt={student.name} className="w-32 h-32 rounded-2xl border-4 border-white object-cover shadow-2xl relative z-10" />
-                      ) : (
-                        <div className="w-32 h-32 rounded-2xl bg-white flex items-center justify-center shadow-2xl relative z-10">
-                          <User size={60} className="text-slate-200" />
-                        </div>
-                      )}
-                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[8px] font-bold px-3 py-1 rounded-full border-2 border-white z-20 shadow-lg uppercase tracking-widest">Active</div>
-                    </div>
-                  </div>
-
-                  {/* Card Back Details */}
-                  <div className="p-8 pt-10 text-center">
-                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-1">{student.name}</h3>
-                    <p className="text-blue-600 font-bold text-[10px] uppercase tracking-[0.2em] mb-8">{student.course}</p>
-                    
-                    <div className="space-y-4 text-left px-2">
-                      <div className="grid grid-cols-2 border-b border-slate-50 pb-2 gap-4">
-                        <div>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Reg. ID</span>
-                          <span className="text-[10px] font-black text-slate-800 break-all">{student.registrationNo}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Center Code</span>
-                          <span className="text-[10px] font-black text-slate-800 break-all">{student.tpCode}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Contact No.</span>
-                        <span className="text-[11px] font-black text-slate-800">{student.mobile}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">D.O.B</span>
-                        <span className="text-[11px] font-black text-slate-800">{student.dob}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-8 flex flex-col items-center">
-                      <div className="text-[9px] font-bold text-slate-500 italic mb-2">Seal of yukti education</div>
-                      <ShieldCheck className="w-10 h-10 text-blue-600 opacity-20" />
-                    </div>
-                  </div>
-
-                  {/* Card Accents */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
-                  <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 to-indigo-600" />
-                </div>
-              </div>
-            </section>
-          </div>
-
-          {/* RIGHT COLUMN: Sidebar */}
-          <div className="lg:col-span-4 space-y-8">
-            
-            {/* Quick Profile Card */}
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 backdrop-blur-xl group hover:shadow-2xl transition-all duration-500">
-               <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-tight">
-                 <User className="text-blue-600" /> My Profile
-               </h3>
-               <div className="space-y-6">
-                  {[
-                    { icon: Phone, label: "Mobile", value: student.mobile, bg: "bg-blue-50", text: "text-blue-600" },
-                    { icon: Mail, label: "Email", value: student.email || 'N/A', bg: "bg-indigo-50", text: "text-indigo-600" },
-                    { icon: MapPin, label: "Address", value: student.currentAddress, bg: "bg-emerald-50", text: "text-emerald-600" },
-                    { icon: ShieldCheck, label: "Center Code", value: student.tpCode, bg: "bg-amber-50", text: "text-amber-600" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-4">
-                      <div className={`w-10 h-10 rounded-2xl ${item.bg} ${item.text} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform`}>
-                        <item.icon size={18} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
-                        <p className="text-sm font-bold text-slate-800 truncate leading-tight mt-0.5">{item.value}</p>
-                      </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
-
-            {/* Notification / Alert Box */}
-            <div className="bg-[#0a0a2e] rounded-[2rem] p-8 text-white relative overflow-hidden group shadow-2xl">
-              <div className="relative z-10">
-                <h4 className="font-black text-lg mb-2 flex items-center gap-2">
-                   <Award className="text-blue-400" /> Notice Board
-                </h4>
-                <div className="space-y-4 mt-6">
-                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition cursor-default">
-                      <p className="text-[10px] uppercase font-black tracking-widest text-blue-300 mb-1">New Update</p>
-                      <p className="text-xs font-medium leading-relaxed">Your application has been approved and portal access is granted.</p>
-                   </div>
-                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition cursor-default opacity-60">
-                      <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-1">System</p>
-                      <p className="text-xs font-medium leading-relaxed italic">Stay tuned for course materials and live tests.</p>
-                   </div>
-                </div>
-              </div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 rounded-full blur-3xl" />
-            </div>
-
-            {/* Help Button */}
-            <button className="w-full bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm flex items-center justify-between group hover:border-blue-300 transition-all duration-300">
-               <div className="flex items-center gap-4 text-left">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                    <Settings />
-                  </div>
-                  <div>
-                    <p className="font-black text-slate-800 uppercase tracking-tight">Need Help?</p>
-                    <p className="text-xs text-slate-500 font-medium italic">Contact Your Center</p>
-                  </div>
-               </div>
-               <ScrollText className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
-            </button>
-
-          </div>
-        </div>
-      </main>
-
-      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-slate-200">
-        <p className="text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
-          © {new Date().getFullYear()} Yukti Computer Education • All Rights Reserved
-        </p>
-      </footer>
     </div>
-    </>
   );
 }
