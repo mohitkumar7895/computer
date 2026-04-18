@@ -94,10 +94,16 @@ interface Props {
   applicationId?: string;
   initialData?: Partial<FormState> & {
     photo?: string;
+    logo?: string;
+    signature?: string;
+    aadharDoc?: string;
+    marksheetDoc?: string;
+    otherDocs?: string;
     paymentScreenshot?: string;
     instituteDocument?: string;
     infrastructure?: string;
     status?: string;
+    _id?: string;
   };
 }
 
@@ -107,6 +113,26 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [logo, setLogo] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [signature, setSignature] = useState<File | null>(null);
+  const [sigPreview, setSigPreview] = useState<string | null>(null);
+  const [aadharDoc, setAadharDoc] = useState<File | null>(null);
+  const [aadharPreview, setAadharPreview] = useState<string | null>(null);
+  const [marksheetDoc, setMarksheetDoc] = useState<File | null>(null);
+  const [marksheetPreview, setMarksheetPreview] = useState<string | null>(null);
+  const [otherDocs, setOtherDocs] = useState<File | null>(null);
+  const [otherPreview, setOtherPreview] = useState<string | null>(null);
+
+  const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
+  const [docPreview, setDocPreview] = useState<string | null>(null);
+  const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfrastructureRow>>(emptyInfra);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
+
   useEffect(() => {
     if (mode !== "edit" || !initialData) return;
     setForm((current) => ({
@@ -153,26 +179,6 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       setInfra(emptyInfra);
     }
   }, [mode, initialData]);
-
-  const [logo, setLogo] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [signature, setSignature] = useState<File | null>(null);
-  const [sigPreview, setSigPreview] = useState<string | null>(null);
-  const [aadharDoc, setAadharDoc] = useState<File | null>(null);
-  const [aadharPreview, setAadharPreview] = useState<string | null>(null);
-  const [marksheetDoc, setMarksheetDoc] = useState<File | null>(null);
-  const [marksheetPreview, setMarksheetPreview] = useState<string | null>(null);
-  const [otherDocs, setOtherDocs] = useState<File | null>(null);
-  const [otherPreview, setOtherPreview] = useState<string | null>(null);
-
-  const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
-  const [docPreview, setDocPreview] = useState<string | null>(null);
-  const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfrastructureRow>>(emptyInfra);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
 
   useEffect(() => {
     fetch("/api/admin/settings?key=qr_code")
