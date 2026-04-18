@@ -79,6 +79,9 @@ export async function POST(request: Request) {
 
     const newExam = await StudentExam.create(examData);
 
+    // Sync mode to student profile
+    await AtcStudent.findByIdAndUpdate(studentId, { examMode: examMode });
+
     return NextResponse.json({ message: "Exam mode selected successfully.", exam: newExam });
   } catch (error) {
     console.error("[student/exams/request-mode POST]", error);
@@ -135,6 +138,9 @@ export async function PUT(request: Request) {
     }
 
     await exam.save();
+
+    // Sync mode to student profile
+    await AtcStudent.findByIdAndUpdate(exam.studentId, { examMode: examMode });
 
     return NextResponse.json({ message: "Exam request updated successfully.", exam });
   } catch (error: any) {

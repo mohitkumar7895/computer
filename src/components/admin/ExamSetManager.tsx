@@ -347,54 +347,91 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                          </div>
                       </div>
 
-                      <div className="grid lg:grid-cols-[1fr_400px] gap-12">
-                         <div className="space-y-8">
-                            <div className="space-y-3">
-                               <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-1">Question Content</label>
+                      <div className="grid lg:grid-cols-[1fr_420px] gap-12">
+                         <div className="space-y-10">
+                            <div className="space-y-4">
+                               <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 ml-1">Question Content</label>
                                <textarea
                                   rows={4}
-                                  className="w-full px-8 py-6 bg-slate-50/50 border-2 border-slate-100 rounded-[2.5rem] font-bold text-slate-800 focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all outline-none text-lg"
-                                  placeholder="Enter the full question text here..."
+                                  className="w-full px-8 py-7 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] font-bold text-slate-800 focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all outline-none text-xl placeholder:text-slate-300 shadow-inner"
+                                  placeholder="Type your question here..."
                                   value={questionForm.questionText}
                                   onChange={(e) => setQuestionForm({...questionForm, questionText: e.target.value})}
                                />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                               {questionForm.options.map((opt, i) => (
-                                 <div key={i} className="relative group">
-                                    <div className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-200 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-500">
-                                       {String.fromCharCode(65+i)}
+                            <div className="space-y-6">
+                               <div className="flex items-center justify-between px-1">
+                                  <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400">Multiple Choice Options</label>
+                                  <span className="text-[9px] font-black text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase tracking-widest border border-red-100 italic">Click the option to mark as Correct</span>
+                               </div>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                  {questionForm.options.map((opt, i) => (
+                                    <div key={i} className="relative group animate-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${i*100}ms` }}>
+                                       <div className={`absolute left-5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black transition-colors ${
+                                         questionForm.correctOption === opt && opt.trim() !== "" 
+                                           ? "bg-red-500 text-white shadow-lg shadow-red-200" 
+                                           : "bg-slate-200 text-slate-500"
+                                       }`}>
+                                          {String.fromCharCode(65+i)}
+                                       </div>
+                                       <input 
+                                         value={opt}
+                                         onChange={(e) => {
+                                           const newVal = e.target.value;
+                                           const oldVal = questionForm.options[i];
+                                           const nextOptions = questionForm.options.map((o, idx) => idx === i ? newVal : o);
+                                           setQuestionForm({
+                                             ...questionForm, 
+                                             options: nextOptions,
+                                             // If we were editing the correct option, update the correctOption string too
+                                             correctOption: questionForm.correctOption === oldVal ? newVal : questionForm.correctOption
+                                           });
+                                         }}
+                                         placeholder={`Option ${String.fromCharCode(65+i)}`}
+                                         className={`w-full pl-16 pr-12 py-5 bg-white border-2 rounded-[1.5rem] font-bold text-slate-700 outline-none transition-all ${
+                                           questionForm.correctOption === opt && opt.trim() !== "" 
+                                             ? "border-red-500 ring-4 ring-red-50 bg-red-50/20" 
+                                             : "border-slate-100 focus:border-blue-400 group-hover:border-slate-200"
+                                         }`}
+                                       />
+                                       <button 
+                                         type="button"
+                                         onClick={() => opt.trim() && setQuestionForm({...questionForm, correctOption: opt})}
+                                         className={`absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                                           questionForm.correctOption === opt && opt.trim() !== "" 
+                                             ? "bg-red-500 text-white" 
+                                             : "bg-slate-100 text-slate-300 hover:text-red-400"
+                                         }`}
+                                       >
+                                         <CheckCircle size={14} />
+                                       </button>
                                     </div>
-                                    <input 
-                                      value={opt}
-                                      onChange={(e) => setQuestionForm({
-                                        ...questionForm, 
-                                        options: questionForm.options.map((o, idx) => idx === i ? e.target.value : o)
-                                      })}
-                                      placeholder={`Enter option ${i+1}`}
-                                      className="w-full pl-16 pr-6 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 outline-none focus:border-blue-200"
-                                    />
-                                 </div>
-                               ))}
+                                  ))}
+                               </div>
                             </div>
 
-                            <div className="flex gap-6 items-end">
-                               <div className="flex-1 space-y-3">
-                                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 ml-1">Correct Answer Verification</label>
-                                  <input 
-                                    className="w-full px-8 py-5 bg-emerald-50 border-2 border-emerald-100 rounded-2xl font-black text-emerald-700 outline-none"
-                                    placeholder="Paste the exact correct option text here"
-                                    value={questionForm.correctOption}
-                                    onChange={(e) => setQuestionForm({...questionForm, correctOption: e.target.value})}
-                                  />
+                            <div className="flex gap-6 items-center bg-slate-100/50 p-6 rounded-[2rem] border border-slate-200">
+                               <div className="flex-1 flex items-center gap-6">
+                                  <div className="flex-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Question Value</p>
+                                    <div className="flex items-center gap-3">
+                                       <span className="text-[10px] font-black text-slate-400">POINTS:</span>
+                                       <input 
+                                         type="number" 
+                                         className="w-20 bg-white px-4 py-2 rounded-xl border-2 border-slate-200 font-black text-slate-800 outline-none focus:border-blue-500 shadow-sm" 
+                                         value={questionForm.marks}
+                                         onChange={(e) => setQuestionForm({...questionForm, marks: e.target.value})}
+                                       />
+                                    </div>
+                                  </div>
                                </div>
                                <button 
                                  onClick={handleQuestionSubmit}
-                                 disabled={creatingQuestion}
-                                 className="h-[66px] px-12 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs hover:bg-blue-700 transition-all shadow-xl active:scale-95"
+                                 disabled={creatingQuestion || !questionForm.correctOption || !questionForm.questionText.trim()}
+                                 className="px-12 py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl active:scale-95 disabled:opacity-30 disabled:grayscale"
                                >
-                                 {creatingQuestion ? "..." : "ADD TO PAPER"}
+                                 {creatingQuestion ? "SAVING..." : "DEPLOY QUESTION"}
                                </button>
                             </div>
                          </div>

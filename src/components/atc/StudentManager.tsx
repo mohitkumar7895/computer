@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw } from "lucide-react";
+import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck } from "lucide-react";
 
 interface Student {
   _id: string;
@@ -15,6 +15,10 @@ interface Student {
   admissionDate: string;
   photo?: string;
   examMode?: string;
+  offlineExamStatus?: "not_appeared" | "appeared" | "published";
+  offlineExamMarks?: string;
+  offlineExamResult?: "Pass" | "Fail" | "Waiting";
+  offlineExamCopy?: string;
 }
 
 interface Course {
@@ -170,7 +174,7 @@ export default function StudentManager() {
                       <th className="px-6 py-4">Reg No / ID</th>
                       <th className="px-6 py-4">Student Identity</th>
                       <th className="px-6 py-4">Opted Course</th>
-                      <th className="px-6 py-4">Admission Date</th>
+                      <th className="px-6 py-4">Exam Mode</th>
                       <th className="px-6 py-4 text-center">Status</th>
                       <th className="px-6 py-4 text-right">Action</th>
                     </tr>
@@ -199,48 +203,57 @@ export default function StudentManager() {
                         <td className="px-6 py-5">
                           <div className="flex flex-col">
                             <span className="font-bold text-emerald-700">{s.course}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">{s.admissionDate ? new Date(s.admissionDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-5 text-slate-500 font-medium">
-                          {s.admissionDate ? new Date(s.admissionDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                        </td>
+                         <td className="px-6 py-5">
+                           <div className="flex flex-col gap-1">
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter w-fit shadow-sm ${
+                                s.examMode === 'online' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-orange-50 text-orange-700 border border-orange-100'
+                              }`}>
+                                 {s.examMode || 'online'}
+                              </span>
+                              {s.examMode === 'offline' && s.offlineExamStatus !== 'not_appeared' && (
+                                <span className={`text-[8px] font-black uppercase text-center w-fit px-1.5 py-0.5 rounded ${
+                                  s.offlineExamStatus === 'published' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
+                                }`}>
+                                   {s.offlineExamStatus}
+                                </span>
+                              )}
+                           </div>
+                         </td>
                         <td className="px-6 py-5 text-center">
-                          <div className="flex flex-col">
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
-                              s.status === "approved" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : 
-                              s.status === "rejected" ? "bg-red-50 text-red-700 border border-red-200" :
-                              "bg-amber-50 text-amber-600 border border-amber-200"
-                            }`}>
-                              {s.status === "approved" ? "Approved" : s.status === "rejected" ? "Rejected" : "Pending Approval"}
-                            </span>
-                            {s.examMode && (
-                              <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase text-center">{s.examMode} Mode</span>
-                            )}
-                          </div>
+                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
+                             s.status === "approved" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : 
+                             s.status === "rejected" ? "bg-red-50 text-red-700 border border-red-200" :
+                             "bg-amber-50 text-amber-600 border border-amber-200"
+                           }`}>
+                             {s.status === "approved" ? "Approved" : s.status === "rejected" ? "Rejected" : "Pending Admission"}
+                           </span>
                         </td>
                         <td className="px-6 py-5 text-right">
-                          {s.registrationNo ? (
-                            <button className="text-[10px] font-black uppercase text-slate-300 cursor-not-allowed italic" title="Cannot edit registered students">
-                               Locked
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => {
-                                setSelectedStudent(s);
-                                setEditForm({
-                                  name: s.name,
-                                  fatherName: s.fatherName,
-                                  mobile: s.mobile,
-                                  course: s.course,
-                                  courseType: (s as any).courseType || "Regular",
-                                  admissionDate: s.admissionDate || ""
-                                });
-                              }}
-                              className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
-                            >
-                               Edit
-                            </button>
-                          )}
+                          <div className="flex flex-col items-end gap-2">
+                             {!s.registrationNo ? (
+                                <button 
+                                onClick={() => {
+                                  setSelectedStudent(s);
+                                  setEditForm({
+                                    name: s.name,
+                                    fatherName: s.fatherName,
+                                    mobile: s.mobile,
+                                    course: s.course,
+                                    courseType: (s as any).courseType || "Regular",
+                                    admissionDate: s.admissionDate || ""
+                                  });
+                                }}
+                                className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
+                              >
+                                 Edit Admission
+                              </button>
+                             ) : (
+                                <span className="text-[10px] font-black uppercase text-slate-300 italic">Registered</span>
+                             )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -341,6 +354,13 @@ export default function StudentManager() {
                       <option value="ODL">ODL (Open Distance Learning)</option>
                       <option value="OL">OL (Online Learning)</option>
                    </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Exam Mode *</label>
+                  <select required name="examMode" className={inputCls}>
+                    <option value="online">Online Mode</option>
+                    <option value="offline">Offline Mode (Center Based)</option>
+                  </select>
                 </div>
                 <div>
                   <label className={labelCls}>Admission Fees *</label>
@@ -457,7 +477,7 @@ export default function StudentManager() {
                  Edit Student Record
               </h3>
               <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                 <RefreshCw className="w-5 h-5 rotate-45" />
+                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleUpdate} className="p-8 space-y-6">
@@ -549,6 +569,13 @@ export default function StudentManager() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
+
+const X = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);

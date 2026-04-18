@@ -69,6 +69,10 @@ const StudentExamSchema = new Schema<IStudentExam>(
     startedAt: { type: Date },
     submittedAt: { type: Date },
     resultDeclared: { type: Boolean, default: false },
+    // Offline specific tracking
+    offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "published"], default: "not_appeared" },
+    offlineExamResult: { type: String, enum: ["Pass", "Fail", "Waiting"], default: "Waiting" },
+    offlineExamCopy: { type: String }, // Base64 PDF
   },
   { timestamps: true },
 );

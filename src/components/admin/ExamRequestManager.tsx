@@ -29,6 +29,16 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
     setId: ""
   });
 
+  // Result Modal States
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultForm, setResultForm] = useState({
+    status: "not_appeared" as "not_appeared" | "appeared" | "published",
+    marks: "",
+    resultStatus: "Waiting" as "Pass" | "Fail" | "Waiting"
+  });
+  const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const [resultSaving, setResultSaving] = useState(false);
+
   useEffect(() => {
     fetchRequests();
     fetchQuestionSets();
@@ -80,6 +90,40 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
     }
   };
 
+  const handleResultSubmit = async (e: any) => {
+    e.preventDefault();
+    if (!selectedExam) return;
+    setResultSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("examId", selectedExam._id);
+      formData.append("offlineExamStatus", resultForm.status);
+      formData.append("totalScore", resultForm.marks);
+      formData.append("offlineExamResult", resultForm.resultStatus);
+      if (resultCopyFile) {
+        formData.append("examCopy", resultCopyFile);
+      }
+
+      const res = await fetch("/api/atc/exams/offline-result", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        setShowResultModal(false);
+        setResultCopyFile(null);
+        fetchRequests();
+      } else {
+        const d = await res.json();
+        throw new Error(d.message);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update result");
+    } finally {
+      setResultSaving(false);
+    }
+  };
+
   const openApproveModal = (exam: any) => {
     setSelectedExam(exam);
     setApprovalForm({
@@ -91,6 +135,16 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
     setShowApproveModal(true);
   };
 
+  const openResultModal = (exam: any) => {
+    setSelectedExam(exam);
+    setResultForm({
+      status: exam.offlineExamStatus || "not_appeared",
+      marks: exam.totalScore?.toString() || "",
+      resultStatus: exam.offlineExamResult || "Waiting"
+    });
+    setShowResultModal(true);
+  };
+
   const filtered = requests.filter(r => {
     const matchesMode = filterMode === "all" || r.examMode === filterMode;
     const matchesStatus = filterStatus === "all" || r.approvalStatus === filterStatus;
@@ -99,6 +153,9 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
       r.studentId?.registrationNo?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesMode && matchesStatus && matchesSearch;
   });
+
+  const labelCls = "block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2";
+  const inputCls = "w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 transition";
 
   return (
     <div className="space-y-6">
@@ -175,7 +232,12 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {exam.examMode === 'offline' ? (
+                      {exam.status === 'completed' ? (
+                        <div className="flex flex-col gap-1">
+                           <span className="text-[10px] font-black text-slate-400 uppercase">Attempt Completed</span>
+                           <span className="text-xs font-bold text-slate-700">{new Date(exam.submittedAt || exam.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                      ) : exam.examMode === 'offline' ? (
                         <div className="space-y-1">
                           <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
                             <Calendar size={12} className="text-slate-400" /> {exam.offlineDetails?.preferredDate || 'Any'}
@@ -201,10 +263,15 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                           <XCircle size={12} />}
                          {exam.status === 'completed' ? 'COMPLETED' : exam.approvalStatus}
                        </span>
-                       {exam.status === 'completed' && (
-                         <div className="mt-2 font-black text-slate-800 text-[10px] bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                            RESULT: {exam.totalScore || 0}/{exam.maxScore || 100}
+                       {exam.offlineExamStatus === 'published' && (
+                         <div className="mt-2 font-black text-slate-800 text-[10px] bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
+                            RESULT: {exam.totalScore || 0}/{exam.maxScore || 100} ({exam.offlineExamResult})
                          </div>
+                       )}
+                       {exam.examMode === 'online' && exam.status === 'completed' && (
+                          <div className="mt-2 font-black text-slate-800 text-[10px] bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                             SCORE: {exam.totalScore || 0}/{exam.maxScore || 100}
+                          </div>
                        )}
                     </td>
                     <td className="px-6 py-4 text-slate-800">
@@ -236,9 +303,16 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                             Set Date & Release
                           </button>
                         )}
-                         {exam.approvalStatus === 'approved' && exam.admitCardReleased && (
-                            <span className="text-[10px] font-black text-green-600 uppercase">Released</span>
-                         )}
+                        
+                        {exam.examMode === 'offline' && exam.approvalStatus === 'approved' && (
+                           <button 
+                             onClick={() => openResultModal(exam)}
+                             className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-orange-700 transition shadow-sm whitespace-nowrap"
+                           >
+                             Offline Result
+                           </button>
+                        )}
+
                         <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
                           <Eye size={16} />
                         </button>
@@ -269,9 +343,9 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
              <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Final Exam Mode</label>
+                    <label className={labelCls}>Final Exam Mode</label>
                     <select 
-                        className="w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                        className={inputCls}
                         value={(approvalForm as any).examMode}
                         onChange={(e) => setApprovalForm({...approvalForm, examMode: e.target.value} as any)}
                     >
@@ -281,10 +355,10 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Final Exam Date</label>
+                    <label className={labelCls}>Final Exam Date</label>
                     <input 
                         type="date"
-                        className="w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                        className={inputCls}
                         value={approvalForm.examDate}
                         onChange={(e) => setApprovalForm({...approvalForm, examDate: e.target.value})}
                     />
@@ -292,20 +366,20 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Time Slot</label>
+                   <label className={labelCls}>Time Slot</label>
                    <input 
                       type="text"
                       placeholder="e.g. 11:00 AM - 01:00 PM"
-                      className="w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                      className={inputCls}
                       value={approvalForm.examTime}
                       onChange={(e) => setApprovalForm({...approvalForm, examTime: e.target.value})}
                    />
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Question Set</label>
+                   <label className={labelCls}>Select Question Set</label>
                    <select 
-                      className="w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                      className={inputCls}
                       value={approvalForm.setId}
                       onChange={(e) => setApprovalForm({...approvalForm, setId: e.target.value})}
                    >
@@ -324,6 +398,101 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                 </button>
              </div>
           </div>
+        </div>
+      )}
+
+      {/* Offline Result Modal */}
+      {showResultModal && selectedExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+           <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden p-8 animate-in slide-in-from-bottom-4 duration-500">
+              <div className="flex justify-between items-center mb-8">
+                 <div>
+                    <h3 className="text-2xl font-black text-slate-800">Manage Offline Result</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      {selectedExam.studentId?.name} • {selectedExam.studentId?.registrationNo}
+                    </p>
+                 </div>
+                 <button onClick={() => setShowResultModal(false)} className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition">
+                    <X className="w-5 h-5 text-slate-400" />
+                 </button>
+              </div>
+
+              <form onSubmit={handleResultSubmit} className="space-y-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className={labelCls}>Exam Status</label>
+                       <select 
+                         className={inputCls}
+                         value={resultForm.status}
+                         onChange={e => setResultForm({...resultForm, status: e.target.value as any})}
+                         required
+                       >
+                          <option value="not_appeared">Not Appeared</option>
+                          <option value="appeared">Attended</option>
+                          <option value="published">Result Published</option>
+                       </select>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className={labelCls}>Total Marks Obtained</label>
+                       <input 
+                         className={inputCls}
+                         placeholder="e.g. 85"
+                         value={resultForm.marks}
+                         onChange={e => setResultForm({...resultForm, marks: e.target.value})}
+                       />
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className={labelCls}>Result Outcome</label>
+                       <select 
+                         className={inputCls}
+                         value={resultForm.resultStatus}
+                         onChange={e => setResultForm({...resultForm, resultStatus: e.target.value as any})}
+                         required
+                       >
+                          <option value="Waiting">Waiting</option>
+                          <option value="Pass">Pass</option>
+                          <option value="Fail">Fail</option>
+                       </select>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className={labelCls}>Upload Scanned Copy (PDF)</label>
+                       <input 
+                         type="file"
+                         accept="application/pdf"
+                         onChange={e => setResultCopyFile(e.target.files?.[0] ?? null)}
+                         className="w-full text-[10px] file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-black file:uppercase"
+                       />
+                    </div>
+                 </div>
+
+                 <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-blue-500 shrink-0" />
+                    <p className="text-[11px] text-blue-700 font-medium leading-relaxed">
+                       Results marked as &quot;Published&quot; will be visible to the student in their dashboard instantly. Marks and copy will also be synced to their profile.
+                    </p>
+                 </div>
+
+                 <div className="flex gap-4 pt-4">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowResultModal(false)}
+                      className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={resultSaving}
+                      className="flex-[2] py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-orange-700 transition shadow-xl shadow-orange-100 disabled:opacity-50"
+                    >
+                      {resultSaving ? "Processing..." : "Submit Result"}
+                    </button>
+                 </div>
+              </form>
+           </div>
         </div>
       )}
     </div>

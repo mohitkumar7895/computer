@@ -313,13 +313,31 @@ export default function ExamManager({ student }: ExamManagerProps) {
                           </button>
                         )}
                         {exam.status === 'completed' && (
-                          <div className="flex flex-col items-start gap-1">
-                              <span className="text-[10px] font-black text-green-600 uppercase">Completed</span>
-                              {exam.resultDeclared ? (
+                          <div className="flex flex-col gap-2">
+                             <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${
+                                  exam.offlineExamResult === 'Pass' ? 'bg-emerald-50 text-emerald-600' : 
+                                  exam.offlineExamResult === 'Fail' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                   {exam.offlineExamResult || 'COMPLETED'}
+                                </span>
                                 <span className="text-sm font-black text-slate-800">{exam.totalScore}/{exam.maxScore}</span>
-                              ) : (
-                                <span className="text-[9px] font-bold text-slate-400 italic">Processing Result</span>
-                              )}
+                             </div>
+
+                             {exam.examMode === 'offline' && exam.offlineExamCopy ? (
+                                <a 
+                                  href={exam.offlineExamCopy} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
+                                >
+                                  <FileText size={12} className="text-blue-400" /> View Exam Copy
+                                </a>
+                             ) : exam.examMode === 'offline' && (
+                                <span className="text-[9px] font-bold text-slate-400 italic bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                                   Wait for Digital Copy
+                                </span>
+                             )}
                           </div>
                         )}
                       </div>
@@ -332,6 +350,68 @@ export default function ExamManager({ student }: ExamManagerProps) {
         </section>
       )}
 
+      {/* Offline Examination Results */}
+      {(() => {
+        // Find the latest completed offline exam with a published result
+        const publishedOfflineExam = exams.find(e => e.examMode === 'offline' && e.offlineExamStatus === 'published');
+        
+        if (!publishedOfflineExam) return null;
+
+        return (
+          <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 sm:p-10 animate-in fade-in slide-in-from-top-4 duration-700">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                    <CheckCircle className="text-orange-600" /> Offline Examination Results
+                  </h2>
+                  <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest">Officially Published Result Card</p>
+                </div>
+                <div className="px-6 py-2 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 flex items-center gap-2">
+                   <CheckCircle size={16} />
+                   <span className="text-xs font-black uppercase tracking-widest">Authenticated</span>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 text-center flex flex-col items-center justify-center">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Secured Marks</p>
+                   <p className="text-4xl font-black text-slate-900 leading-none">{publishedOfflineExam.totalScore}/{publishedOfflineExam.maxScore || 100}</p>
+                   <div className="flex items-center gap-2 mt-4 px-4 py-1.5 bg-white rounded-full border border-slate-100 shadow-sm text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      Final Score
+                   </div>
+                </div>
+
+                <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 text-center flex flex-col items-center justify-center">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Result Status</p>
+                   <p className={`text-3xl font-black leading-none ${publishedOfflineExam.offlineExamResult === 'Pass' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {publishedOfflineExam.offlineExamResult || "Waiting"}
+                   </p>
+                   <p className="text-[9px] font-bold text-slate-400 mt-4 uppercase tracking-widest">Evaluation Complete</p>
+                </div>
+
+                <div className="p-8 bg-slate-900 rounded-[2rem] text-center flex flex-col items-center justify-center shadow-2xl group">
+                   <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <FileText className="text-white" size={24} />
+                   </div>
+                   <p className="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em] mb-4">Exam Answer Sheet</p>
+                   {publishedOfflineExam.offlineExamCopy ? (
+                      <a 
+                        href={publishedOfflineExam.offlineExamCopy} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-blue-50 transition active:scale-95"
+                      >
+                         <Download size={14} /> View Result Copy
+                      </a>
+                   ) : (
+                      <span className="text-[10px] text-white/40 font-bold uppercase italic tracking-wider">File Processing...</span>
+                   )}
+                </div>
+             </div>
+          </section>
+        );
+      })()}
+
        {/* Notifications Section */}
        <section className="bg-[#0a0a2e] rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl">
           <div className="relative z-10">
@@ -339,6 +419,17 @@ export default function ExamManager({ student }: ExamManagerProps) {
               <AlertCircle className="text-blue-400" /> Notifications & Updates
             </h2>
             <div className="space-y-4">
+              {student.offlineExamStatus === 'appeared' && (
+                <div className="bg-white/10 border border-white/20 rounded-[1.5rem] p-5 flex items-start gap-4 backdrop-blur-md animate-pulse">
+                   <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center shrink-0">
+                     <Clock className="text-orange-400" size={20} />
+                   </div>
+                   <div>
+                     <p className="text-sm font-bold">Offline Exam Attended</p>
+                     <p className="text-xs text-blue-200 font-medium leading-relaxed mt-1">Your offline exam attendance has been recorded. Results are being processed by your center.</p>
+                   </div>
+                </div>
+              )}
               {exams.some(e => e.approvalStatus === 'approved' && !e.admitCardReleased) && (
                  <div className="bg-white/10 border border-white/20 rounded-[1.5rem] p-5 flex items-start gap-4 backdrop-blur-md">
                     <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center shrink-0">
