@@ -115,6 +115,17 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
       {/* Header - Compact & Premium */}
       <header className="h-14 bg-[#0a0a2e] px-6 flex items-center justify-between shadow-2xl relative z-[1100]">
         <div className="flex items-center gap-4">
+           <button 
+             onClick={() => {
+                if(confirm("Are you sure you want to quit the exam? Your progress will not be saved.")) {
+                  onFinish();
+                }
+             }}
+             className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-red-500/20 hover:border-red-500/50 transition-all mr-2"
+             title="Quit Exam"
+           >
+              <ChevronLeft size={20} />
+           </button>
            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg transform rotate-3">
               <Shield className="text-white w-4 h-4" />
            </div>
@@ -271,9 +282,9 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
         <button 
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex(prev => prev - 1)}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition disabled:opacity-30"
+          className="flex items-center gap-2 px-6 py-2 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition disabled:opacity-30"
         >
-          <ChevronLeft size={14} /> Previous
+          <ChevronLeft size={14} /> BACK
         </button>
 
         <div className="flex gap-3">

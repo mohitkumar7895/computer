@@ -37,10 +37,23 @@ export async function PATCH(
     const student = await AtcStudent.findById(id);
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
+    if (action === "approved" && !student.registrationNo) {
+      // Generate Reg No: TPCODE-YYMM-RANDOM
+      const count = await AtcStudent.countDocuments({ tpCode: student.tpCode, registrationNo: { $ne: "" } });
+      const dateCode = new Date().toISOString().slice(2,7).replace("-", ""); // YYMM
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
+      const regNo = `${student.tpCode}-${dateCode}-${String(count + 1).padStart(3, "0")}-${randomSuffix}`;
+      student.registrationNo = regNo;
+    }
+
     student.status = action;
     await student.save();
 
-    return NextResponse.json({ message: `Student ${action} successfully`, student });
+    return NextResponse.json({ 
+      message: `Student ${action} successfully`, 
+      student,
+      registrationNo: student.registrationNo 
+    });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }

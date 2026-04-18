@@ -107,6 +107,7 @@ export default function AdminPanelPage() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [studentLoading, setStudentLoading] = useState(false);
+  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [studentActionId, setStudentActionId] = useState<string | null>(null);
 
   const showToast = (type: "success" | "error", text: string) => {
@@ -475,6 +476,18 @@ export default function AdminPanelPage() {
     pending: applications.filter((a) => a.status === "pending").length,
     approved: applications.filter((a) => a.status === "approved").length,
     rejected: applications.filter((a) => a.status === "rejected").length,
+  };
+
+  const filteredStudents = students.filter((s) => {
+    if (studentFilter === "all") return true;
+    if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
+    return s.status === studentFilter;
+  });
+  const studentCounts = {
+    all: students.length,
+    pending: students.filter((s) => s.status === "pending").length,
+    approved: students.filter((s) => s.status === "approved" || s.status === "active").length,
+    rejected: students.filter((s) => s.status === "rejected").length,
   };
 
   const statusBadge = (status: Application["status"]) => {
@@ -1249,8 +1262,26 @@ export default function AdminPanelPage() {
 
             {/* ── MANAGE STUDENTS TAB ── */}
             {tab === "students" && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
-                <div className="overflow-x-auto">
+              <div className="space-y-4 animate-in fade-in duration-300">
+                {/* Student Filter Bar */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {(["all", "pending", "approved", "rejected"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setStudentFilter(s)}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                        studentFilter === s
+                          ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-lg shadow-blue-100 scale-105"
+                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {s} ({studentCounts[s]})
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
                       <tr>
@@ -1264,10 +1295,10 @@ export default function AdminPanelPage() {
                     <tbody className="divide-y divide-slate-100">
                       {studentLoading ? (
                         <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">Loading students...</td></tr>
-                      ) : students.length === 0 ? (
-                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">No students found.</td></tr>
+                      ) : filteredStudents.length === 0 ? (
+                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">No {studentFilter !== "all" ? studentFilter : ""} students found.</td></tr>
                       ) : (
-                        students.map((s) => (
+                        filteredStudents.map((s) => (
                           <Fragment key={s._id}>
                             <tr className="hover:bg-slate-50 transition group">
                               <td className="px-6 py-4">
@@ -1278,7 +1309,7 @@ export default function AdminPanelPage() {
                               <td className="px-6 py-4 text-slate-500 font-medium">{s.course}</td>
                               <td className="px-6 py-4">
                                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                  s.status === "approved" ? "bg-emerald-50 text-emerald-600" : 
+                                  s.status === "approved" || s.status === "active" ? "bg-emerald-50 text-emerald-600" : 
                                   s.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"
                                 }`}>
                                   {s.status}
@@ -1286,17 +1317,17 @@ export default function AdminPanelPage() {
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex justify-end gap-2">
-                                  {s.status === "pending" && (
-                                    <>
-                                      <button onClick={() => handleStudentAction(s._id, "approved")} disabled={!!studentActionId}
-                                        className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition">
-                                        Approve
-                                      </button>
-                                      <button onClick={() => handleStudentAction(s._id, "rejected")} disabled={!!studentActionId}
-                                        className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition">
-                                        Reject
-                                      </button>
-                                    </>
+                                  {(s.status !== "approved" && s.status !== "active") && (
+                                    <button onClick={() => handleStudentAction(s._id, "approved")} disabled={!!studentActionId}
+                                      className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition">
+                                      Approve
+                                    </button>
+                                  )}
+                                  {s.status !== "rejected" && (
+                                    <button onClick={() => handleStudentAction(s._id, "rejected")} disabled={!!studentActionId}
+                                      className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition">
+                                      Reject
+                                    </button>
                                   )}
                                   <button onClick={() => setExpandedId(expandedId === s._id ? null : s._id)}
                                     className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase hover:bg-slate-100 transition">
@@ -1342,7 +1373,8 @@ export default function AdminPanelPage() {
                   </table>
                 </div>
               </div>
-            )}
+            </div>
+          )}
           </div>
         </main>
       </div>

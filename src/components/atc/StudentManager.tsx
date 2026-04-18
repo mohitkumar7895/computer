@@ -33,7 +33,7 @@ export default function StudentManager() {
   const [disability, setDisability] = useState("No");
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", examMode: "online" });
+  const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", courseType: "Regular" });
   const [updating, setUpdating] = useState(false);
 
   const fetchStudents = async () => {
@@ -229,7 +229,7 @@ export default function StudentManager() {
                                   fatherName: s.fatherName,
                                   mobile: s.mobile,
                                   course: s.course,
-                                  examMode: (s as any).examMode || "online"
+                                  courseType: (s as any).courseType || "Regular"
                                 });
                               }}
                               className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
@@ -290,7 +290,10 @@ export default function StudentManager() {
                 </div>
                 <div><label className={labelCls}>Marital Status</label>
                   <select name="maritalStatus" className={inputCls}>
-                    <option value="">Select</option><option>Married</option><option>Others</option>
+                    <option value="">Select</option>
+                    <option>Married</option>
+                    <option>Unmarried</option>
+                    <option>Others</option>
                   </select>
                 </div>
                 <div>
@@ -328,18 +331,11 @@ export default function StudentManager() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelCls}>Course Type *</label>
-                  <select required name="courseType" className={inputCls}>
-                    <option value="Regular">Regular</option>
-                    <option value="ODL">ODL (Open Distance Learning)</option>
-                    <option value="OL">OL (Online Learning)</option>
-                  </select>
-                </div>
-                <div>
-                   <label className={labelCls}>Preferred Mode *</label>
-                   <select required name="examMode" className={inputCls}>
-                      <option value="online">Online Mode</option>
-                      <option value="offline">Offline Mode</option>
+                   <label className={labelCls}>Preference Mode *</label>
+                   <select required name="courseType" className={inputCls}>
+                      <option value="Regular">Regular</option>
+                      <option value="ODL">ODL (Open Distance Learning)</option>
+                      <option value="OL">OL (Online Learning)</option>
                    </select>
                 </div>
                 <div>
@@ -488,15 +484,16 @@ export default function StudentManager() {
                        />
                     </div>
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Exam Mode</label>
+                       <label className={labelCls}>Preference Mode</label>
                        <select 
-                         value={editForm.examMode}
-                         onChange={e => setEditForm({...editForm, examMode: e.target.value})}
+                         value={editForm.courseType}
+                         onChange={e => setEditForm({...editForm, courseType: e.target.value})}
                          className={inputCls}
                          required
                        >
-                          <option value="online">Online Mode</option>
-                          <option value="offline">Offline Mode</option>
+                          <option value="Regular">Regular</option>
+                          <option value="ODL">ODL</option>
+                          <option value="OL">OL</option>
                        </select>
                     </div>
                  </div>

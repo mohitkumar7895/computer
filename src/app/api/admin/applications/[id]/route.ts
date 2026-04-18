@@ -43,17 +43,17 @@ export async function PATCH(
     await connectDB();
 
     const contentType = request.headers.get("content-type") ?? "";
-    let action: "approve" | "reject" | null = null;
+    let action: "approve" | "reject" | "toggleStatus" | null = null;
     let formData: FormData | null = null;
     let body: any = null;
 
     if (contentType.includes("multipart/form-data")) {
       formData = await request.formData();
       const maybeAction = String(formData.get("action") ?? "").trim();
-      action = maybeAction === "approve" || maybeAction === "reject" ? maybeAction : null;
+      action = (maybeAction === "approve" || maybeAction === "reject" || maybeAction === "toggleStatus") ? maybeAction as any : null;
     } else {
       body = (await request.json()) as {
-        action?: "approve" | "reject";
+        action?: "approve" | "reject" | "toggleStatus";
         update?: Record<string, unknown>;
       };
       action = body.action ?? null;
@@ -61,8 +61,8 @@ export async function PATCH(
 
     if (formData) {
       const existingAction = String(formData.get("action") ?? "").trim();
-      if (existingAction === "approve" || existingAction === "reject") {
-        action = existingAction as "approve" | "reject";
+      if (existingAction === "approve" || existingAction === "reject" || existingAction === "toggleStatus") {
+        action = existingAction as any;
       }
     }
 
@@ -170,8 +170,19 @@ export async function PATCH(
       return NextResponse.json({ message: "Application updated successfully.", application });
     }
 
-    if (!action || !["approve", "reject"].includes(action)) {
+    if (!action || !["approve", "reject", "toggleStatus"].includes(action)) {
       return NextResponse.json({ message: "Invalid action." }, { status: 400 });
+    }
+
+    if (action === "toggleStatus") {
+      const user = await AtcUser.findOne({ applicationId: id });
+      if (!user) return NextResponse.json({ message: "Center login account not found. Only approved centers can be toggled." }, { status: 404 });
+      user.status = user.status === "active" ? "disabled" : "active";
+      await user.save();
+      return NextResponse.json({ 
+        message: `Center ${user.status === "active" ? "enabled" : "disabled"} successfully.`, 
+        status: user.status 
+      });
     }
 
     const application = await AtcApplication.findById(id);
@@ -186,15 +197,7 @@ export async function PATCH(
       );
     }
 
-    if (body.action === "toggleStatus") {
-      const user = await AtcUser.findOne({ applicationId: id });
-      if (!user) return NextResponse.json({ message: "Center user not found." }, { status: 404 });
-      user.status = user.status === "active" ? "disabled" : "active";
-      await user.save();
-      return NextResponse.json({ message: `Center ${user.status === "active" ? "enabled" : "disabled"} successfully.`, status: user.status });
-    }
-
-    if (body.action === "reject") {
+    if (action === "reject") {
       application.status = "rejected";
       await application.save();
       return NextResponse.json({ message: "Application rejected." });

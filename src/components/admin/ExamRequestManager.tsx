@@ -191,14 +191,21 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                     </td>
                     <td className="px-6 py-4">
                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        exam.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : 
-                        exam.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {exam.approvalStatus === 'pending' && <Clock size={12} />}
-                        {exam.approvalStatus === 'approved' && <CheckCircle size={12} />}
-                        {exam.approvalStatus === 'rejected' && <XCircle size={12} />}
-                        {exam.approvalStatus}
-                      </span>
+                         exam.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                         exam.approvalStatus === 'approved' ? 'bg-green-50 text-green-700' : 
+                         exam.approvalStatus === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                       }`}>
+                         {exam.status === 'completed' ? <CheckCircle size={12} /> : 
+                          exam.approvalStatus === 'pending' ? <Clock size={12} /> : 
+                          exam.approvalStatus === 'approved' ? <CheckCircle size={12} /> : 
+                          <XCircle size={12} />}
+                         {exam.status === 'completed' ? 'COMPLETED' : exam.approvalStatus}
+                       </span>
+                       {exam.status === 'completed' && (
+                         <div className="mt-2 font-black text-slate-800 text-[10px] bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                            RESULT: {exam.totalScore || 0}/{exam.maxScore || 100}
+                         </div>
+                       )}
                     </td>
                     <td className="px-6 py-4 text-slate-800">
                       <div className="flex items-center gap-2">
