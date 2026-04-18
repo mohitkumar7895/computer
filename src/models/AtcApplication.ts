@@ -22,6 +22,11 @@ export interface IAtcApplication {
   professionalExperience: string;
   dob: string;
   photo?: string; // Base64 or URL
+  logo?: string; // Base64 or URL
+  signature?: string; // Base64 or URL
+  aadharDoc?: string; // Base64 or URL
+  marksheetDoc?: string; // Base64 or URL
+  otherDocs?: string; // Base64 or URL
   paymentMode: string;
   paymentScreenshot?: string; // Base64 or URL
   instituteDocument?: string; // Base64 or URL
@@ -59,6 +64,11 @@ const AtcApplicationSchema = new Schema<IAtcApplication>(
     professionalExperience: { type: String, required: true },
     dob: { type: String, required: true },
     photo: { type: String },
+    logo: { type: String },
+    signature: { type: String },
+    aadharDoc: { type: String },
+    marksheetDoc: { type: String },
+    otherDocs: { type: String },
     paymentMode: { type: String, required: true },
     paymentScreenshot: { type: String },
     instituteDocument: { type: String },

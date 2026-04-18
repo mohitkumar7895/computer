@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useState, useCallback, Fragment, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
@@ -32,6 +32,22 @@ interface Application {
   infrastructure?: string;
   postalAddressOffice?: string;
   zones?: string[];
+  userStatus?: "active" | "disabled";
+}
+
+interface Student {
+  _id: string;
+  name: string;
+  registrationNo: string;
+  tpCode: string;
+  course: string;
+  mobile: string;
+  status: "pending" | "approved" | "rejected";
+  photo?: string;
+  qualificationDoc?: string;
+  aadharDoc?: string;
+  studentSignature?: string;
+  otherDocs?: string;
 }
 
 
@@ -50,7 +66,7 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "applications" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "settings";
+type Tab = "applications" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "settings" | "students";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -88,6 +104,10 @@ export default function AdminPanelPage() {
   const [feePlans, setFeePlans] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
   const [feeSaving, setFeeSaving] = useState(false);
   const [feeSaveMsg, setFeeSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [studentActionId, setStudentActionId] = useState<string | null>(null);
 
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
@@ -198,8 +218,41 @@ export default function AdminPanelPage() {
 
   useEffect(() => { void fetchApplications(); }, [fetchApplications]);
   useEffect(() => { if (tab === "settings") void fetchSettings(); }, [tab, fetchSettings]);
+  useEffect(() => { if (tab === "students") void fetchStudents(); }, [tab]);
 
-  const handleAction = async (id: string, action: "approve" | "reject") => {
+  const fetchStudents = async () => {
+    setStudentLoading(true);
+    try {
+      const res = await fetch("/api/admin/students");
+      const data = await res.json();
+      setStudents(data.students || []);
+    } catch {
+      showToast("error", "Failed to load students.");
+    } finally {
+      setStudentLoading(false);
+    }
+  };
+
+  const handleStudentAction = async (id: string, action: "approved" | "rejected") => {
+    setStudentActionId(id + action);
+    try {
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast("error", data.message); return; }
+      showToast("success", data.message);
+      await fetchStudents();
+    } catch {
+      showToast("error", "Action failed.");
+    } finally {
+      setStudentActionId(null);
+    }
+  };
+
+  const handleAction = async (id: string, action: "approve" | "reject" | "toggleStatus") => {
     setActionLoading(id + action);
     try {
       const res = await fetch(`/api/admin/applications/${id}`, {
@@ -212,7 +265,7 @@ export default function AdminPanelPage() {
       if (action === "approve" && data.tpCode) {
         showToast("success", `✅ Approved! TP Code: ${data.tpCode} | Default PW: ${data.defaultPassword}`);
       } else {
-        showToast(action === "approve" ? "success" : "error", data.message);
+        showToast(action === "reject" ? "error" : "success", data.message);
       }
       await fetchApplications();
     } catch {
@@ -449,6 +502,7 @@ export default function AdminPanelPage() {
     centers: "Manage Centers",
     examRequests: "Exam Requests",
     settings: "Panel Settings",
+    students: "Manage Students",
   };
 
   const tabDesc: Record<Tab, string> = {
@@ -460,6 +514,7 @@ export default function AdminPanelPage() {
     centers: "View and manage status of approved ATC centers",
     examRequests: "Manage online/offline exam requests and results",
     settings: "System configurations and assets",
+    students: "Review and approve student registrations from all centers",
   };
 
   return (
@@ -505,6 +560,7 @@ export default function AdminPanelPage() {
               { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
               { id: "assignments" as Tab, icon: Layers, label: "Exam Assignments" },
               { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
+              { id: "students" as Tab, icon: Users, label: "Manage Students" },
               { id: "examRequests" as Tab, icon: Monitor, label: "Exam Requests" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
             ]).map((item) => (
@@ -853,8 +909,8 @@ export default function AdminPanelPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${app.status === "approved" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
-                                 {app.status === "approved" ? "ENABLED (ACTIVE)" : "DISABLED (BLOCKED)"}
+                               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${app.userStatus === "active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
+                                 {app.userStatus === "active" ? "ACTIVE / ENABLED" : "DISABLED / BLOCKED"}
                                </span>
                             </td>
                             <td className="px-6 py-4 text-right">
@@ -867,11 +923,11 @@ export default function AdminPanelPage() {
                                   Edit
                                 </button>
                                 <button
-                                  disabled={actionLoading === app._id + "toggle"}
-                                  onClick={() => handleAction(app._id, app.status === "approved" ? "reject" : "approve")}
-                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm transition active:scale-95 ${app.status === "approved" ? "bg-red-600 text-white hover:bg-red-700 shadow-red-100" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100"}`}
+                                  disabled={actionLoading === app._id + "toggleStatus"}
+                                  onClick={() => handleAction(app._id, "toggleStatus")}
+                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm transition active:scale-95 ${app.userStatus === "active" ? "bg-red-600 text-white hover:bg-red-700 shadow-red-100" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100"}`}
                                 >
-                                  {actionLoading === app._id + "toggle" ? "..." : (app.status === "approved" ? "Disable Center" : "Enable Center")}
+                                  {actionLoading === app._id + "toggleStatus" ? "..." : (app.userStatus === "active" ? "Disable Center" : "Enable Center")}
                                 </button>
                               </div>
                             </td>
@@ -1187,6 +1243,103 @@ export default function AdminPanelPage() {
                   <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 text-xs text-purple-800">
                     <strong>Tip:</strong> Upload a clear image of your signature with a transparent background (.png format) for best results when overlaid onto certificates or official documents.
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── MANAGE STUDENTS TAB ── */}
+            {tab === "students" && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
+                      <tr>
+                        <th className="px-6 py-4">REG NO / NAME</th>
+                        <th className="px-6 py-4">CENTER</th>
+                        <th className="px-6 py-4">COURSE</th>
+                        <th className="px-6 py-4">STATUS</th>
+                        <th className="px-6 py-4 text-right">ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {studentLoading ? (
+                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">Loading students...</td></tr>
+                      ) : students.length === 0 ? (
+                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">No students found.</td></tr>
+                      ) : (
+                        students.map((s) => (
+                          <Fragment key={s._id}>
+                            <tr className="hover:bg-slate-50 transition group">
+                              <td className="px-6 py-4">
+                                <p className="font-black text-slate-800 leading-none mb-1">{s.registrationNo || "PENDING"}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{s.name}</p>
+                              </td>
+                              <td className="px-6 py-4 text-slate-500 font-medium">{s.tpCode}</td>
+                              <td className="px-6 py-4 text-slate-500 font-medium">{s.course}</td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                  s.status === "approved" ? "bg-emerald-50 text-emerald-600" : 
+                                  s.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"
+                                }`}>
+                                  {s.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  {s.status === "pending" && (
+                                    <>
+                                      <button onClick={() => handleStudentAction(s._id, "approved")} disabled={!!studentActionId}
+                                        className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition">
+                                        Approve
+                                      </button>
+                                      <button onClick={() => handleStudentAction(s._id, "rejected")} disabled={!!studentActionId}
+                                        className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition">
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  <button onClick={() => setExpandedId(expandedId === s._id ? null : s._id)}
+                                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase hover:bg-slate-100 transition">
+                                    {expandedId === s._id ? "Close" : "Docs"}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {expandedId === s._id && (
+                              <tr className="bg-slate-50/50">
+                                <td colSpan={5} className="px-6 py-4">
+                                  <div className="flex flex-wrap gap-4">
+                                    {[
+                                      { label: "Photo", val: s.photo },
+                                      { label: "Signature", val: s.studentSignature },
+                                      { label: "Qualification", val: s.qualificationDoc },
+                                      { label: "Aadhar", val: s.aadharDoc },
+                                      { label: "Other Docs", val: s.otherDocs },
+                                    ].filter(d => d.val).map(d => (
+                                      <div key={d.label} className="flex flex-col gap-1">
+                                        <p className="text-[10px] font-black uppercase text-slate-400">{d.label}</p>
+                                        <div className="w-24 h-32 bg-white rounded-lg border border-slate-200 overflow-hidden relative group">
+                                          {d.val?.includes("image") ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={d.val} alt={d.label} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-blue-600">
+                                                <FileText className="w-8 h-8" />
+                                            </div>
+                                          )}
+                                          <a href={d.val} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 text-white text-[9px] font-bold transition">VIEW</a>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

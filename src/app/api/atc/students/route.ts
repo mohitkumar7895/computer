@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     };
 
     const photo = await toBase64(formData.get("photo"));
-    const idProof = await toBase64(formData.get("idProof"));
+    const otherDocs = await toBase64(formData.get("otherDocs"));
     const qualificationDoc = await toBase64(formData.get("qualificationDoc"));
     const aadharDoc = await toBase64(formData.get("aadharDoc"));
     const studentSignature = await toBase64(formData.get("studentSignature"));
@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       permanentAddress: String(formData.get("permanentAddress") || "N/A").trim(),
       course: String(formData.get("course") || "N/A").trim(),
       courseId: (formData.get("courseId") ? String(formData.get("courseId")) : undefined) as any,
+      courseType: String(formData.get("courseType") || "Regular").trim(),
       session: String(formData.get("session") || "").trim(),
       classRollNo: String(formData.get("classRollNo") || "").trim(),
       nationality: String(formData.get("nationality") || "Indian").trim(),
@@ -103,16 +104,16 @@ export async function POST(request: Request) {
       disabilityDetails: String(formData.get("disabilityDetails") || "").trim(),
       admissionFees: String(formData.get("admissionFees") || "0").trim(),
       highestQualification: String(formData.get("highestQualification") || "N/A").trim(),
-      qualificationDoc: await toBase64(formData.get("qualificationDoc")),
-      photo: await toBase64(formData.get("photo")),
-      idProof: await toBase64(formData.get("idProof")),
+      qualificationDoc: qualificationDoc,
+      photo: photo,
+      otherDocs: otherDocs,
       aadharNo: String(formData.get("aadharNo") || "").trim(),
-      aadharDoc: await toBase64(formData.get("aadharDoc")),
-      studentSignature: await toBase64(formData.get("studentSignature")),
+      aadharDoc: aadharDoc,
+      studentSignature: studentSignature,
       referredBy: String(formData.get("referredBy") || "").trim(),
       password: hashedPassword,
       examMode: String(formData.get("examMode") || "online").trim(),
-      status: "active"
+      status: "pending"
     };
 
     const student = await AtcStudent.create(studentData);

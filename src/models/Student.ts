@@ -17,6 +17,7 @@ export interface IStudent {
   permanentAddress: string;
   course: string; // or Schema.Types.ObjectId if referencing Course
   courseId?: mongoose.Types.ObjectId;
+  courseType?: "Regular" | "ODL" | "OL";
   session: string;
   classRollNo?: string;
   nationality: string;
@@ -33,9 +34,10 @@ export interface IStudent {
   aadharNo?: string;
   aadharDoc?: string;
   studentSignature?: string;
+  otherDocs?: string;
   referredBy?: string;
   password?: string; // hashed
-  status: "active" | "inactive";
+  status: "pending" | "approved" | "rejected";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,6 +59,7 @@ const StudentSchema = new Schema<IStudent>(
     permanentAddress: { type: String, required: true },
     course: { type: String, required: true },
     courseId: { type: Schema.Types.ObjectId, ref: "Course" },
+    courseType: { type: String, enum: ["Regular", "ODL", "OL"], default: "Regular" },
     session: { type: String, required: true },
     classRollNo: { type: String },
     nationality: { type: String, default: "Indian" },
@@ -73,9 +76,10 @@ const StudentSchema = new Schema<IStudent>(
     aadharNo: { type: String },
     aadharDoc: { type: String },
     studentSignature: { type: String },
+    otherDocs: { type: String },
     referredBy: { type: String },
     password: { type: String },
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
   },
   { timestamps: true }
 );

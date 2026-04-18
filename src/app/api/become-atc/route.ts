@@ -57,6 +57,41 @@ export async function POST(request: Request) {
       photoBase64 = `data:${photoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
     }
 
+    let logoBase64 = "";
+    const logoFile = formData.get("logo") as File | null;
+    if (logoFile && logoFile.size > 0) {
+      const buffer = await logoFile.arrayBuffer();
+      logoBase64 = `data:${logoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let sigBase64 = "";
+    const sigFile = formData.get("signature") as File | null;
+    if (sigFile && sigFile.size > 0) {
+      const buffer = await sigFile.arrayBuffer();
+      sigBase64 = `data:${sigFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let aadharBase64 = "";
+    const aadharFile = formData.get("aadharDoc") as File | null;
+    if (aadharFile && aadharFile.size > 0) {
+      const buffer = await aadharFile.arrayBuffer();
+      aadharBase64 = `data:${aadharFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let marksheetBase64 = "";
+    const marksheetFile = formData.get("marksheetDoc") as File | null;
+    if (marksheetFile && marksheetFile.size > 0) {
+      const buffer = await marksheetFile.arrayBuffer();
+      marksheetBase64 = `data:${marksheetFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let otherBase64 = "";
+    const otherFile = formData.get("otherDocs") as File | null;
+    if (otherFile && otherFile.size > 0) {
+      const buffer = await otherFile.arrayBuffer();
+      otherBase64 = `data:${otherFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
     let ssBase64 = "";
     const ssFile = formData.get("paymentScreenshot") as File | null;
     if (ssFile && ssFile.size > 0) {
@@ -92,6 +127,11 @@ export async function POST(request: Request) {
       professionalExperience: String(formData.get("professionalExperience") ?? ""),
       dob: String(formData.get("dob") ?? ""),
       photo: photoBase64,
+      logo: logoBase64,
+      signature: sigBase64,
+      aadharDoc: aadharBase64,
+      marksheetDoc: marksheetBase64,
+      otherDocs: otherBase64,
       paymentMode: String(formData.get("paymentMode") ?? ""),
       paymentScreenshot: ssBase64,
       instituteDocument: instDocBase64,

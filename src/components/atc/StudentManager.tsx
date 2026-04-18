@@ -204,9 +204,11 @@ export default function StudentManager() {
                         <td className="px-6 py-5 text-center">
                           <div className="flex flex-col">
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
-                              s.registrationNo ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-600 border border-amber-200"
+                              s.status === "approved" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : 
+                              s.status === "rejected" ? "bg-red-50 text-red-700 border border-red-200" :
+                              "bg-amber-50 text-amber-600 border border-amber-200"
                             }`}>
-                              {s.registrationNo ? "Enrolled" : "Draft"}
+                              {s.status === "approved" ? "Approved" : s.status === "rejected" ? "Rejected" : "Pending Approval"}
                             </span>
                             {s.examMode && (
                               <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase text-center">{s.examMode} Mode</span>
@@ -288,7 +290,7 @@ export default function StudentManager() {
                 </div>
                 <div><label className={labelCls}>Marital Status</label>
                   <select name="maritalStatus" className={inputCls}>
-                    <option value="">Select</option><option>Unmarried</option><option>Married</option>
+                    <option value="">Select</option><option>Married</option><option>Others</option>
                   </select>
                 </div>
                 <div>
@@ -323,6 +325,14 @@ export default function StudentManager() {
                     {availableCourses.map(c => (
                       <option key={c._id} value={c.name}>{c.name}</option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Course Type *</label>
+                  <select required name="courseType" className={inputCls}>
+                    <option value="Regular">Regular</option>
+                    <option value="ODL">ODL (Open Distance Learning)</option>
+                    <option value="OL">OL (Online Learning)</option>
                   </select>
                 </div>
                 <div>
@@ -405,11 +415,11 @@ export default function StudentManager() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
                  {[
-                  { label: "Student Photo", name: "photo", color: "bg-emerald-50 text-emerald-700" },
-                  { label: "Student Signature", name: "studentSignature", color: "bg-purple-50 text-purple-700" },
-                  { label: "Qualification Proof", name: "qualificationDoc", color: "bg-blue-50 text-blue-700" },
-                  { label: "Aadhar Card PDF/JPG", name: "aadharDoc", color: "bg-orange-50 text-orange-700" },
-                  { label: "Other ID Proof", name: "idProof", color: "bg-slate-100 text-slate-700" },
+                  { label: "Student Photo (jpg) *", name: "photo", color: "bg-emerald-50 text-emerald-700" },
+                  { label: "Student Signature (jpg) *", name: "studentSignature", color: "bg-purple-50 text-purple-700" },
+                  { label: "Qualification Proof (pdf) *", name: "qualificationDoc", color: "bg-blue-50 text-blue-700" },
+                  { label: "Aadhar Card PDF *", name: "aadharDoc", color: "bg-orange-50 text-orange-700" },
+                  { label: "Other Documents (pdf)", name: "otherDocs", color: "bg-slate-100 text-slate-700" },
                  ].map(doc => (
                   <div key={doc.name} className="group relative p-3 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 transition-all">
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-tighter group-hover:text-blue-500">{doc.label}</label>

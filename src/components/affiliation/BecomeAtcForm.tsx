@@ -91,6 +91,11 @@ const SelectWrapper = ({ children }: { children: React.ReactNode }) => (
 export default function BecomeAtcForm() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [logo, setLogo] = useState<File | null>(null);
+  const [signature, setSignature] = useState<File | null>(null);
+  const [aadharDoc, setAadharDoc] = useState<File | null>(null);
+  const [marksheetDoc, setMarksheetDoc] = useState<File | null>(null);
+  const [otherDocs, setOtherDocs] = useState<File | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -145,6 +150,9 @@ export default function BecomeAtcForm() {
     if (!form.educationQualification.trim()) r.push("Education qualification is required.");
     if (!form.professionalExperience.trim()) r.push("Professional experience is required.");
     if (!form.dob.trim()) r.push("Date of birth is required.");
+    if (!photo) r.push("Passport size photo is required.");
+    if (!signature) r.push("Signature is required.");
+    if (!aadharDoc) r.push("Aadhar card PDF is required.");
     if (!form.paymentMode) r.push("Please select payment mode.");
     if (form.paymentMode === "gpay") {
       if (!screenshot) r.push("Please upload a payment screenshot for verification.");
@@ -172,6 +180,11 @@ export default function BecomeAtcForm() {
         }
       });
       if (photo) payload.append("photo", photo);
+      if (logo) payload.append("logo", logo);
+      if (signature) payload.append("signature", signature);
+      if (aadharDoc) payload.append("aadharDoc", aadharDoc);
+      if (marksheetDoc) payload.append("marksheetDoc", marksheetDoc);
+      if (otherDocs) payload.append("otherDocs", otherDocs);
       if (screenshot) payload.append("paymentScreenshot", screenshot);
       if (instituteDocument) payload.append("instituteDocument", instituteDocument);
       payload.append("infrastructure", JSON.stringify(infra));
@@ -194,7 +207,8 @@ export default function BecomeAtcForm() {
 
   const onReset = () => {
     setForm(initialFormState); setInfra(emptyInfra);
-    setPhoto(null); setScreenshot(null); setInstituteDocument(null); setError(null); setReceiptData(null);
+    setPhoto(null); setLogo(null); setSignature(null); setAadharDoc(null); setMarksheetDoc(null); setOtherDocs(null);
+    setScreenshot(null); setInstituteDocument(null); setError(null); setReceiptData(null);
   };
 
   if (receiptData) {
@@ -264,12 +278,6 @@ export default function BecomeAtcForm() {
                 onChange={(e) => setField("trainingPartnerAddress", e.target.value)} />
             </div>
 
-            {/* Postal Address Office */}
-            <div className="sm:col-span-2">
-              <Label>Postal Address (Office) *</Label>
-              <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
-                onChange={(e) => setField("postalAddressOffice", e.target.value)} />
-            </div>
 
             {/* Tehsil */}
             <div>
@@ -327,6 +335,13 @@ export default function BecomeAtcForm() {
             <div>
               <Label>Country</Label>
               <input className={inputCls + " bg-slate-50 cursor-default"} value="INDIA" readOnly />
+            </div>
+
+            {/* Postal Address Office */}
+            <div className="sm:col-span-2">
+              <Label>Postal Address (Office) *</Label>
+              <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
+                onChange={(e) => setField("postalAddressOffice", e.target.value)} />
             </div>
 
             {/* Mobile */}
@@ -394,7 +409,7 @@ export default function BecomeAtcForm() {
         </SectionCard>
 
         {/* ── SECTION: Zones ──────────────────────────────────────── */}
-        <SectionCard icon={Layers} title="Zones (Select one or multiple)" subtitle="Select the zones you wish to operate in" color="#f59e0b">
+        <SectionCard icon={Layers} title="Zones (Select one or multiple)" subtitle="Select the zones for this center" color="#f59e0b">
           <div className="flex flex-wrap gap-3 pt-1">
             {["Software Zone", "Hardware Zone", "Vocational Zone", "Other"].map((z) => (
               <label key={z}
@@ -469,13 +484,68 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Photo (Optional)</Label>
+              <Label>Passport Size Photo *</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <Camera className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {photo ? photo.name : "Click to choose photo"}
                 </span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+
+            <div>
+              <Label>Logo (Optional)</Label>
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {logo ? logo.name : "Click to choose logo"}
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => setLogo(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+
+            <div>
+              <Label>Signature *</Label>
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {signature ? signature.name : "Click to choose signature"}
+                </span>
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+
+            <div>
+              <Label>Aadhar Card (PDF) *</Label>
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {aadharDoc ? aadharDoc.name : "Click to choose aadhar PDF"}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setAadharDoc(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+
+            <div>
+              <Label>Marksheet (Optional)</Label>
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {marksheetDoc ? marksheetDoc.name : "Click to choose marksheet PDF"}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setMarksheetDoc(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+
+            <div>
+              <Label>Other Docs (Optional)</Label>
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {otherDocs ? otherDocs.name : "Click to choose other docs PDF"}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setOtherDocs(e.target.files?.[0] ?? null)} />
               </label>
             </div>
           </div>

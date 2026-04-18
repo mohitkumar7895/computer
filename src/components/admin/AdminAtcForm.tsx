@@ -136,6 +136,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     }));
 
     setPhotoPreview(initialData.photo ?? null);
+    setLogoPreview(initialData.logo ?? null);
+    setSigPreview(initialData.signature ?? null);
+    setAadharPreview(initialData.aadharDoc ?? null);
+    setMarksheetPreview(initialData.marksheetDoc ?? null);
+    setOtherPreview(initialData.otherDocs ?? null);
     setScreenshotPreview(initialData.paymentScreenshot ?? null);
     setDocPreview(initialData.instituteDocument ?? null);
 
@@ -148,6 +153,17 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       setInfra(emptyInfra);
     }
   }, [mode, initialData]);
+
+  const [logo, setLogo] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [signature, setSignature] = useState<File | null>(null);
+  const [sigPreview, setSigPreview] = useState<string | null>(null);
+  const [aadharDoc, setAadharDoc] = useState<File | null>(null);
+  const [aadharPreview, setAadharPreview] = useState<string | null>(null);
+  const [marksheetDoc, setMarksheetDoc] = useState<File | null>(null);
+  const [marksheetPreview, setMarksheetPreview] = useState<string | null>(null);
+  const [otherDocs, setOtherDocs] = useState<File | null>(null);
+  const [otherPreview, setOtherPreview] = useState<string | null>(null);
 
   const [instituteDocument, setInstituteDocument] = useState<File | null>(null);
   const [docPreview, setDocPreview] = useState<string | null>(null);
@@ -199,6 +215,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (!form.educationQualification.trim()) r.push("Education qualification is required.");
     if (!form.professionalExperience.trim()) r.push("Professional experience is required.");
     if (!form.dob.trim()) r.push("Date of birth is required.");
+    if (!photo && !photoPreview) r.push("Passport size photo is required.");
+    if (!signature && !sigPreview) r.push("Signature is required.");
+    if (!aadharDoc && !aadharPreview) r.push("Aadhar card PDF is required.");
     if (!form.paymentMode) r.push("Please select payment mode.");
     return r;
   }, [form]);
@@ -239,14 +258,21 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       setInstituteDocument(null);
       setMessage(null);
       setPhotoPreview(initialData.photo ?? null);
+      setLogoPreview(initialData.logo ?? null);
+      setSigPreview(initialData.signature ?? null);
+      setAadharPreview(initialData.aadharDoc ?? null);
+      setMarksheetPreview(initialData.marksheetDoc ?? null);
+      setOtherPreview(initialData.otherDocs ?? null);
       setScreenshotPreview(initialData.paymentScreenshot ?? null);
       setDocPreview(initialData.instituteDocument ?? null);
       return;
     }
 
     setForm(initialFormState); setInfra(emptyInfra);
-    setPhoto(null); setScreenshot(null); setInstituteDocument(null); setMessage(null);
-    setPhotoPreview(null); setScreenshotPreview(null); setDocPreview(null);
+    setPhoto(null); setLogo(null); setSignature(null); setAadharDoc(null); setMarksheetDoc(null); setOtherDocs(null);
+    setScreenshot(null); setInstituteDocument(null); setMessage(null);
+    setPhotoPreview(null); setLogoPreview(null); setSigPreview(null); setAadharPreview(null); setMarksheetPreview(null); setOtherPreview(null);
+    setScreenshotPreview(null); setDocPreview(null);
   };
 
   const selectedFee = feeOptions.find((fee) => fee.value === form.processFee) ?? null;
@@ -269,6 +295,31 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         payload.append("photo", photo);
       } else if (photoPreview) {
         payload.append("existingPhoto", photoPreview);
+      }
+      if (logo) {
+        payload.append("logo", logo);
+      } else if (logoPreview) {
+        payload.append("existingLogo", logoPreview);
+      }
+      if (signature) {
+        payload.append("signature", signature);
+      } else if (sigPreview) {
+        payload.append("existingSignature", sigPreview);
+      }
+      if (aadharDoc) {
+        payload.append("aadharDoc", aadharDoc);
+      } else if (aadharPreview) {
+        payload.append("existingAadharDoc", aadharPreview);
+      }
+      if (marksheetDoc) {
+        payload.append("marksheetDoc", marksheetDoc);
+      } else if (marksheetPreview) {
+        payload.append("existingMarksheetDoc", marksheetPreview);
+      }
+      if (otherDocs) {
+        payload.append("otherDocs", otherDocs);
+      } else if (otherPreview) {
+        payload.append("existingOtherDocs", otherPreview);
       }
       if (screenshot) {
         payload.append("paymentScreenshot", screenshot);
@@ -343,11 +394,6 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               onChange={(e) => setField("trainingPartnerAddress", e.target.value)} />
           </div>
 
-          <div className="sm:col-span-2">
-            <Label>Postal Address (Office) *</Label>
-            <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
-              onChange={(e) => setField("postalAddressOffice", e.target.value)} />
-          </div>
 
           <div>
             <Label>Tehsil / Taluka Name *</Label>
@@ -398,6 +444,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           <div>
             <Label>Country</Label>
             <input className={inputCls + " bg-slate-50 cursor-default"} value="INDIA" readOnly />
+          </div>
+
+          <div className="sm:col-span-2">
+            <Label>Postal Address (Office) *</Label>
+            <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
+              onChange={(e) => setField("postalAddressOffice", e.target.value)} />
           </div>
 
           <div>
@@ -536,14 +588,75 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Photo (Optional)</Label>
+            <Label>Passport Size Photo *</Label>
             <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
               <Camera className="w-4 h-4 text-slate-400 shrink-0" />
               <span className="text-sm text-slate-500 truncate">
-                {photo ? photo.name : "Click to choose photo"}
+                {photo ? photo.name : photoPreview ? "Photo Uploaded" : "Click to choose photo"}
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
             </label>
+            {photoPreview && !photo && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Photo present</p>}
+          </div>
+
+          <div>
+            <Label>Logo (Optional)</Label>
+            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500 truncate">
+                {logo ? logo.name : logoPreview ? "Logo Uploaded" : "Click to choose logo"}
+              </span>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => setLogo(e.target.files?.[0] ?? null)} />
+            </label>
+            {logoPreview && !logo && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Logo present</p>}
+          </div>
+
+          <div>
+            <Label>Signature *</Label>
+            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500 truncate">
+                {signature ? signature.name : sigPreview ? "Signature Uploaded" : "Click to choose signature"}
+              </span>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
+            </label>
+            {sigPreview && !signature && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Signature present</p>}
+          </div>
+
+          <div>
+            <Label>Aadhar Card (PDF) *</Label>
+            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500 truncate">
+                {aadharDoc ? aadharDoc.name : aadharPreview ? "Aadhar Uploaded" : "Click to choose aadhar PDF"}
+              </span>
+              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setAadharDoc(e.target.files?.[0] ?? null)} />
+            </label>
+            {aadharPreview && !aadharDoc && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Aadhar present</p>}
+          </div>
+
+          <div>
+            <Label>Marksheet (Optional)</Label>
+            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500 truncate">
+                {marksheetDoc ? marksheetDoc.name : marksheetPreview ? "Marksheet Uploaded" : "Click to choose marksheet PDF"}
+              </span>
+              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setMarksheetDoc(e.target.files?.[0] ?? null)} />
+            </label>
+            {marksheetPreview && !marksheetDoc && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Marksheet present</p>}
+          </div>
+
+          <div>
+            <Label>Other Docs (Optional)</Label>
+            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500 truncate">
+                {otherDocs ? otherDocs.name : otherPreview ? "Other Docs Uploaded" : "Click to choose other docs PDF"}
+              </span>
+              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setOtherDocs(e.target.files?.[0] ?? null)} />
+            </label>
+            {otherPreview && !otherDocs && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Docs present</p>}
           </div>
         </div>
       </SectionCard>

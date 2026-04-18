@@ -100,19 +100,30 @@ export async function PATCH(
 
       const zones = JSON.parse(String(formData.get("zones") ?? "[]"));
       const infraString = String(formData.get("infrastructure") ?? application.infrastructure ?? "{}");
-      const photoFile = formData.get("photo") as File | null;
-      const ssFile = formData.get("paymentScreenshot") as File | null;
-      const docFile = formData.get("instituteDocument") as File | null;
-
+      
       const toBase64 = async (file: File | null) => {
         if (!file || file.size === 0) return "";
         const buffer = await file.arrayBuffer();
         return `data:${file.type};base64,${Buffer.from(buffer).toString("base64")}`;
       };
 
+      const photoFile = formData.get("photo") as File | null;
+      const ssFile = formData.get("paymentScreenshot") as File | null;
+      const docFile = formData.get("instituteDocument") as File | null;
+      const logoFile = formData.get("logo") as File | null;
+      const sigFile = formData.get("signature") as File | null;
+      const aadharFile = formData.get("aadharDoc") as File | null;
+      const marksheetFile = formData.get("marksheetDoc") as File | null;
+      const otherFile = formData.get("otherDocs") as File | null;
+
       const photoBase64 = photoFile ? await toBase64(photoFile) : String(formData.get("existingPhoto") ?? application.photo ?? "");
       const ssBase64 = ssFile ? await toBase64(ssFile) : String(formData.get("existingPaymentScreenshot") ?? application.paymentScreenshot ?? "");
       const docBase64 = docFile ? await toBase64(docFile) : String(formData.get("existingInstituteDocument") ?? application.instituteDocument ?? "");
+      const logoBase64 = logoFile ? await toBase64(logoFile) : String(formData.get("existingLogo") ?? application.logo ?? "");
+      const sigBase64 = sigFile ? await toBase64(sigFile) : String(formData.get("existingSignature") ?? application.signature ?? "");
+      const aadharBase64 = aadharFile ? await toBase64(aadharFile) : String(formData.get("existingAadharDoc") ?? application.aadharDoc ?? "");
+      const marksheetBase64 = marksheetFile ? await toBase64(marksheetFile) : String(formData.get("existingMarksheetDoc") ?? application.marksheetDoc ?? "");
+      const otherBase64 = otherFile ? await toBase64(otherFile) : String(formData.get("existingOtherDocs") ?? application.otherDocs ?? "");
 
       application.processFee = updatedValues.processFee;
       application.trainingPartnerName = updatedValues.trainingPartnerName;
@@ -134,6 +145,11 @@ export async function PATCH(
       application.professionalExperience = updatedValues.professionalExperience;
       application.dob = updatedValues.dob;
       application.photo = photoBase64 || application.photo;
+      application.logo = logoBase64 || application.logo;
+      application.signature = sigBase64 || application.signature;
+      application.aadharDoc = aadharBase64 || application.aadharDoc;
+      application.marksheetDoc = marksheetBase64 || application.marksheetDoc;
+      application.otherDocs = otherBase64 || application.otherDocs;
       application.paymentMode = updatedValues.paymentMode;
       application.paymentScreenshot = ssBase64 || application.paymentScreenshot;
       application.instituteDocument = docBase64 || application.instituteDocument;
@@ -170,6 +186,14 @@ export async function PATCH(
       );
     }
 
+    if (body.action === "toggleStatus") {
+      const user = await AtcUser.findOne({ applicationId: id });
+      if (!user) return NextResponse.json({ message: "Center user not found." }, { status: 404 });
+      user.status = user.status === "active" ? "disabled" : "active";
+      await user.save();
+      return NextResponse.json({ message: `Center ${user.status === "active" ? "enabled" : "disabled"} successfully.`, status: user.status });
+    }
+
     if (body.action === "reject") {
       application.status = "rejected";
       await application.save();
@@ -201,6 +225,7 @@ export async function PATCH(
         mobile: application.mobile,
         password: hashedPassword,
         applicationId: application._id,
+        status: "active",
       });
     } else {
       tpCode = existingUser.tpCode;

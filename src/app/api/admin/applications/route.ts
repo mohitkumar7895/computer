@@ -33,23 +33,33 @@ export async function GET(request: Request) {
   await connectDB();
   const applications = await AtcApplication.find().sort({ createdAt: -1 }).lean();
 
-  // Get all ATC users to map tpCode
+  // Get all ATC users to map tpCode and status
   const { AtcUser } = await import("@/models/AtcUser");
-  const users = await AtcUser.find({}, "tpCode email applicationId").lean();
+  const users = await AtcUser.find({}, "tpCode email applicationId status").lean();
   
   const tpCodeMap = new Map();
   const emailMap = new Map();
+  const statusMap = new Map();
   
   users.forEach((u) => {
-    if (u.applicationId) tpCodeMap.set(u.applicationId.toString(), u.tpCode);
-    if (u.email) emailMap.set(u.email.trim().toLowerCase(), u.tpCode);
+    if (u.applicationId) {
+      tpCodeMap.set(u.applicationId.toString(), u.tpCode);
+      statusMap.set(u.applicationId.toString(), u.status);
+    }
+    if (u.email) {
+      const e = u.email.trim().toLowerCase();
+      emailMap.set(e, u.tpCode);
+      if (!u.applicationId) statusMap.set(e, u.status);
+    }
   });
 
   const enrichedApps = applications.map((app) => {
     const emailKey = (app.email || "").trim().toLowerCase();
+    const appStatus = statusMap.get(app._id.toString()) || statusMap.get(emailKey) || "active";
     return {
       ...app,
       tpCode: app.tpCode || tpCodeMap.get(app._id.toString()) || emailMap.get(emailKey) || null,
+      userStatus: appStatus,
     };
   });
 
@@ -98,6 +108,41 @@ export async function POST(request: Request) {
       photoBase64 = `data:${photoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
     }
 
+    let logoBase64 = "";
+    const logoFile = formData.get("logo") as File | null;
+    if (logoFile && logoFile.size > 0) {
+      const buffer = await logoFile.arrayBuffer();
+      logoBase64 = `data:${logoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let sigBase64 = "";
+    const sigFile = formData.get("signature") as File | null;
+    if (sigFile && sigFile.size > 0) {
+      const buffer = await sigFile.arrayBuffer();
+      sigBase64 = `data:${sigFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let aadharBase64 = "";
+    const aadharFile = formData.get("aadharDoc") as File | null;
+    if (aadharFile && aadharFile.size > 0) {
+      const buffer = await aadharFile.arrayBuffer();
+      aadharBase64 = `data:${aadharFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let marksheetBase64 = "";
+    const marksheetFile = formData.get("marksheetDoc") as File | null;
+    if (marksheetFile && marksheetFile.size > 0) {
+      const buffer = await marksheetFile.arrayBuffer();
+      marksheetBase64 = `data:${marksheetFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
+    let otherBase64 = "";
+    const otherFile = formData.get("otherDocs") as File | null;
+    if (otherFile && otherFile.size > 0) {
+      const buffer = await otherFile.arrayBuffer();
+      otherBase64 = `data:${otherFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
     let ssBase64 = "";
     const ssFile = formData.get("paymentScreenshot") as File | null;
     if (ssFile && ssFile.size > 0) {
@@ -133,6 +178,11 @@ export async function POST(request: Request) {
       professionalExperience: String(formData.get("professionalExperience") ?? ""),
       dob: String(formData.get("dob") ?? ""),
       photo: photoBase64,
+      logo: logoBase64,
+      signature: sigBase64,
+      aadharDoc: aadharBase64,
+      marksheetDoc: marksheetBase64,
+      otherDocs: otherBase64,
       paymentMode: String(formData.get("paymentMode") ?? ""),
       paymentScreenshot: ssBase64,
       instituteDocument: instDocBase64,
@@ -175,6 +225,7 @@ export async function POST(request: Request) {
         mobile: application.mobile,
         password: hashedPassword,
         applicationId: application._id,
+        status: "active",
       });
 
       // Save tpCode back to application

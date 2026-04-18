@@ -22,6 +22,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Invalid TP Code or password." }, { status: 401 });
     }
 
+    if (user.status === "disabled") {
+      return NextResponse.json({ message: "Your center is disabled. Please contact the administrator." }, { status: 403 });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return NextResponse.json({ message: "Invalid TP Code or password." }, { status: 401 });
