@@ -12,6 +12,7 @@ interface Student {
   course: string;
   status: string;
   createdAt: string;
+  admissionDate: string;
   photo?: string;
   examMode?: string;
 }
@@ -33,7 +34,7 @@ export default function StudentManager() {
   const [disability, setDisability] = useState("No");
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", courseType: "Regular" });
+  const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", courseType: "Regular", admissionDate: "" });
   const [updating, setUpdating] = useState(false);
 
   const fetchStudents = async () => {
@@ -200,7 +201,9 @@ export default function StudentManager() {
                             <span className="font-bold text-emerald-700">{s.course}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-5 text-slate-500 font-medium">{new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                        <td className="px-6 py-5 text-slate-500 font-medium">
+                          {s.admissionDate ? new Date(s.admissionDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                        </td>
                         <td className="px-6 py-5 text-center">
                           <div className="flex flex-col">
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
@@ -229,7 +232,8 @@ export default function StudentManager() {
                                   fatherName: s.fatherName,
                                   mobile: s.mobile,
                                   course: s.course,
-                                  courseType: (s as any).courseType || "Regular"
+                                  courseType: (s as any).courseType || "Regular",
+                                  admissionDate: s.admissionDate || ""
                                 });
                               }}
                               className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
@@ -344,6 +348,10 @@ export default function StudentManager() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                     <input required name="admissionFees" className={inputCls + " pl-8 text-green-700 font-bold"} placeholder="Amount" />
                   </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Admission Date *</label>
+                  <input required type="date" name="admissionDate" className={inputCls} defaultValue={new Date().toISOString().split('T')[0]} />
                 </div>
               </div>
             </div>
@@ -508,9 +516,19 @@ export default function StudentManager() {
                        {availableCourses.map(c => (
                          <option key={c._id} value={c.name}>{c.name}</option>
                        ))}
-                    </select>
-                 </div>
-              </div>
+                     </select>
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className={labelCls}>Admission Date</label>
+                     <input 
+                       type="date"
+                       value={editForm.admissionDate}
+                       onChange={e => setEditForm({...editForm, admissionDate: e.target.value})}
+                       className={inputCls}
+                       required
+                     />
+                  </div>
+               </div>
               <div className="grid grid-cols-2 gap-4 pt-4">
                  <button 
                    type="button" 

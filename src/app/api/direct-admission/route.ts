@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     "pin",
     "dob",
     "gender",
+    "admissionDate",
   ];
 
   for (const field of requiredFields) {

@@ -16,6 +16,7 @@ type FormState = {
   pin: string;
   dob: string;
   gender: string;
+  admissionDate: string;
 };
 
 const initialState: FormState = {
@@ -31,6 +32,7 @@ const initialState: FormState = {
   pin: "",
   dob: "",
   gender: "",
+  admissionDate: new Date().toISOString().split('T')[0],
 };
 
 export default function DirectAdmissionForm() {
@@ -58,6 +60,7 @@ export default function DirectAdmissionForm() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Please enter a valid email.";
     if (!form.dob) return "Date of birth is required.";
     if (!form.gender) return "Please select gender.";
+    if (!form.admissionDate) return "Admission date is required.";
     return null;
   };
 
@@ -177,6 +180,7 @@ export default function DirectAdmissionForm() {
               <option value="Tally">Tally</option>
             </select>
             <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Course Fees" />
+            <input className="border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Admission Date *" type="date" value={form.admissionDate} onChange={(e) => setField("admissionDate", e.target.value)} />
           </div>
           <div className="grid gap-2 md:grid-cols-4">
             <select className="border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">

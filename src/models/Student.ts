@@ -36,6 +36,7 @@ export interface IStudent {
   studentSignature?: string;
   otherDocs?: string;
   referredBy?: string;
+  admissionDate: string;
   password?: string; // hashed
   status: "pending" | "approved" | "rejected";
   createdAt: Date;
@@ -69,6 +70,7 @@ const StudentSchema = new Schema<IStudent>(
     disability: { type: Boolean, default: false },
     disabilityDetails: { type: String },
     admissionFees: { type: String, required: true },
+    admissionDate: { type: String, required: true },
     highestQualification: { type: String, required: true },
     qualificationDoc: { type: String },
     photo: { type: String },

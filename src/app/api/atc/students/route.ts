@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     // Validate required fields
-    const reqFields = ["name", "fatherName", "motherName", "dob", "gender", "mobile", "currentAddress", "permanentAddress", "course", "highestQualification", "session", "category", "admissionFees"];
+    const reqFields = ["name", "fatherName", "motherName", "dob", "gender", "mobile", "currentAddress", "permanentAddress", "course", "highestQualification", "session", "category", "admissionFees", "admissionDate"];
     for (const f of reqFields) {
       if (!formData.get(f)) return NextResponse.json({ message: `Missing required field: ${f}` }, { status: 400 });
     }
@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       disability: formData.get("disability") === "Yes",
       disabilityDetails: String(formData.get("disabilityDetails") || "").trim(),
       admissionFees: String(formData.get("admissionFees") || "0").trim(),
+      admissionDate: String(formData.get("admissionDate") || "").trim(),
       highestQualification: String(formData.get("highestQualification") || "N/A").trim(),
       qualificationDoc: qualificationDoc,
       photo: photo,
