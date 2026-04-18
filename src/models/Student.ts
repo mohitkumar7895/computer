@@ -38,7 +38,7 @@ export interface IStudent {
   referredBy?: string;
   admissionDate: string;
   password?: string; // hashed
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "active";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,7 +81,7 @@ const StudentSchema = new Schema<IStudent>(
     otherDocs: { type: String },
     referredBy: { type: String },
     password: { type: String },
-    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    status: { type: String, enum: ["pending", "approved", "rejected", "active"], default: "pending" },
   },
   { timestamps: true }
 );
