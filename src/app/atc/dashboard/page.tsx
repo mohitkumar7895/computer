@@ -9,6 +9,7 @@ import {
 import StudentManager from "@/components/atc/StudentManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
+import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
 interface AtcUser {
   id: string;
@@ -23,7 +24,7 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets" | "materials">("dashboard");
   const [stats, setStats] = useState({ total: 0, active: 0, completing: 0, pending: 0 });
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -170,6 +171,12 @@ export default function AtcDashboardPage() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "exams" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <Monitor className="w-4 h-4" /> Exam Requests
+          </button>
+          <button
+            onClick={() => { setTab("materials"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "materials" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+          >
+            <FileText className="w-4 h-4" /> Study Materials
           </button>
           <button
             onClick={() => { setTab("examSets"); setIsSidebarOpen(false); }}
@@ -427,6 +434,10 @@ export default function AtcDashboardPage() {
 
           {tab === "examSets" && (
             <ExamSetManager role="atc" />
+          )}
+
+          {tab === "materials" && (
+            <StudyMaterialManager role="atc" />
           )}
         </div>
       </main>

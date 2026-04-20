@@ -10,12 +10,13 @@ import {
   Menu, XCircle, Bell, ChevronRight, Share2, ReceiptText
 } from "lucide-react";
 import ExamManager from "@/components/student/ExamManager";
+import StudentStudyMaterial from "@/components/student/StudentStudyMaterial";
 
 export default function StudentDashboardPage() {
   const router = useRouter();
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "idcard" | "profile">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "study" | "idcard" | "profile">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function StudentDashboardPage() {
           <nav className="flex-1 space-y-2">
             <NavItem tab="dashboard" icon={LayoutDashboard} label="Dashboard" />
             <NavItem tab="exams" icon={Award} label="My Exams" />
+            <NavItem tab="study" icon={BookOpen} label="Study Center" />
             <NavItem tab="idcard" icon={CreditCard} label="Identity Card" />
             <NavItem tab="profile" icon={User} label="Academic Profile" />
           </nav>
@@ -234,6 +236,12 @@ export default function StudentDashboardPage() {
             {activeTab === "exams" && (
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <ExamManager student={student} />
+              </div>
+            )}
+
+            {activeTab === "study" && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <StudentStudyMaterial />
               </div>
             )}
 

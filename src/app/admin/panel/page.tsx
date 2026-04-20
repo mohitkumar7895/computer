@@ -84,7 +84,9 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "settings" | "students";
+import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
+
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "materials" | "settings" | "students";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -586,6 +588,7 @@ export default function AdminPanelPage() {
     assignments: "Exam Assignments",
     centers: "Manage Centers",
     examRequests: "Exam Requests",
+    materials: "Study Materials",
     settings: "Panel Settings",
     students: "Manage Students",
   };
@@ -598,6 +601,7 @@ export default function AdminPanelPage() {
     assignments: "Assign exam sets and schedule tests for approved centers",
     centers: "View and manage status of approved ATC centers",
     examRequests: "Manage online/offline exam requests and results",
+    materials: "Upload and manage course study resources",
     settings: "System configurations and assets",
     students: "Review and approve student registrations from all centers",
   };
@@ -643,9 +647,10 @@ export default function AdminPanelPage() {
               { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
               { id: "students" as Tab, icon: Users, label: "Manage Students" },
               { id: "examRequests" as Tab, icon: Layers, label: "Exam Requests" },
-              { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
               { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
               { id: "assignments" as Tab, icon: FileText, label: "Exam Assignments" },
+              { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
+              { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
             ]).map((item) => (
               <button
@@ -1171,6 +1176,9 @@ export default function AdminPanelPage() {
 
             {/* ── EXAM REQUESTS TAB ── */}
             {tab === "examRequests" && <ExamRequestManager />}
+
+            {/* ── STUDY MATERIALS TAB ── */}
+            {tab === "materials" && <StudyMaterialManager role="admin" />}
 
             {/* ── SETTINGS TAB ── */}
             {tab === "settings" && (
