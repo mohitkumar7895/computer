@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2, LayoutDashboard, LogOut, CheckCircle,
-  Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen
+  Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText
 } from "lucide-react";
 import StudentManager from "@/components/atc/StudentManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";

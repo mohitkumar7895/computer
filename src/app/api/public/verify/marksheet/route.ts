@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
+import { connectDB as dbConnect } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/AtcStudent";
 import { StudentExam } from "@/models/StudentExam";
 
