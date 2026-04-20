@@ -38,8 +38,11 @@ export default function StudentManager() {
   const [disability, setDisability] = useState("No");
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [requestExamStudent, setRequestExamStudent] = useState<Student | null>(null);
+  const [examReqForm, setExamReqForm] = useState({ examMode: "online", preferredDate: "", preferredCenter: "" });
   const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", courseType: "Regular", admissionDate: "" });
   const [updating, setUpdating] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -116,6 +119,37 @@ export default function StudentManager() {
       setMsg({ type: "error", text: "Update failed" });
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleRequestExam = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!requestExamStudent) return;
+    setRequesting(true);
+    try {
+      const res = await fetch("/api/atc/exams/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          studentId: requestExamStudent._id, 
+          examMode: examReqForm.examMode,
+          offlineDetails: examReqForm.examMode === 'offline' ? {
+            preferredDate: examReqForm.preferredDate,
+            preferredCenter: examReqForm.preferredCenter
+          } : undefined
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMsg({ type: "success", text: "Exam request submitted successfully" });
+        setRequestExamStudent(null);
+      } else {
+        setMsg({ type: "error", text: data.message || "Request failed" });
+      }
+    } catch {
+      setMsg({ type: "error", text: "Something went wrong" });
+    } finally {
+      setRequesting(false);
     }
   };
 
@@ -251,7 +285,18 @@ export default function StudentManager() {
                                  Edit Admission
                               </button>
                              ) : (
-                                <span className="text-[10px] font-black uppercase text-slate-300 italic">Registered</span>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-[10px] font-black uppercase text-slate-300 italic">Registered</span>
+                                  <button 
+                                    onClick={() => {
+                                      setRequestExamStudent(s);
+                                      setExamReqForm({ ...examReqForm, examMode: s.examMode || 'online' });
+                                    }}
+                                    className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-800 underline underline-offset-4 decoration-2"
+                                  >
+                                    Request Exam
+                                  </button>
+                                </div>
                              )}
                           </div>
                         </td>
@@ -563,6 +608,91 @@ export default function StudentManager() {
                    className="py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 transition shadow-lg shadow-blue-100 disabled:opacity-50"
                  >
                    {updating ? "UPDATING..." : "SAVE CHANGES"}
+                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Exam Request Modal */}
+      {requestExamStudent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-white" />
+                 </div>
+                 Request Examination
+              </h3>
+              <button onClick={() => setRequestExamStudent(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                 <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleRequestExam} className="p-8 space-y-6">
+              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3">
+                <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
+                <p className="text-xs font-bold text-blue-800 leading-tight">
+                  Student: {requestExamStudent.name}<br/>
+                  Course: {requestExamStudent.course}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                 <div className="space-y-1.5">
+                    <label className={labelCls}>Exam Mode</label>
+                    <select 
+                      value={examReqForm.examMode}
+                      onChange={e => setExamReqForm({...examReqForm, examMode: e.target.value})}
+                      className={inputCls}
+                      required
+                    >
+                       <option value="online">Online Exam</option>
+                       <option value="offline">Offline Exam (Center Based)</option>
+                    </select>
+                 </div>
+
+                 {examReqForm.examMode === 'offline' && (
+                   <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                      <div className="space-y-1.5">
+                         <label className={labelCls}>Preferred Date</label>
+                         <input 
+                           type="date"
+                           value={examReqForm.preferredDate}
+                           onChange={e => setExamReqForm({...examReqForm, preferredDate: e.target.value})}
+                           className={inputCls}
+                           required
+                         />
+                      </div>
+                      <div className="space-y-1.5">
+                         <label className={labelCls}>Preferred Center / Location</label>
+                         <input 
+                           value={examReqForm.preferredCenter}
+                           onChange={e => setExamReqForm({...examReqForm, preferredCenter: e.target.value})}
+                           className={inputCls}
+                           placeholder="Enter center name or location"
+                           required
+                         />
+                      </div>
+                   </div>
+                 )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                 <button 
+                   type="button" 
+                   onClick={() => setRequestExamStudent(null)}
+                   className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                   type="submit" 
+                   disabled={requesting}
+                   className="py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-emerald-700 transition shadow-lg shadow-emerald-100 disabled:opacity-50"
+                 >
+                   {requesting ? "SUBMITTING..." : "SUBMIT REQUEST"}
                  </button>
               </div>
             </form>

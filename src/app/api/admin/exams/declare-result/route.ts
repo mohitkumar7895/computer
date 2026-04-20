@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
+import { AtcStudent } from "@/models/Student";
 
 export async function POST(request: Request) {
   try {
@@ -13,19 +14,34 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const updatedExam = await StudentExam.findByIdAndUpdate(
-      examId,
-      { $set: { resultDeclared: resultDeclared ?? true } },
-      { new: true }
-    );
-
-    if (!updatedExam) {
+    const exam = await StudentExam.findById(examId);
+    if (!exam) {
       return NextResponse.json({ message: "Exam record not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ message: "Result status updated.", exam: updatedExam });
-  } catch (error) {
+    // Update Exam record
+    exam.resultDeclared = resultDeclared ?? true;
+    if (exam.resultDeclared) {
+      exam.status = "completed";
+      exam.submittedAt = exam.submittedAt || new Date();
+      if (exam.examMode === "offline") {
+        exam.offlineExamStatus = "published";
+      }
+    }
+
+    await exam.save();
+
+    // Sync to AtcStudent profile
+    await AtcStudent.findByIdAndUpdate(exam.studentId, {
+      offlineExamStatus: exam.offlineExamStatus,
+      offlineExamMarks: exam.totalScore.toString(),
+      offlineExamResult: exam.offlineExamResult,
+      offlineExamCopy: exam.offlineExamCopy
+    });
+
+    return NextResponse.json({ message: "Result declared and synced successfully.", exam });
+  } catch (error: any) {
     console.error("[admin/exams/declare-result POST]", error);
-    return NextResponse.json({ message: "Internal server error." }, { status: 500 });
+    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
   }
 }

@@ -135,6 +135,27 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
     setShowApproveModal(true);
   };
 
+  const handleApproveResult = async (examId: string) => {
+    setActionLoading(examId);
+    try {
+      const res = await fetch("/api/admin/exams/declare-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId, resultDeclared: true })
+      });
+      if (res.ok) {
+        fetchRequests();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Approval failed");
+      }
+    } catch (err) {
+      alert("Error approving result");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const openResultModal = (exam: any) => {
     setSelectedExam(exam);
     setResultForm({
@@ -254,14 +275,18 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                     <td className="px-6 py-4">
                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                          exam.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                         exam.offlineExamStatus === 'review_pending' ? 'bg-purple-100 text-purple-700' :
                          exam.approvalStatus === 'approved' ? 'bg-green-50 text-green-700' : 
                          exam.approvalStatus === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                        }`}>
                          {exam.status === 'completed' ? <CheckCircle size={12} /> : 
+                          exam.offlineExamStatus === 'review_pending' ? <Clock size={12} /> :
                           exam.approvalStatus === 'pending' ? <Clock size={12} /> : 
                           exam.approvalStatus === 'approved' ? <CheckCircle size={12} /> : 
                           <XCircle size={12} />}
-                         {exam.status === 'completed' ? 'COMPLETED' : exam.approvalStatus}
+                         {exam.status === 'completed' ? 'COMPLETED' : 
+                          exam.offlineExamStatus === 'review_pending' ? 'REVIEW PENDING' :
+                          exam.approvalStatus}
                        </span>
                        {exam.offlineExamStatus === 'published' && (
                          <div className="mt-2 font-black text-slate-800 text-[10px] bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
@@ -294,23 +319,36 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                             </button>
                           </>
                         )}
-                        {exam.approvalStatus === 'approved' && !exam.admitCardReleased && (
+                        {exam.approvalStatus === 'approved' && (
                            <button 
                             onClick={() => openApproveModal(exam)}
                             disabled={actionLoading === exam._id}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition shadow-sm"
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
                           >
-                            Set Date & Release
+                            {exam.admitCardReleased ? 'Edit Schedule' : 'Set Date & Release'}
                           </button>
                         )}
                         
                         {exam.examMode === 'offline' && exam.approvalStatus === 'approved' && (
                            <button 
                              onClick={() => openResultModal(exam)}
-                             className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-orange-700 transition shadow-sm whitespace-nowrap"
+                             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition shadow-sm whitespace-nowrap ${
+                               exam.offlineExamStatus === 'review_pending' ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-orange-600 text-white hover:bg-orange-700'
+                             }`}
                            >
-                             Offline Result
+                             {exam.offlineExamStatus === 'review_pending' ? 'Edit Result' : 'Offline Result'}
                            </button>
+                        )}
+
+                        {exam.offlineExamStatus === 'review_pending' && (
+                          <button 
+                             onClick={() => handleApproveResult(exam._id)}
+                             disabled={actionLoading === exam._id}
+                             className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-emerald-700 transition shadow-sm whitespace-nowrap flex items-center gap-1"
+                          >
+                            {actionLoading === exam._id ? <RefreshCw className="w-3 h-3 animate-spin"/> : <CheckCircle className="w-3 h-3" />}
+                            Approve Result
+                          </button>
                         )}
 
                         <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">

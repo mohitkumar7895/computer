@@ -37,6 +37,16 @@ export const NAV_LINKS: NavLink[] = [
   },
   { label: "COURSES OFFERED", href: "/courses-offered" },
   {
+    label: "VERIFICATION",
+    href: "#",
+    children: [
+      { label: "Student Verification", href: "/verification/student" },
+      { label: "ATC Verification", href: "/verification/atc" },
+      { label: "Certificate Verification", href: "/verification/certificate" },
+      { label: "Marksheet Verification", href: "/verification/marksheet" },
+    ],
+  },
+  {
     label: "AFFILIATION PROCESS",
     href: "/affiliation-process",
     children: [

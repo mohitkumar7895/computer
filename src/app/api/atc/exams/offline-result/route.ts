@@ -47,22 +47,26 @@ export async function POST(request: Request) {
     // Update StudentExam record
     const totalScore = parseInt(totalScoreStr) || 0;
     
-    exam.offlineExamStatus = offlineExamStatus as any;
+    // ATC can only submit for review or as 'appeared'
+    // If they were trying to 'publish', we set it to 'review_pending'
+    const finalStatus = offlineExamStatus === "published" ? "review_pending" : offlineExamStatus;
+    
+    exam.offlineExamStatus = finalStatus as any;
     exam.offlineExamResult = offlineExamResult as any;
     exam.totalScore = totalScore;
     if (base64Copy) exam.offlineExamCopy = base64Copy;
     
-    if (offlineExamStatus === "published") {
-      exam.status = "completed";
-      exam.resultDeclared = true;
-      exam.submittedAt = new Date();
+    // We don't set status to completed here anymore if it's pending review
+    if (finalStatus === "review_pending") {
+      exam.status = "pending"; // Still pending until Admin approves result
+      exam.resultDeclared = false;
     }
 
     await exam.save();
 
     // Sync to AtcStudent profile
     await AtcStudent.findByIdAndUpdate(exam.studentId, {
-      offlineExamStatus,
+      offlineExamStatus: finalStatus,
       offlineExamMarks: totalScoreStr,
       offlineExamResult,
       offlineExamCopy: base64Copy || exam.offlineExamCopy

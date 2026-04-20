@@ -83,11 +83,11 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "applications" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "settings" | "students";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "settings" | "students";
 
 export default function AdminPanelPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("applications");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -236,6 +236,7 @@ export default function AdminPanelPage() {
 
   useEffect(() => { void fetchApplications(); }, [fetchApplications]);
   useEffect(() => { if (tab === "settings") void fetchSettings(); }, [tab, fetchSettings]);
+  useEffect(() => { if (tab === "dashboard") void fetchApplications(); }, [tab, fetchApplications]);
   useEffect(() => { if (tab === "students") void fetchStudents(); }, [tab]);
 
   const fetchStudents = async () => {
@@ -524,7 +525,7 @@ export default function AdminPanelPage() {
   };
 
   const tabLabel: Record<Tab, string> = {
-    applications: "ATC Applications",
+    dashboard: "Admin Dashboard",
     create: "Create ATC Application",
     courses: "Course Management",
     questionSets: "Exam Sets",
@@ -536,7 +537,7 @@ export default function AdminPanelPage() {
   };
 
   const tabDesc: Record<Tab, string> = {
-    applications: "Review and manage all submitted ATC applications",
+    dashboard: "Comprehensive overview of ATC applications and system metrics",
     create: "Manually create an ATC application as admin",
     courses: "Define and manage courses by zones",
     questionSets: "Build question sets and populate the exam bank",
@@ -584,14 +585,13 @@ export default function AdminPanelPage() {
 
           <nav className="flex-1 px-4 py-6 space-y-1">
             {([
-              { id: "applications" as Tab, icon: FileText, label: "Applications", badge: counts.pending },
-              { id: "create" as Tab, icon: PlusCircle, label: "Create ATC" },
-              { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
-              { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
-              { id: "assignments" as Tab, icon: Layers, label: "Exam Assignments" },
+              { id: "dashboard" as Tab, icon: Monitor, label: "Dashboard", badge: counts.pending },
               { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
               { id: "students" as Tab, icon: Users, label: "Manage Students" },
-              { id: "examRequests" as Tab, icon: Monitor, label: "Exam Requests" },
+              { id: "examRequests" as Tab, icon: Layers, label: "Exam Requests" },
+              { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
+              { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
+              { id: "assignments" as Tab, icon: FileText, label: "Exam Assignments" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
             ]).map((item) => (
               <button
@@ -642,8 +642,8 @@ export default function AdminPanelPage() {
           </header>
 
           <div className="flex-1 p-6">
-            {/* ── APPLICATIONS TAB ── */}
-            {tab === "applications" && (
+            {/* ── DASHBOARD TAB ── */}
+            {tab === "dashboard" && (
               <>
                 {/* Stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -890,7 +890,7 @@ export default function AdminPanelPage() {
                   onCancel={() => setPrefillApplication(null)}
                   onSuccess={() => {
                     setPrefillApplication(null);
-                    setTab("applications");
+                    setTab("dashboard");
                     void fetchApplications();
                   }}
                 />
@@ -908,7 +908,24 @@ export default function AdminPanelPage() {
 
             {/* ── MANAGE CENTERS TAB ── */}
             {tab === "centers" && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300 relative">
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                   <div>
+                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Active Centers</h4>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase">Manage all approved and registered ATCs</p>
+                   </div>
+                   <button 
+                     onClick={() => {
+                       setPrefillApplication(null); // Clear any edit state
+                       setTab("create");
+                     }}
+                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition shadow-lg shadow-blue-100"
+                   >
+                     <PlusCircle className="w-4 h-4" /> Add New ATC Center
+                   </button>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
@@ -1056,7 +1073,8 @@ export default function AdminPanelPage() {
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
             {/* ── EXAM REQUESTS TAB ── */}
             {tab === "examRequests" && <ExamRequestManager />}

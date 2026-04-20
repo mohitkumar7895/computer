@@ -11,13 +11,13 @@ type BreadcrumbItem = {
 
 type InternalPageLayoutProps = {
   title: string;
-  breadcrumbs: BreadcrumbItem[];
+  breadcrumbs?: BreadcrumbItem[];
   children: ReactNode;
 };
 
 export default function InternalPageLayout({
   title,
-  breadcrumbs,
+  breadcrumbs = [],
   children,
 }: InternalPageLayoutProps) {
   return (
