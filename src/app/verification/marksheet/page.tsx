@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import InternalPageLayout from "@/components/InternalPageLayout";
-import { Search, FileText, User, Calendar, BookOpen, CheckCircle2, XCircle, AlertCircle, TallyColumnVertical } from "lucide-react";
+import { Search, FileText, User, Calendar, BookOpen, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 
 export default function MarksheetVerification() {
   const [enrollment, setEnrollment] = useState("");

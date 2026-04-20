@@ -15,10 +15,11 @@ interface Student {
   admissionDate: string;
   photo?: string;
   examMode?: string;
-  offlineExamStatus?: "not_appeared" | "appeared" | "published";
+  offlineExamStatus?: "not_appeared" | "appeared" | "review_pending" | "published";
   offlineExamMarks?: string;
   offlineExamResult?: "Pass" | "Fail" | "Waiting";
   offlineExamCopy?: string;
+  session?: string;
 }
 
 interface Course {
@@ -333,19 +334,17 @@ export default function StudentManager() {
                                       if (!s.offlineExamStatus || s.offlineExamStatus === 'not_appeared') {
                                         // Allow direct entry or request
                                         setShowResultModal(s);
-                                        setResultForm({ 
-                                          marks: "", 
-                                          status: "appeared", 
-                                          resultStatus: "Waiting",
-                                          grade: "A",
-                                          session: s.session || "2024-25"
-                                        });
+                                         setResultForm({ 
+                                           marks: "", 
+                                           examStatus: "appeared", 
+                                           grade: "A",
+                                           session: s.session || "2024-25"
+                                         });
                                       } else {
                                         setShowResultModal(s);
                                         setResultForm({ 
                                           marks: s.offlineExamMarks || "",
-                                          status: s.offlineExamStatus as any,
-                                          resultStatus: (s as any).offlineExamResult || "Waiting",
+                                          examStatus: s.offlineExamStatus as any,
                                           grade: (s as any).grade || "A",
                                           session: s.session || "2024-25"
                                         });
