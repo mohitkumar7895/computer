@@ -38,7 +38,7 @@ export interface IStudent {
   userStatus: "active" | "disabled";
   
   // Offline Exam Tracking
-  offlineExamStatus: "not_appeared" | "appeared" | "published";
+  offlineExamStatus: "not_appeared" | "appeared" | "review_pending" | "published";
   offlineExamMarks: string;
   offlineExamResult: "Pass" | "Fail" | "Waiting";
   offlineExamCopy?: string; // PDF URL
@@ -89,7 +89,7 @@ const StudentSchema = new Schema<IStudent>(
     userStatus: { type: String, enum: ["active", "disabled"], default: "active" },
 
     // Offline Exam Tracking
-    offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "published"], default: "not_appeared" },
+    offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "review_pending", "published"], default: "not_appeared" },
     offlineExamMarks: { type: String, default: "" },
     offlineExamResult: { type: String, enum: ["Pass", "Fail", "Waiting"], default: "Waiting" },
     offlineExamCopy: { type: String, default: "" },

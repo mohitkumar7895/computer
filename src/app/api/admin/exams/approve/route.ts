@@ -30,6 +30,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Exam record not found." }, { status: 404 });
     }
 
+    // NEW: If offline exam is approved, update student status to 'appeared' so ATC can enter result
+    if (approvalStatus === "approved" && updatedExam.examMode === "offline") {
+      const { AtcStudent } = await import("@/models/Student");
+      await AtcStudent.findByIdAndUpdate(updatedExam.studentId, {
+        $set: { offlineExamStatus: "appeared" }
+      });
+    }
+
     return NextResponse.json({ message: "Exam request updated successfully.", exam: updatedExam });
   } catch (error) {
     console.error("[admin/exams/approve POST]", error);

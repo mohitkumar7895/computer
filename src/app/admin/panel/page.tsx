@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
 import CenterAssignmentManager from "@/components/admin/CenterAssignmentManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
-import { BookOpen } from "lucide-react";
 import {
   DEFAULT_FEE_OPTIONS,
   FeeOption,
@@ -87,7 +86,7 @@ const FEE_LABEL: Record<string, string> = {
 
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "materials" | "settings" | "students";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -117,6 +116,9 @@ export default function AdminPanelPage() {
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrSaving, setQrSaving] = useState(false);
+  const [bgLoading, setBgLoading] = useState(true);
+  const [bgs, setBgs] = useState({ id_front: "", id_back: "", certificate: "", marksheet: "" });
+  const [bgSaving, setBgSaving] = useState<string | null>(null);
 
   // Signature Settings
   const [sigPreview, setSigPreview] = useState<string | null>(null);
@@ -135,6 +137,9 @@ export default function AdminPanelPage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [pendingResults, setPendingResults] = useState<any[]>([]);
+  const [resultsLoading, setResultsLoading] = useState(false);
+
   const [studentEditValues, setStudentEditValues] = useState<any>({});
 
   const showToast = (type: "success" | "error", text: string) => {
@@ -156,6 +161,10 @@ export default function AdminPanelPage() {
     } finally {
       setLoading(false);
     }
+    fetch("/api/admin/settings/backgrounds").then(res => res.json()).then(data => {
+      setBgs(data);
+      setBgLoading(false);
+    });
   }, [router]);
 
   const openCenterEditor = (app: Application) => {
@@ -495,6 +504,45 @@ export default function AdminPanelPage() {
     showToast("success", "Signature removed.");
   };
 
+  const handleBgUpload = async (e: ChangeEvent<HTMLInputElement>, key: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBgSaving(key);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch("/api/admin/settings/backgrounds", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value: base64 })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setBgs(prev => ({ ...prev, [key]: base64 }));
+          showToast("success", `${key.replace('_', ' ').toUpperCase()} background updated.`);
+        } else {
+          showToast("error", data.message || "Upload failed");
+        }
+      } catch (err) { showToast("error", "Failed to save background"); }
+      finally { setBgSaving(null); }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBgRemove = async (key: string) => {
+    if (!confirm("Are you sure?")) return;
+    setBgSaving(key);
+    try {
+      const res = await fetch("/api/admin/settings/backgrounds?key=" + key, { method: "DELETE" });
+      if (res.ok) {
+        setBgs(prev => ({ ...prev, [key]: "" }));
+        showToast("success", "Background removed.");
+      }
+    } catch (err) { showToast("error", "Failed to remove background"); }
+    finally { setBgSaving(null); }
+  };
+
   const updateFeePlan = (index: number, field: keyof FeeOption, value: string) => {
     setFeePlans((prev) => prev.map((item, idx) => idx === index ? { ...item, [field]: value } : item));
   };
@@ -541,7 +589,34 @@ export default function AdminPanelPage() {
     }
   };
 
+  const fetchPendingResults = async () => {
+    setResultsLoading(true);
+    try {
+      const res = await fetch("/api/admin/exams/pending-results");
+      if (res.ok) {
+        const data = await res.json();
+        setPendingResults(data);
+      }
+    } catch { showToast("error", "Failed to fetch pending results"); }
+    finally { setResultsLoading(false); }
+  };
+
+  const handleResultApproval = async (examId: string, status: "published" | "appeared") => {
+    try {
+      const res = await fetch("/api/admin/exams/approve-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId, status })
+      });
+      if (res.ok) {
+        showToast("success", status === "published" ? "Result approved & documents generated!" : "Result rejected.");
+        void fetchPendingResults();
+      }
+    } catch { showToast("error", "Action failed"); }
+  };
+
   const handleLogout = async () => {
+
     await fetch("/api/admin/logout", { method: "POST" });
     router.push("/admin/login");
   };
@@ -607,6 +682,7 @@ export default function AdminPanelPage() {
     materials: "Study Materials",
     settings: "Panel Settings",
     students: "Manage Students",
+    resultReview: "Result Proposals",
   };
 
   const tabDesc: Record<Tab, string> = {
@@ -620,6 +696,7 @@ export default function AdminPanelPage() {
     materials: "Upload and manage course study resources",
     settings: "System configurations and assets",
     students: "Review and approve student registrations from all centers",
+    resultReview: "Verify and authorize student exam results for document generation",
   };
 
   return (
@@ -668,6 +745,7 @@ export default function AdminPanelPage() {
               { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
               { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
+              { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Result Proposals", badge: pendingResults.length },
             ]).map((item) => (
               <button
                 key={item.id}
@@ -1214,9 +1292,76 @@ export default function AdminPanelPage() {
             {/* ── STUDY MATERIALS TAB ── */}
             {tab === "materials" && <StudyMaterialManager role="admin" />}
 
+            {/* ── RESULT REVIEW TAB ── */}
+            {tab === "resultReview" && (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Result Approval Queue</h2>
+                    <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">Review and authorize student exam results submitted by centers</p>
+                  </div>
+                  <button onClick={fetchPendingResults} className="p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                    <RefreshCw className={`w-5 h-5 text-slate-400 ${resultsLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+
+                {resultsLoading ? (
+                  <div className="p-20 flex flex-col items-center gap-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="w-12 h-12 border-4 border-amber-100 border-t-amber-600 rounded-full animate-spin" />
+                    <p className="text-sm font-black text-slate-400 uppercase">Fetching pending reviews...</p>
+                  </div>
+                ) : pendingResults.length === 0 ? (
+                  <div className="p-20 flex flex-col items-center gap-4 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100">
+                      <CheckCircle className="w-8 h-8 text-slate-300" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-lg">Clean Queue</h3>
+                      <p className="text-slate-400 text-sm">All submitted results have been processed.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4">
+                    {pendingResults.map((res) => (
+                      <div key={res._id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center hover:border-amber-200 transition-all group">
+                         <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0">
+                            {res.studentId?.photo ? <img src={res.studentId.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-8 h-8 m-4 text-slate-300" />}
+                         </div>
+                         <div className="flex-grow space-y-1">
+                            <div className="flex items-center gap-3">
+                               <h4 className="font-bold text-slate-800 text-lg">{res.studentId?.name || "Unknown Student"}</h4>
+                               <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase border border-blue-100">{res.studentId?.registrationNo}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-slate-400 uppercase tracking-tight">
+                               <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {res.atcId?.centerName} ({res.atcId?.centerCode})</span>
+                               <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> {res.studentId?.course}</span>
+                               <span className="flex items-center gap-1.5 font-black text-amber-600 italic">Score: {res.totalScore} / 100</span>
+                            </div>
+                         </div>
+                         <div className="flex items-center gap-3 w-full md:w-auto">
+                            <button 
+                              onClick={() => handleResultApproval(res._id, "appeared")}
+                              className="flex-grow md:flex-none px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase hover:bg-red-50 hover:text-red-600 transition"
+                            >
+                              Reject
+                            </button>
+                            <button 
+                              onClick={() => handleResultApproval(res._id, "published")}
+                              className="flex-grow md:flex-none px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100"
+                            >
+                              Approve & Generate
+                            </button>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {/* ── SETTINGS TAB ── */}
             {tab === "settings" && (
               <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+
                 {/* QR Code Setting */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
                   <div className="flex items-center gap-3">
@@ -1280,6 +1425,63 @@ export default function AdminPanelPage() {
 
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
                     <strong>Tip:</strong> Upload your Google Pay UPI QR code image. Applicants will see this QR when they submit the Become ATC form, on their payment receipt.
+                  </div>
+                </div>
+
+                {/* Background Templates Setting */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-8 md:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                      <Layers className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">Background Templates (A4 Size)</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Upload high-quality A4 size background images for ID Cards, Certificates, and Marksheets.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[
+                      { id: "id_front", label: "ID Card (Front)" },
+                      { id: "id_back", label: "ID Card (Back)" },
+                      { id: "certificate", label: "Main Certificate" },
+                      { id: "marksheet", label: "Grade Marksheet" },
+                    ].map((item) => (
+                      <div key={item.id} className="space-y-4">
+                        <div className="aspect-[1/1.41] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
+                          {bgs[item.id as keyof typeof bgs] ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={bgs[item.id as keyof typeof bgs]} alt={item.label} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                <button onClick={() => handleBgRemove(item.id)} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center p-4">
+                              <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</p>
+                            </div>
+                          )}
+                          {bgSaving === item.id && (
+                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                              <RefreshCw className="w-6 h-6 text-purple-600 animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <label className="block">
+                          <span className="sr-only">Upload {item.label}</span>
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => handleBgUpload(e, item.id)}
+                            className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition cursor-pointer"
+                          />
+                        </label>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

@@ -15,23 +15,49 @@ export async function POST(request: Request) {
 
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     
-    const formData = await request.formData();
-    const examId = formData.get("examId") as string;
-    const offlineExamStatus = formData.get("offlineExamStatus") as string;
-    const totalScoreStr = formData.get("totalScore") as string;
-    const offlineExamResult = formData.get("offlineExamResult") as string;
-    const examCopyFile = formData.get("examCopy") as File | null;
+    let studentId, offlineExamStatus, totalScoreStr, offlineExamResult, examCopyFile, grade, session, examId;
 
-    if (!examId) {
-      return NextResponse.json({ message: "Exam ID is missing" }, { status: 400 });
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const body = await request.json();
+      studentId = body.studentId;
+      offlineExamStatus = body.offlineExamStatus;
+      totalScoreStr = body.totalScore;
+      offlineExamResult = body.offlineExamResult;
+      grade = body.grade;
+      session = body.session;
+    } else {
+      const formData = await request.formData();
+      examId = formData.get("examId") as string;
+      offlineExamStatus = formData.get("offlineExamStatus") as string;
+      totalScoreStr = formData.get("totalScore") as string;
+      offlineExamResult = formData.get("offlineExamResult") as string;
+      examCopyFile = formData.get("examCopy") as File | null;
+    }
+
+    if (!examId && !studentId) {
+      return NextResponse.json({ message: "Exam ID or Student ID is required" }, { status: 400 });
     }
 
     await connectDB();
 
     // Ensure the exam belongs to this ATC
-    const exam = await StudentExam.findOne({ _id: examId, atcId: decoded.id });
-    if (!exam) {
-      return NextResponse.json({ message: "Exam not found or unauthorized" }, { status: 404 });
+    let exam;
+    if (examId) {
+      exam = await StudentExam.findOne({ _id: examId, atcId: decoded.id });
+    } else if (studentId) {
+      // Find the most recent offline exam for this student
+      exam = await StudentExam.findOne({ studentId, atcId: decoded.id, examMode: "offline" }).sort({ createdAt: -1 });
+      
+      // If no offline exam record exists at all, CREATE one (Direct Entry mode)
+      if (!exam) {
+        exam = new StudentExam({
+          studentId,
+          atcId: decoded.id,
+          examMode: "offline",
+          approvalStatus: "approved", // Mark as approved by default for direct entry
+          status: "pending"
+        });
+      }
     }
 
     let base64Copy = undefined;
@@ -60,6 +86,9 @@ export async function POST(request: Request) {
     if (finalStatus === "review_pending") {
       exam.status = "pending"; // Still pending until Admin approves result
       exam.resultDeclared = false;
+      // Store additional info in exam metadata for admin approval
+      if (grade) exam.grade = grade;
+      if (session) exam.session = session;
     }
 
     await exam.save();

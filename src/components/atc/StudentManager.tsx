@@ -43,6 +43,14 @@ export default function StudentManager() {
   const [editForm, setEditForm] = useState({ name: "", fatherName: "", mobile: "", course: "", courseType: "Regular", admissionDate: "" });
   const [updating, setUpdating] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [showResultModal, setShowResultModal] = useState<Student | null>(null);
+  const [resultForm, setResultForm] = useState({ 
+    marks: "", 
+    grade: "A", 
+    session: "2024-25",
+    examStatus: "appeared" as const
+  });
+  const [resultSubmitting, setResultSubmitting] = useState(false);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -152,6 +160,39 @@ export default function StudentManager() {
       setRequesting(false);
     }
   };
+
+  const handleResultSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!showResultModal) return;
+    setResultSubmitting(true);
+    try {
+      const res = await fetch("/api/atc/exams/offline-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: showResultModal._id,
+          offlineExamStatus: "review_pending",
+          totalScore: resultForm.marks,
+          offlineExamResult: parseInt(resultForm.marks) >= 33 ? "Pass" : "Fail",
+          grade: resultForm.grade,
+          session: resultForm.session
+        })
+      });
+      if (res.ok) {
+        setMsg({ type: "success", text: "Result submitted for Admin review" });
+        setShowResultModal(null);
+        void fetchStudents();
+      } else {
+        const data = await res.json();
+        setMsg({ type: "error", text: data.message || "Submission failed" });
+      }
+    } catch {
+      setMsg({ type: "error", text: "Something went wrong" });
+    } finally {
+      setResultSubmitting(false);
+    }
+  };
+
 
   const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400";
   const labelCls = "block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5";
@@ -289,13 +330,43 @@ export default function StudentManager() {
                                   <span className="text-[10px] font-black uppercase text-slate-300 italic">Registered</span>
                                   <button 
                                     onClick={() => {
-                                      setRequestExamStudent(s);
-                                      setExamReqForm({ ...examReqForm, examMode: s.examMode || 'online' });
+                                      if (!s.offlineExamStatus || s.offlineExamStatus === 'not_appeared') {
+                                        // Allow direct entry or request
+                                        setShowResultModal(s);
+                                        setResultForm({ 
+                                          marks: "", 
+                                          status: "appeared", 
+                                          resultStatus: "Waiting",
+                                          grade: "A",
+                                          session: s.session || "2024-25"
+                                        });
+                                      } else {
+                                        setShowResultModal(s);
+                                        setResultForm({ 
+                                          marks: s.offlineExamMarks || "",
+                                          status: s.offlineExamStatus as any,
+                                          resultStatus: (s as any).offlineExamResult || "Waiting",
+                                          grade: (s as any).grade || "A",
+                                          session: s.session || "2024-25"
+                                        });
+                                      }
                                     }}
-                                    className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-800 underline underline-offset-4 decoration-2"
+                                    className="text-[10px] font-black uppercase underline underline-offset-4 decoration-2 text-emerald-600 hover:text-emerald-800"
                                   >
-                                    Request Exam
+                                    {(s.offlineExamStatus === 'review_pending' || s.offlineExamStatus === 'published') ? 'View/Edit Result' : 'Enter Result'}
                                   </button>
+                                  {(s.offlineExamStatus === 'not_appeared' || !s.offlineExamStatus) && (
+                                    <button 
+                                      onClick={() => {
+                                        setRequesting(false);
+                                        setRequestExamStudent(s);
+                                        setExamReqForm({ ...examReqForm, examMode: s.examMode || 'online' });
+                                      }}
+                                      className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800"
+                                    >
+                                      Request Schedule
+                                    </button>
+                                  )}
                                 </div>
                              )}
                           </div>
@@ -700,6 +771,98 @@ export default function StudentManager() {
         </div>
       )}
 
+      {/* Result Submission Modal */}
+      {showResultModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center text-white">
+                    <BookOpen className="w-4 h-4" />
+                 </div>
+                 Submit Exam Result
+              </h3>
+              <button onClick={() => setShowResultModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                 <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleResultSubmit} className="p-8 space-y-6">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 divide-y divide-slate-200">
+                <div className="pb-3 flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-tight">
+                  <span>Student</span>
+                  <span className="text-slate-800">{showResultModal.name}</span>
+                </div>
+                <div className="pt-3 flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-tight">
+                  <span>Registration No</span>
+                  <span className="text-slate-800">{showResultModal.registrationNo}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Marks Obtained *</label>
+                  <input 
+                    type="number"
+                    value={resultForm.marks}
+                    onChange={e => setResultForm({...resultForm, marks: e.target.value})}
+                    className={inputCls}
+                    placeholder="Out of 100"
+                    required
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Grade *</label>
+                  <select 
+                    value={resultForm.grade}
+                    onChange={e => setResultForm({...resultForm, grade: e.target.value})}
+                    className={inputCls}
+                    required
+                  >
+                    <option>A+</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={labelCls}>Academic Session *</label>
+                <input 
+                  value={resultForm.session}
+                  onChange={e => setResultForm({...resultForm, session: e.target.value})}
+                  className={inputCls}
+                  placeholder="e.g. 2024-25"
+                  required
+                />
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-2xl flex gap-3 border border-blue-100">
+                <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
+                <p className="text-[10px] font-bold text-blue-800 leading-tight">
+                  By submitting, you confirm that the result is accurate. It will be sent to the Head Office for final approval and document generation.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                 <button 
+                   type="button" 
+                   onClick={() => setShowResultModal(null)}
+                   className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                   type="submit" 
+                   disabled={resultSubmitting}
+                   className="py-4 bg-black text-white rounded-2xl font-black uppercase text-xs hover:bg-slate-800 transition shadow-xl disabled:opacity-50"
+                 >
+                   {resultSubmitting ? "SUBMITTING..." : "CONFIRM & SEND"}
+                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

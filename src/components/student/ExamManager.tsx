@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { 
   FileText, CheckCircle, Clock, AlertCircle, 
-  Download, Calendar, MapPin, Monitor, Map
+  Download, Calendar, MapPin, Monitor, Map,
+  Award, ShieldCheck, Printer
 } from "lucide-react";
 import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
@@ -54,10 +55,6 @@ export default function ExamManager({ student }: ExamManagerProps) {
     }
   };
 
-  const handleModeSelect = (mode: "online" | "offline") => {
-    setModeSelection(mode);
-  };
-
   const submitRequest = async (mode: "online" | "offline") => {
     setSubmitting(true);
     try {
@@ -92,12 +89,11 @@ export default function ExamManager({ student }: ExamManagerProps) {
 
   if (loading) return <div className="p-4 truncate">Loading exam records...</div>;
 
+  const publishedExam = exams.find(e => e.offlineExamStatus === 'published' || (e.examMode === 'online' && e.status === 'completed' && e.resultDeclared));
+
   return (
     <div className="space-y-8">
-      {/* Mode Selection UI */}
-      {/* Mode Selection UI Removed as requested */}
-
-      {/* Offline Request Form / Edit Mode Form */}
+      {/* Offline Request Form */}
       {(modeSelection === "offline" || (editingExamId && modeSelection)) && (
         <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 sm:p-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
            <div className="flex justify-between items-center mb-6">
@@ -171,13 +167,64 @@ export default function ExamManager({ student }: ExamManagerProps) {
         </section>
       )}
 
-      {/* My Exams Section */}
+      {/* Official Credentials Section */}
+      {publishedExam && (
+        <section className="bg-gradient-to-br from-slate-900 to-[#0a0a2e] rounded-[3rem] border border-white/10 shadow-2xl p-10 lg:p-14 animate-in fade-in zoom-in-95 duration-1000 relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/20 mb-3">
+                  <Award className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Formal Certification</span>
+                </div>
+                <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight">Official Credentials</h2>
+                <p className="text-slate-400 font-medium mt-2">Download and print your authenticated academic documents.</p>
+              </div>
+              <ShieldCheck className="w-16 h-16 text-white/5 absolute -top-4 -right-4 lg:static lg:opacity-20" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
+                <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <FileText className="text-blue-400 w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Academic Marksheet</h3>
+                <p className="text-slate-400 text-xs mb-8 leading-relaxed">Comprehensive statement of marks including internal assessment and final examination scores.</p>
+                <button 
+                  onClick={() => window.open(`/student/document/marksheet/${publishedExam._id}`, '_blank')}
+                  className="mt-auto w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-50 transition active:scale-95 flex items-center justify-center gap-3"
+                >
+                  <Download className="w-4 h-4" /> Print Marksheet
+                </button>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
+                <div className="w-16 h-16 bg-amber-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Award className="text-amber-400 w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Final Certificate</h3>
+                <p className="text-slate-400 text-xs mb-8 leading-relaxed">Officially recognized diploma for the successful completion of the {publishedExam.courseName || student.course} program.</p>
+                <button 
+                  onClick={() => window.open(`/student/document/certificate/${publishedExam._id}`, '_blank')}
+                  className="mt-auto w-full py-4 bg-amber-500 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-amber-400 transition active:scale-95 flex items-center justify-center gap-3"
+                >
+                  <Award className="w-4 h-4" /> Print Certificate
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-[100px] -mr-32 -mt-32" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-600/10 rounded-full blur-[100px] -ml-32 -mb-32" />
+        </section>
+      )}
+
+      {/* My Exams Records Table */}
       {exams.length > 0 && (
         <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 sm:p-10">
           <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
             <Calendar className="text-blue-600" /> My Examination Records
           </h2>
-          <div>
+          <div className="overflow-x-auto">
             <table className="w-full border-separate border-spacing-y-4">
               <thead>
                 <tr className="text-left">
@@ -229,73 +276,26 @@ export default function ExamManager({ student }: ExamManagerProps) {
                     </td>
                     <td className="px-6 py-5 bg-slate-50/50 rounded-r-[1.5rem]">
                       <div className="flex items-center gap-3">
-                        {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'online' && (
-                          <div className="flex flex-col items-start gap-1">
-                            {(() => {
-                              const examDateObj = exam.examDate ? new Date(exam.examDate) : null;
-                              const now = new Date();
-                              
-                              // Check if it's the right date
-                              const isToday = examDateObj && examDateObj.toDateString() === now.toDateString();
-                              const isReleased = exam.admitCardReleased;
-                              
-                              if (!isReleased) {
-                                return <span className="text-[9px] font-bold text-slate-400 italic">Admit Card Not Released</span>;
-                              }
-
-                              // Allow online exam to start if matches today OR if no specific date is set 
-                              // OR if examDate was in the past (still active)
-                              const canStart = !examDateObj || isToday || examDateObj < now;
-
-                              if (!canStart) {
+                         {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'online' && (
+                           <div className="flex flex-col items-start gap-1">
+                             {(() => {
+                                const now = new Date();
+                                const isReleased = exam.admitCardReleased;
+                                if (!isReleased) return <span className="text-[9px] font-bold text-slate-400 italic">Admit Card Not Released</span>;
                                 return (
-                                  <div className="flex flex-col items-start">
-                                    <span className="text-[10px] font-black text-amber-600 uppercase">Wait for Schedule</span>
-                                    <span className="text-[8px] font-bold text-slate-400">Date: {examDateObj?.toLocaleDateString()}</span>
-                                  </div>
+                                  <button onClick={() => setExamInProgress(exam)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition">Attempt Now</button>
                                 );
-                              }
-
-                              return (
-                                <button 
-                                  onClick={() => setExamInProgress(exam)}
-                                  className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-                                >
-                                  Attempt Now
-                                </button>
-                              );
-                            })()}
-                          </div>
-                        )}
-
-                        {exam.status === 'completed' && (
-                          <div className="flex flex-col gap-2">
-                             <div className="flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${
-                                  exam.offlineExamResult === 'Pass' ? 'bg-emerald-50 text-emerald-600' : 
-                                  exam.offlineExamResult === 'Fail' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                   {exam.offlineExamResult || 'COMPLETED'}
-                                </span>
-                                <span className="text-sm font-black text-slate-800">{exam.totalScore}/{exam.maxScore}</span>
-                             </div>
-
-                             {exam.examMode === 'offline' && exam.offlineExamCopy ? (
-                                <a 
-                                  href={exam.offlineExamCopy} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
-                                >
-                                  <FileText size={12} className="text-blue-400" /> View Exam Copy
-                                </a>
-                             ) : exam.examMode === 'offline' && (
-                                <span className="text-[9px] font-bold text-slate-400 italic bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                                   Wait for Digital Copy
-                                </span>
+                             })()}
+                           </div>
+                         )}
+                         {exam.status === 'completed' && (
+                           <div className="flex flex-col gap-2">
+                             <span className="text-xs font-black text-slate-800">{exam.totalScore}/{exam.maxScore}</span>
+                             {exam.examMode === 'offline' && exam.offlineExamCopy && (
+                               <a href={exam.offlineExamCopy} target="_blank" className="text-[10px] font-bold text-blue-600 uppercase">View Copy</a>
                              )}
-                          </div>
-                        )}
+                           </div>
+                         )}
                       </div>
                     </td>
                   </tr>
@@ -305,70 +305,6 @@ export default function ExamManager({ student }: ExamManagerProps) {
           </div>
         </section>
       )}
-
-      {/* Offline Examination Results */}
-      {(() => {
-        // Find the latest completed offline exam with a published result
-        const publishedOfflineExam = exams.find(e => e.examMode === 'offline' && e.offlineExamStatus === 'published');
-        
-        if (!publishedOfflineExam) return null;
-
-        return (
-          <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 sm:p-10 animate-in fade-in slide-in-from-top-4 duration-700">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                    <CheckCircle className="text-orange-600" /> Offline Examination Results
-                  </h2>
-                  <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest">Officially Published Result Card</p>
-                </div>
-                <div className="px-6 py-2 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 flex items-center gap-2">
-                   <CheckCircle size={16} />
-                   <span className="text-xs font-black uppercase tracking-widest">Authenticated</span>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 text-center flex flex-col items-center justify-center">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Secured Marks</p>
-                   <p className="text-4xl font-black text-slate-900 leading-none">{publishedOfflineExam.totalScore}/{publishedOfflineExam.maxScore || 100}</p>
-                   <div className="flex items-center gap-2 mt-4 px-4 py-1.5 bg-white rounded-full border border-slate-100 shadow-sm text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      Final Score
-                   </div>
-                </div>
-
-                <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 text-center flex flex-col items-center justify-center">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Result Status</p>
-                   <p className={`text-3xl font-black leading-none ${publishedOfflineExam.offlineExamResult === 'Pass' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {publishedOfflineExam.offlineExamResult || "Waiting"}
-                   </p>
-                   <p className="text-[9px] font-bold text-slate-400 mt-4 uppercase tracking-widest">Evaluation Complete</p>
-                </div>
-
-                <div className="p-8 bg-slate-900 rounded-[2rem] text-center flex flex-col items-center justify-center shadow-2xl group">
-                   <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <FileText className="text-white" size={24} />
-                   </div>
-                   <p className="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em] mb-4">Exam Answer Sheet</p>
-                   {publishedOfflineExam.offlineExamCopy ? (
-                      <a 
-                        href={publishedOfflineExam.offlineExamCopy} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-blue-50 transition active:scale-95"
-                      >
-                         <Download size={14} /> View Result Copy
-                      </a>
-                   ) : (
-                      <span className="text-[10px] text-white/40 font-bold uppercase italic tracking-wider">File Processing...</span>
-                   )}
-                </div>
-             </div>
-          </section>
-        );
-      })()}
-
-
 
       {selectedExam && (
         <AdmitCard 

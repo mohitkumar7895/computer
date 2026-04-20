@@ -29,6 +29,11 @@ export interface IStudentExam {
   startedAt?: Date;
   submittedAt?: Date;
   resultDeclared: boolean;
+  grade?: string;
+  session?: string;
+  offlineExamStatus?: "not_appeared" | "appeared" | "review_pending" | "published";
+  offlineExamResult?: "Pass" | "Fail" | "Waiting";
+  offlineExamCopy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,8 +74,10 @@ const StudentExamSchema = new Schema<IStudentExam>(
     startedAt: { type: Date },
     submittedAt: { type: Date },
     resultDeclared: { type: Boolean, default: false },
+    grade: { type: String },
+    session: { type: String },
     // Offline specific tracking
-    offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "published"], default: "not_appeared" },
+    offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "review_pending", "published"], default: "not_appeared" },
     offlineExamResult: { type: String, enum: ["Pass", "Fail", "Waiting"], default: "Waiting" },
     offlineExamCopy: { type: String }, // Base64 PDF
   },
