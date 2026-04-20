@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Play, FileText, Type, Download, Eye, Search, Filter, Layers, Copy, CheckCircle } from "lucide-react";
+import { Play, FileText, Type, Download, Eye, Search, Filter, Layers, Copy, CheckCircle, ShieldCheck, MapPin } from "lucide-react";
 
 interface Material {
   _id: string;
@@ -154,20 +154,43 @@ export default function StudentStudyMaterial() {
                       </div>
                    )}
 
-                   <div className="absolute top-6 left-6 px-4 py-2 bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-xl">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#0a0aa1]">{m.category}</span>
+                   <div className="absolute top-6 left-6 flex flex-col gap-2">
+                       <div className="px-4 py-2 bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-xl">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#0a0aa1]">{m.category}</span>
+                       </div>
+                       <div className={`px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg ${
+                         m.uploadedBy === 'admin' 
+                          ? 'bg-blue-600 text-white border-blue-500' 
+                          : 'bg-emerald-600 text-white border-emerald-500'
+                       }`}>
+                         {m.uploadedBy === 'admin' ? <ShieldCheck className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+                         {m.uploadedBy === 'admin' ? 'H.O. Verified' : 'Center Resource'}
+                       </div>
                    </div>
                 </div>
 
                 {/* Body Content */}
-                <div className="p-8 pb-10 flex-grow">
-                   <div className="flex items-center gap-2 mb-3">
-                      <span className={`w-2 h-2 rounded-full ${m.type === "video" ? "bg-red-500" : m.type === "pdf" ? "bg-blue-500" : "bg-emerald-500"}`} />
-                      <span className="text-[10px] font-black uppercase tracking-tight text-slate-400">{m.type === "video" ? "Watch Video" : m.type === "pdf" ? "Document File" : "Readable Notes"}</span>
-                   </div>
-                   <h4 className="text-xl font-black text-slate-900 leading-tight mb-3 line-clamp-2">{m.title}</h4>
-                   <p className="text-sm text-slate-500 font-medium line-clamp-2 leading-relaxed h-10">{m.description || "No description provided."}</p>
-                </div>
+                 <div className="px-8 py-6 mb-2 flex-grow">
+                    <div className="flex items-center justify-between mb-4">
+                       <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${m.type === "video" ? "bg-red-500" : m.type === "pdf" ? "bg-blue-500" : "bg-emerald-500"}`} />
+                          <span className="text-[10px] font-black uppercase tracking-tight text-slate-400">{m.type === "video" ? "Watch Video" : m.type === "pdf" ? "Document File" : "Readable Notes"}</span>
+                       </div>
+                       <span className="text-[9px] font-bold text-slate-300 italic">{new Date(m.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <h4 className="text-xl font-black text-slate-900 leading-tight mb-3 line-clamp-2 transition-colors group-hover:text-blue-600">{m.title}</h4>
+                    <p className="text-sm text-slate-500 font-medium line-clamp-2 leading-relaxed h-10 mb-4">{m.description || "No description provided."}</p>
+                    
+                    <div className="flex items-center gap-3 pt-6 border-t border-slate-50 mt-auto">
+                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${m.uploadedBy === 'admin' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {m.uploadedBy === 'admin' ? <ShieldCheck className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Source Identity</p>
+                          <p className="text-[10px] font-bold text-slate-800 uppercase">{m.uploadedBy === 'admin' ? 'Head Office Academy' : 'Your Learning Center'}</p>
+                       </div>
+                    </div>
+                 </div>
 
                 {/* footer buttons */}
                 <div className="p-4 pt-0">

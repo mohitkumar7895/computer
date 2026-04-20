@@ -24,7 +24,14 @@ export async function GET(request: Request) {
   if (!atc) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
 
   await connectDB();
-  const sets = await QuestionSet.find({ atcId: new mongoose.Types.ObjectId(atc.id) }).sort({ createdAt: -1 }).lean();
+  const query = {
+    $or: [
+      { atcId: new mongoose.Types.ObjectId(atc.id) },
+      { atcId: { $exists: false } },
+      { atcId: null }
+    ]
+  };
+  const sets = await QuestionSet.find(query).sort({ createdAt: -1 }).lean();
   return NextResponse.json({ sets });
 }
 

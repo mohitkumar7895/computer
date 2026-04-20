@@ -54,14 +54,8 @@ export default function ExamManager({ student }: ExamManagerProps) {
     }
   };
 
-  const handleModeSelect = async (mode: "online" | "offline") => {
-    if (mode === "online") {
-      if (confirm("You have selected Online Exam. Please ensure you have a stable internet connection and a suitable environment. Do you want to proceed?")) {
-        submitRequest("online");
-      }
-    } else {
-      setModeSelection("offline");
-    }
+  const handleModeSelect = (mode: "online" | "offline") => {
+    setModeSelection(mode);
   };
 
   const submitRequest = async (mode: "online" | "offline") => {
@@ -109,7 +103,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
            <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
               <FileText className={modeSelection === 'online' ? "text-blue-600" : "text-emerald-600"} /> 
-              {editingExamId ? `Update ${modeSelection} Details` : "Offline Exam Request"}
+              {editingExamId ? `Update ${modeSelection} Details` : `${modeSelection === 'online' ? 'Online' : 'Offline'} Exam Request`}
             </h2>
             <button onClick={() => { setModeSelection(null); setEditingExamId(null); }} className="text-sm font-bold text-slate-400 hover:text-slate-600">Cancel</button>
           </div>

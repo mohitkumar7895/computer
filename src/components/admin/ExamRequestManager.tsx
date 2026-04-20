@@ -271,7 +271,18 @@ export default function ExamRequestManager({ atcId, role = "admin" }: ExamReques
                           <p className="text-[10px] bg-slate-100 w-fit px-2 rounded text-slate-500">{exam.offlineDetails?.preferredTimeSlot}</p>
                         </div>
                       ) : (
-                        <p className="text-xs text-slate-400 italic">Self-scheduled online</p>
+                        <div className="space-y-1">
+                          {exam.examDate ? (
+                            <>
+                              <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                <Calendar size={12} className="text-slate-400" /> {new Date(exam.examDate).toLocaleDateString()}
+                              </p>
+                              <p className="text-[10px] bg-slate-100 w-fit px-2 rounded text-slate-500">{exam.examTime}</p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">No schedule set</p>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4">
