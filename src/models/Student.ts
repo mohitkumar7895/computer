@@ -35,6 +35,7 @@ export interface IStudent {
   admissionDate: string;
   password?: string; // hashed
   status: "pending" | "approved" | "rejected" | "active";
+  userStatus: "active" | "disabled";
   
   // Offline Exam Tracking
   offlineExamStatus: "not_appeared" | "appeared" | "published";
@@ -85,6 +86,7 @@ const StudentSchema = new Schema<IStudent>(
     referredBy: { type: String },
     password: { type: String },
     status: { type: String, enum: ["pending", "approved", "rejected", "active"], default: "pending" },
+    userStatus: { type: String, enum: ["active", "disabled"], default: "active" },
 
     // Offline Exam Tracking
     offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "published"], default: "not_appeared" },

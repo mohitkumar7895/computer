@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
@@ -126,6 +127,11 @@ export default function AdminPanelPage() {
   const [studentLoading, setStudentLoading] = useState(false);
   const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [studentActionId, setStudentActionId] = useState<string | null>(null);
+
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [selectedApps, setSelectedApps] = useState<string[]>([]);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [studentEditValues, setStudentEditValues] = useState<any>({});
 
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
@@ -252,9 +258,19 @@ export default function AdminPanelPage() {
     }
   };
 
-  const handleStudentAction = async (id: string, action: "approved" | "rejected") => {
+  const handleStudentAction = async (id: string, action: "approved" | "rejected" | "toggleStatus" | "delete") => {
     setStudentActionId(id + action);
     try {
+      if (action === "delete") {
+        if (!confirm("Are you sure you want to delete this student permanently?")) return;
+        const res = await fetch(`/api/admin/students/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) { showToast("error", data.message); return; }
+        showToast("success", "Student deleted successfully");
+        await fetchStudents();
+        return;
+      }
+
       const res = await fetch(`/api/admin/students/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -262,12 +278,50 @@ export default function AdminPanelPage() {
       });
       const data = await res.json();
       if (!res.ok) { showToast("error", data.message); return; }
-      showToast("success", data.message);
+      showToast("success", data.message || "Action completed");
       await fetchStudents();
     } catch {
       showToast("error", "Action failed.");
     } finally {
       setStudentActionId(null);
+    }
+  };
+
+  const handleResetPassword = async (id: string) => {
+    const newPass = prompt("Enter new password for student:");
+    if (!newPass) return;
+    try {
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resetPassword", newPassword: newPass }),
+      });
+      if (!res.ok) throw new Error("Reset failed");
+      showToast("success", "Password reset successfully");
+    } catch {
+      showToast("error", "Failed to reset password");
+    }
+  };
+
+  const handleBulkAction = async (type: "students" | "centers", action: string) => {
+    const ids = type === "students" ? selectedStudents : selectedApps;
+    if (ids.length === 0) return;
+    if (!confirm(`Are you sure you want to ${action} ${ids.length} items?`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/${type === "students" ? "students" : "applications"}/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showToast("success", data.message);
+      setSelectedStudents([]);
+      setSelectedApps([]);
+      if (type === "students") await fetchStudents(); else await fetchApplications();
+    } catch (err: any) {
+      showToast("error", err.message);
     }
   };
 
@@ -926,10 +980,38 @@ export default function AdminPanelPage() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-                <div className="overflow-x-auto">
+                  {/* Bulk Actions Bar */}
+                  {selectedApps.length > 0 && (
+                    <div className="bg-[#0a0aa1] px-6 py-3 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                      <div className="flex items-center gap-4 text-white text-xs font-bold">
+                        <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedApps.length}</div>
+                        <span className="uppercase tracking-widest">Centers Selected</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => handleBulkAction("centers", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable</button>
+                        <button onClick={() => handleBulkAction("centers", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable</button>
+                        <button onClick={() => handleBulkAction("centers", "delete")} className="px-4 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-black uppercase hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center gap-1.5"><Trash2 className="w-3 h-3" /> Delete</button>
+                        <button onClick={() => setSelectedApps([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
                       <tr>
+                        <th className="px-6 py-4 w-4">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
+                            checked={applications.filter(a => a.status === "approved" || a.status === "rejected").length > 0 && selectedApps.length === applications.filter(a => a.status === "approved" || a.status === "rejected").length}
+                            onChange={(e) => {
+                              const list = applications.filter(a => a.status === "approved" || a.status === "rejected");
+                              if (e.target.checked) setSelectedApps(list.map(a => a._id));
+                              else setSelectedApps([]);
+                            }}
+                          />
+                        </th>
                         <th className="px-6 py-4">TP CODE / CENTER NAME</th>
                         <th className="px-6 py-4">LOCATION</th>
                         <th className="px-6 py-4">ZONES</th>
@@ -943,6 +1025,17 @@ export default function AdminPanelPage() {
                       ) : (
                         applications.filter(a => a.status === "approved" || a.status === "rejected").map((app) => (
                           <tr key={app._id} className="hover:bg-slate-50 transition group">
+                            <td className="px-6 py-4">
+                               <input 
+                                  type="checkbox" 
+                                  className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
+                                  checked={selectedApps.includes(app._id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setSelectedApps(prev => [...prev, app._id]);
+                                    else setSelectedApps(prev => prev.filter(id => id !== app._id));
+                                  }}
+                                />
+                            </td>
                             <td className="px-6 py-4">
                               <p className="font-black text-slate-800 leading-none mb-1">{app.tpCode || "NEW-ATC"}</p>
                               <p className="text-[10px] text-slate-400 font-bold uppercase">{app.trainingPartnerName}</p>
@@ -1316,14 +1409,41 @@ export default function AdminPanelPage() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  {/* Bulk Actions Bar */}
+                  {selectedStudents.length > 0 && (
+                    <div className="bg-[#0a0aa1] px-6 py-3 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                      <div className="flex items-center gap-4 text-white text-xs font-bold">
+                        <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedStudents.length}</div>
+                        <span className="uppercase tracking-widest">Students Selected</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => handleBulkAction("students", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable</button>
+                        <button onClick={() => handleBulkAction("students", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable</button>
+                        <button onClick={() => handleBulkAction("students", "delete")} className="px-4 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-black uppercase hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center gap-1.5"><Trash2 className="w-3 h-3" /> Delete</button>
+                        <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
                       <tr>
+                        <th className="px-6 py-4 w-4">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
+                            checked={filteredStudents.length > 0 && selectedStudents.length === filteredStudents.length}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedStudents(filteredStudents.map(s => s._id));
+                              else setSelectedStudents([]);
+                            }}
+                          />
+                        </th>
                         <th className="px-6 py-4">REG NO / NAME</th>
                         <th className="px-6 py-4">CENTER</th>
                         <th className="px-6 py-4">COURSE</th>
-                        <th className="px-6 py-4">STATUS</th>
+                        <th className="px-6 py-4">USER STATUS</th>
                         <th className="px-6 py-4 text-right">ACTION</th>
                       </tr>
                     </thead>
@@ -1337,37 +1457,71 @@ export default function AdminPanelPage() {
                           <Fragment key={s._id}>
                             <tr className="hover:bg-slate-50 transition group">
                               <td className="px-6 py-4">
+                                <input 
+                                  type="checkbox" 
+                                  className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
+                                  checked={selectedStudents.includes(s._id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setSelectedStudents(prev => [...prev, s._id]);
+                                    else setSelectedStudents(prev => prev.filter(id => id !== s._id));
+                                  }}
+                                />
+                              </td>
+                              <td className="px-6 py-4">
                                 <p className="font-black text-slate-800 leading-none mb-1">{s.registrationNo || "PENDING"}</p>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">{s.name}</p>
                               </td>
                               <td className="px-6 py-4 text-slate-500 font-medium">{s.tpCode}</td>
                               <td className="px-6 py-4 text-slate-500 font-medium">{s.course}</td>
                               <td className="px-6 py-4">
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                  s.status === "approved" || s.status === "active" ? "bg-emerald-50 text-emerald-600" : 
-                                  s.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"
-                                }`}>
-                                  {s.status}
-                                </span>
+                                <div className="space-y-1.5">
+                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                    s.status === "approved" || s.status === "active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : 
+                                    s.status === "rejected" ? "bg-red-50 text-red-600 border border-red-100" : "bg-amber-50 text-amber-600 border border-amber-100"
+                                  }`}>
+                                    {s.status}
+                                  </span>
+                                  <div>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[8px] font-black uppercase ${s.userStatus === "disabled" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                                      {s.userStatus || "active"}
+                                    </span>
+                                  </div>
+                                </div>
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex justify-end gap-2">
-                                  {(s.status !== "approved" && s.status !== "active") && (
-                                    <button onClick={() => handleStudentAction(s._id, "approved")} disabled={!!studentActionId}
-                                      className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition">
-                                      Approve
+                                  <div className="flex flex-col gap-1 items-end">
+                                    <div className="flex gap-2">
+                                      {(s.status !== "approved" && s.status !== "active") && (
+                                        <button onClick={() => handleStudentAction(s._id, "approved")} disabled={!!studentActionId}
+                                          className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition">
+                                          Approve
+                                        </button>
+                                      )}
+                                      <button onClick={() => handleStudentAction(s._id, "toggleStatus")} 
+                                        className={`px-3 py-1.5 rounded-xl text-white text-[10px] font-black uppercase transition ${s.userStatus === "disabled" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-amber-500 hover:bg-amber-600"}`}>
+                                        {s.userStatus === "disabled" ? "Enable" : "Disable"}
+                                      </button>
+                                      <button onClick={() => handleResetPassword(s._id)} className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+                                        <Lock className="w-3.5 h-3.5" />
+                                      </button>
+                                       <button 
+                                          onClick={() => {
+                                            setEditingStudent(s);
+                                            setStudentEditValues(s);
+                                          }} 
+                                          className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => handleStudentAction(s._id, "delete")} className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                    <button onClick={() => setExpandedId(expandedId === s._id ? null : s._id)}
+                                      className="px-3 py-1 rounded-lg border border-slate-200 text-slate-500 text-[9px] font-bold uppercase hover:bg-slate-100 transition">
+                                      {expandedId === s._id ? "Hide Details" : "View Details / Docs"}
                                     </button>
-                                  )}
-                                  {s.status !== "rejected" && (
-                                    <button onClick={() => handleStudentAction(s._id, "rejected")} disabled={!!studentActionId}
-                                      className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition">
-                                      Reject
-                                    </button>
-                                  )}
-                                  <button onClick={() => setExpandedId(expandedId === s._id ? null : s._id)}
-                                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase hover:bg-slate-100 transition">
-                                    {expandedId === s._id ? "Close" : "Docs"}
-                                  </button>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
@@ -1410,6 +1564,75 @@ export default function AdminPanelPage() {
               </div>
             </div>
           )}
+
+        {/* ── STUDENT EDIT MODAL ── */}
+        {editingStudent && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl animate-in zoom-in duration-300">
+              <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Edit Student Details</h3>
+                  <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-1">Reg No: {editingStudent.registrationNo}</p>
+                </div>
+                <button type="button" onClick={() => setEditingStudent(null)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 transition">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-8 max-h-[70vh] overflow-y-auto">
+                <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const res = await fetch(`/api/admin/students/${editingStudent._id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "updateDetails", updateData: studentEditValues }),
+                    });
+                    if (!res.ok) throw new Error("Update failed");
+                    showToast("success", "Student details updated successfully");
+                    setEditingStudent(null);
+                    await fetchStudents();
+                  } catch {
+                    showToast("error", "Failed to update student");
+                  }
+                }}>
+                  {[
+                    { label: "Full Name", key: "name" },
+                    { label: "Father Name", key: "fatherName" },
+                    { label: "Mother Name", key: "motherName" },
+                    { label: "Email Address", key: "email" },
+                    { label: "Mobile Number", key: "mobile" },
+                    { label: "Parents Mobile", key: "parentsMobile" },
+                    { label: "Aadhar Number", key: "aadharNo" },
+                    { label: "Course Name", key: "course" },
+                  ].map((field) => (
+                    <div key={field.key}>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
+                      <input 
+                        type="text" 
+                        value={studentEditValues[field.key] || ""} 
+                        onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                      />
+                    </div>
+                  ))}
+                  <div className="md:col-span-2">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Address</label>
+                     <textarea 
+                        value={studentEditValues.currentAddress || ""}
+                        onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, currentAddress: e.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                        rows={2}
+                     />
+                  </div>
+                  <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
+                    <button type="button" onClick={() => setEditingStudent(null)} className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition">Cancel</button>
+                    <button type="submit" className="px-8 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100">Save Changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
           </div>
         </main>
       </div>

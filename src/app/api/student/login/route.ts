@@ -26,6 +26,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
     }
 
+    if (student.userStatus === "disabled") {
+      return NextResponse.json({ message: "Your account has been disabled. Please contact administration." }, { status: 403 });
+    }
+
     if (student.status !== "approved") {
       return NextResponse.json({ message: "Your application is pending approval or has been rejected. Please contact your center." }, { status: 403 });
     }
