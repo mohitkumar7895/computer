@@ -57,12 +57,21 @@ export async function PATCH(
     else if (action === "updateDetails") {
       if (!updateData) return NextResponse.json({ message: "Update data is required" }, { status: 400 });
       // Filter out fields we don't want to update via this action
-      const allowedFields = ["name", "fatherName", "motherName", "mobile", "email", "course", "currentAddress", "permanentAddress", "parentsMobile", "aadharNo"];
+      const allowedFields = [
+        "name", "fatherName", "motherName", "mobile", "email", "course", 
+        "currentAddress", "permanentAddress", "parentsMobile", "aadharNo",
+        "photo", "studentSignature", "qualificationDoc", "aadharDoc", "otherDocs"
+      ];
+      
       Object.keys(updateData).forEach(key => {
         if (allowedFields.includes(key)) {
           (student as any)[key] = updateData[key];
         }
       });
+
+      if (updateData.password) {
+        student.password = await bcrypt.hash(updateData.password, 10);
+      }
     }
 
     await student.save();

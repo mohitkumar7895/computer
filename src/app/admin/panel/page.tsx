@@ -66,6 +66,7 @@ interface Student {
   aadharDoc?: string;
   studentSignature?: string;
   otherDocs?: string;
+  userStatus?: "active" | "disabled";
 }
 
 
@@ -95,7 +96,8 @@ export default function AdminPanelPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
+  const [centerFilter, setCenterFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // New state
   const [editingCenter, setEditingCenter] = useState<Application | null>(null);
   const [editValues, setEditValues] = useState({
@@ -127,7 +129,7 @@ export default function AdminPanelPage() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [studentLoading, setStudentLoading] = useState(false);
-  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [studentActionId, setStudentActionId] = useState<string | null>(null);
 
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -544,16 +546,29 @@ export default function AdminPanelPage() {
     router.push("/admin/login");
   };
 
-  const filtered = applications.filter((a) => filterStatus === "all" || a.status === filterStatus);
+  const filtered = applications.filter((a) => {
+    if (filterStatus === "all") return true;
+    if (filterStatus === "disabled") return a.userStatus === "disabled";
+    return a.status === filterStatus;
+  });
   const counts = {
     all: applications.length,
     pending: applications.filter((a) => a.status === "pending").length,
     approved: applications.filter((a) => a.status === "approved").length,
     rejected: applications.filter((a) => a.status === "rejected").length,
+    disabled: applications.filter((a) => a.userStatus === "disabled").length,
   };
+
+  const filteredCenters = applications.filter((a) => {
+    if (centerFilter === "all") return true;
+    if (centerFilter === "disabled") return a.userStatus === "disabled";
+    return a.status === centerFilter;
+  });
+  const centerCounts = counts; // They follow the same logic as dashboard counts for applications
 
   const filteredStudents = students.filter((s) => {
     if (studentFilter === "all") return true;
+    if (studentFilter === "disabled") return s.userStatus === "disabled";
     if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
     return s.status === studentFilter;
   });
@@ -562,6 +577,7 @@ export default function AdminPanelPage() {
     pending: students.filter((s) => s.status === "pending").length,
     approved: students.filter((s) => s.status === "approved" || s.status === "active").length,
     rejected: students.filter((s) => s.status === "rejected").length,
+    disabled: students.filter((s) => s.userStatus === "disabled").length,
   };
 
   const statusBadge = (status: Application["status"]) => {
@@ -705,12 +721,13 @@ export default function AdminPanelPage() {
             {tab === "dashboard" && (
               <>
                 {/* Stats */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                   {[
                     { label: "Total", count: counts.all, icon: Users, color: "blue" },
                     { label: "Pending", count: counts.pending, icon: Clock, color: "amber" },
                     { label: "Approved", count: counts.approved, icon: CheckCircle, color: "green" },
                     { label: "Rejected", count: counts.rejected, icon: XCircle, color: "red" },
+                    { label: "Disabled", count: counts.disabled, icon: ShieldAlert, color: "slate" },
                   ].map((stat) => (
                     <div key={stat.label} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${stat.color}-50`}>
@@ -726,7 +743,7 @@ export default function AdminPanelPage() {
 
                 {/* Filter + Refresh */}
                 <div className="flex flex-wrap items-center gap-3 mb-4">
-                  {(["all", "pending", "approved", "rejected"] as const).map((s) => (
+                  {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
                     <button key={s} onClick={() => setFilterStatus(s)}
                       className={`px-4 py-1.5 rounded-full text-sm font-semibold transition ${filterStatus === s ? "bg-blue-600 text-white shadow" : "bg-white text-slate-600 border border-slate-200 hover:border-blue-300"}`}>
                       {s.charAt(0).toUpperCase() + s.slice(1)} ({counts[s]})
@@ -762,6 +779,12 @@ export default function AdminPanelPage() {
                                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold border border-purple-200">Admin Created</span>
                               )}
                               {statusBadge(app.status)}
+                              {app.userStatus === "disabled" && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-700 border-slate-200">
+                                  <ShieldAlert className="w-3 h-3" />
+                                  Disabled
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">{app.email} · {app.mobile} · {app.district}, {app.state}</p>
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
@@ -969,10 +992,22 @@ export default function AdminPanelPage() {
             {tab === "centers" && (
               <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                   <div>
-                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Active Centers</h4>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">Manage all approved and registered ATCs</p>
-                   </div>
+
+                   <div className="flex flex-wrap items-center gap-2">
+                      {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setCenterFilter(s)}
+                          className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border ${
+                            centerFilter === s
+                              ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-md shadow-blue-100"
+                              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          {s} ({centerCounts[s]})
+                        </button>
+                      ))}
+                    </div>
                    <button 
                      onClick={() => {
                        setPrefillApplication(null); // Clear any edit state
@@ -1009,10 +1044,9 @@ export default function AdminPanelPage() {
                           <input 
                             type="checkbox" 
                             className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
-                            checked={applications.filter(a => a.status === "approved" || a.status === "rejected").length > 0 && selectedApps.length === applications.filter(a => a.status === "approved" || a.status === "rejected").length}
+                            checked={filteredCenters.length > 0 && selectedApps.length === filteredCenters.length}
                             onChange={(e) => {
-                              const list = applications.filter(a => a.status === "approved" || a.status === "rejected");
-                              if (e.target.checked) setSelectedApps(list.map(a => a._id));
+                              if (e.target.checked) setSelectedApps(filteredCenters.map(a => a._id));
                               else setSelectedApps([]);
                             }}
                           />
@@ -1025,10 +1059,10 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {applications.filter(a => a.status === "approved" || a.status === "rejected").length === 0 ? (
-                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-medium">No centers found.</td></tr>
+                      {filteredCenters.length === 0 ? (
+                        <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-medium">No centers found.</td></tr>
                       ) : (
-                        applications.filter(a => a.status === "approved" || a.status === "rejected").map((app) => (
+                        filteredCenters.map((app) => (
                           <tr key={app._id} className="hover:bg-slate-50 transition group">
                             <td className="px-6 py-4">
                                <input 
@@ -1401,7 +1435,7 @@ export default function AdminPanelPage() {
               <div className="space-y-4 animate-in fade-in duration-300">
                 {/* Student Filter Bar */}
                 <div className="flex flex-wrap items-center gap-3">
-                  {(["all", "pending", "approved", "rejected"] as const).map((s) => (
+                  {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
                     <button
                       key={s}
                       onClick={() => setStudentFilter(s)}
@@ -1483,12 +1517,13 @@ export default function AdminPanelPage() {
                               <td className="px-6 py-4 text-slate-500 font-medium">{s.course}</td>
                               <td className="px-6 py-4">
                                 <div className="space-y-1.5">
-                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                    s.status === "approved" || s.status === "active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : 
-                                    s.status === "rejected" ? "bg-red-50 text-red-600 border border-red-100" : "bg-amber-50 text-amber-600 border border-amber-100"
-                                  }`}>
-                                    {s.status}
-                                  </span>
+                                  {(s.status !== "approved" && s.status !== "active") && (
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                      s.status === "rejected" ? "bg-red-50 text-red-600 border border-red-100" : "bg-amber-50 text-amber-600 border border-amber-100"
+                                    }`}>
+                                      {s.status}
+                                    </span>
+                                  )}
                                   <div>
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[8px] font-black uppercase ${s.userStatus === "disabled" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
                                       {s.userStatus || "active"}
@@ -1510,9 +1545,7 @@ export default function AdminPanelPage() {
                                         className={`px-3 py-1.5 rounded-xl text-white text-[10px] font-black uppercase transition ${s.userStatus === "disabled" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-amber-500 hover:bg-amber-600"}`}>
                                         {s.userStatus === "disabled" ? "Enable" : "Disable"}
                                       </button>
-                                      <button onClick={() => handleResetPassword(s._id)} className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
-                                        <Lock className="w-3.5 h-3.5" />
-                                      </button>
+
                                        <button 
                                           onClick={() => {
                                             setEditingStudent(s);
@@ -1525,44 +1558,11 @@ export default function AdminPanelPage() {
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
-                                    <button onClick={() => setExpandedId(expandedId === s._id ? null : s._id)}
-                                      className="px-3 py-1 rounded-lg border border-slate-200 text-slate-500 text-[9px] font-bold uppercase hover:bg-slate-100 transition">
-                                      {expandedId === s._id ? "Hide Details" : "View Details / Docs"}
-                                    </button>
                                   </div>
                                 </div>
                               </td>
                             </tr>
-                            {expandedId === s._id && (
-                              <tr className="bg-slate-50/50">
-                                <td colSpan={5} className="px-6 py-4">
-                                  <div className="flex flex-wrap gap-4">
-                                    {[
-                                      { label: "Photo", val: s.photo },
-                                      { label: "Signature", val: s.studentSignature },
-                                      { label: "Qualification", val: s.qualificationDoc },
-                                      { label: "Aadhar", val: s.aadharDoc },
-                                      { label: "Other Docs", val: s.otherDocs },
-                                    ].filter(d => d.val).map(d => (
-                                      <div key={d.label} className="flex flex-col gap-1">
-                                        <p className="text-[10px] font-black uppercase text-slate-400">{d.label}</p>
-                                        <div className="w-24 h-32 bg-white rounded-lg border border-slate-200 overflow-hidden relative group">
-                                          {d.val?.includes("image") ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={d.val} alt={d.label} className="w-full h-full object-cover" />
-                                          ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-blue-600">
-                                                <FileText className="w-8 h-8" />
-                                            </div>
-                                          )}
-                                          <a href={d.val} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 text-white text-[9px] font-bold transition">VIEW</a>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
+
                           </Fragment>
                         ))
                       )}
@@ -1612,6 +1612,7 @@ export default function AdminPanelPage() {
                     { label: "Parents Mobile", key: "parentsMobile" },
                     { label: "Aadhar Number", key: "aadharNo" },
                     { label: "Course Name", key: "course" },
+                    { label: "New Password (Leave blank to keep same)", key: "password" },
                   ].map((field) => (
                     <div key={field.key}>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
@@ -1632,6 +1633,55 @@ export default function AdminPanelPage() {
                         rows={2}
                      />
                   </div>
+
+                  <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
+                     <p className="text-xs font-black uppercase tracking-widest text-slate-800 mb-4 flex items-center gap-2">
+                       <FileText className="w-4 h-4 text-blue-600" /> Documents & Uploads
+                     </p>
+                     <div className="flex flex-wrap gap-4">
+                        {[
+                          { label: "Photo", key: "photo", val: editingStudent.photo },
+                          { label: "Signature", key: "studentSignature", val: editingStudent.studentSignature },
+                          { label: "Qualification", key: "qualificationDoc", val: editingStudent.qualificationDoc },
+                          { label: "Aadhar", key: "aadharDoc", val: editingStudent.aadharDoc },
+                          { label: "Other Docs", key: "otherDocs", val: editingStudent.otherDocs },
+                        ].map(d => (
+                          <div key={d.label} className="flex flex-col gap-1.5">
+                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">{d.label}</p>
+                            <label className="w-24 h-32 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative group shadow-sm hover:border-blue-400 transition cursor-pointer">
+                              {studentEditValues[d.key]?.includes("data:") || studentEditValues[d.key]?.startsWith("http") ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={studentEditValues[d.key]} alt={d.label} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1 p-2">
+                                    <Upload className="w-5 h-5" />
+                                    <span className="text-[7px] font-black uppercase text-center">Click to Upload</span>
+                                </div>
+                              )}
+                              <input 
+                                type="file" 
+                                accept="image/*,application/pdf" 
+                                className="hidden" 
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const reader = new FileReader();
+                                  reader.readAsDataURL(file);
+                                  reader.onload = () => {
+                                    setStudentEditValues((prev: any) => ({ ...prev, [d.key]: reader.result }));
+                                  };
+                                }} 
+                              />
+                              <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-all pointer-events-none" />
+                            </label>
+                            {studentEditValues[d.key] && (
+                               <a href={studentEditValues[d.key]} target="_blank" className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View Full</a>
+                            )}
+                          </div>
+                        ))}
+                     </div>
+                   </div>
+
                   <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
                     <button type="button" onClick={() => setEditingStudent(null)} className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition">Cancel</button>
                     <button type="submit" className="px-8 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100">Save Changes</button>

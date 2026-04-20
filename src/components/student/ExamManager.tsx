@@ -101,38 +101,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
   return (
     <div className="space-y-8">
       {/* Mode Selection UI */}
-      {!modeSelection && exams.every(e => e.status === "completed" || e.approvalStatus === "rejected") && (
-        <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 sm:p-10">
-          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
-            <Monitor className="text-blue-600" /> Exam Mode Selection
-          </h2>
-          <p className="text-slate-500 mb-8 font-medium">Choose how you would like to appear for your upcoming examination.</p>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <button 
-              onClick={() => handleModeSelect("online")}
-              className="group p-8 rounded-[2rem] border-2 border-blue-50 bg-blue-50/30 hover:bg-blue-600 hover:border-blue-600 transition-all duration-300 text-left"
-            >
-              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
-                <Monitor className="text-blue-600" />
-              </div>
-              <h3 className="text-xl font-black text-slate-800 group-hover:text-white mb-2">Start Online Exam</h3>
-              <p className="text-sm text-slate-500 group-hover:text-blue-100 font-medium">Take the exam from any device with a stable internet connection.</p>
-            </button>
-
-            <button 
-              onClick={() => handleModeSelect("offline")}
-              className="group p-8 rounded-[2rem] border-2 border-emerald-50 bg-emerald-50/30 hover:bg-emerald-600 hover:border-emerald-600 transition-all duration-300 text-left"
-            >
-              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
-                <Map className="text-emerald-600" />
-              </div>
-              <h3 className="text-xl font-black text-slate-800 group-hover:text-white mb-2">Apply for Offline Exam</h3>
-              <p className="text-sm text-slate-500 group-hover:text-emerald-100 font-medium">Visit your assigned training center to appear for the exam.</p>
-            </button>
-          </div>
-        </section>
-      )}
+      {/* Mode Selection UI Removed as requested */}
 
       {/* Offline Request Form / Edit Mode Form */}
       {(modeSelection === "offline" || (editingExamId && modeSelection)) && (
@@ -304,14 +273,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                             })()}
                           </div>
                         )}
-                        {exam.status === 'pending' && (exam.approvalStatus === 'pending' || exam.approvalStatus === 'approved') && (
-                          <button 
-                            onClick={() => handleEdit(exam)}
-                            className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
-                          >
-                            Edit Mode
-                          </button>
-                        )}
+
                         {exam.status === 'completed' && (
                           <div className="flex flex-col gap-2">
                              <div className="flex items-center gap-2">
