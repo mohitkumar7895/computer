@@ -183,7 +183,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
           <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
             <Calendar className="text-blue-600" /> My Examination Records
           </h2>
-          <div className="overflow-x-auto">
+          <div>
             <table className="w-full border-separate border-spacing-y-4">
               <thead>
                 <tr className="text-left">
@@ -374,51 +374,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
         );
       })()}
 
-       {/* Notifications Section */}
-       <section className="bg-[#0a0a2e] rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl">
-          <div className="relative z-10">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-3 uppercase">
-              <AlertCircle className="text-blue-400" /> Notifications & Updates
-            </h2>
-            <div className="space-y-4">
-              {student.offlineExamStatus === 'appeared' && (
-                <div className="bg-white/10 border border-white/20 rounded-[1.5rem] p-5 flex items-start gap-4 backdrop-blur-md animate-pulse">
-                   <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center shrink-0">
-                     <Clock className="text-orange-400" size={20} />
-                   </div>
-                   <div>
-                     <p className="text-sm font-bold">Offline Exam Attended</p>
-                     <p className="text-xs text-blue-200 font-medium leading-relaxed mt-1">Your offline exam attendance has been recorded. Results are being processed by your center.</p>
-                   </div>
-                </div>
-              )}
-              {exams.some(e => e.approvalStatus === 'approved' && !e.admitCardReleased) && (
-                 <div className="bg-white/10 border border-white/20 rounded-[1.5rem] p-5 flex items-start gap-4 backdrop-blur-md">
-                    <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center shrink-0">
-                      <CheckCircle className="text-green-400" size={20} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold">Exam Approved!</p>
-                      <p className="text-xs text-blue-200 font-medium leading-relaxed mt-1">Your exam request has been approved. Your admit card will be released soon.</p>
-                    </div>
-                 </div>
-              )}
-              {exams.length === 0 && (
-                <div className="bg-white/5 border border-white/10 rounded-[1.5rem] p-5 flex items-start gap-4 opacity-60">
-                  <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0">
-                    <Clock className="text-blue-400" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold">No New Notifications</p>
-                    <p className="text-xs text-slate-300 font-medium leading-relaxed mt-1">Upcoming exam schedules and results will appear here.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/20 rounded-full blur-[80px]" />
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-600/20 rounded-full blur-[80px]" />
-      </section>
+
 
       {selectedExam && (
         <AdmitCard 

@@ -429,7 +429,7 @@ export default function AtcDashboardPage() {
           )}
 
           {tab === "exams" && (
-            <ExamRequestManager atcId={user.id} />
+            <ExamRequestManager atcId={user.id} role="atc" />
           )}
 
           {tab === "examSets" && (

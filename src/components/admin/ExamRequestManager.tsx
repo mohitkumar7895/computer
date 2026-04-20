@@ -9,9 +9,10 @@ import {
 
 interface ExamRequestManagerProps {
   atcId?: string;
+  role?: "admin" | "atc";
 }
 
-export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
+export default function ExamRequestManager({ atcId, role = "admin" }: ExamRequestManagerProps) {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<"all" | "online" | "offline">("all");
@@ -71,10 +72,11 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
   const handleAction = async (examId: string, status: string, extraData: any = {}) => {
     setActionLoading(examId);
     try {
-      const res = await fetch("/api/admin/exams/approve", {
+      const endpoint = role === "atc" ? "/api/atc/exams/update-schedule" : "/api/admin/exams/approve";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId, approvalStatus: status, ...extraData })
+        body: JSON.stringify({ examId, approvalStatus: role === "atc" ? undefined : status, ...extraData })
       });
       if (res.ok) {
         setShowApproveModal(false);
@@ -127,10 +129,10 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
   const openApproveModal = (exam: any) => {
     setSelectedExam(exam);
     setApprovalForm({
-      examDate: exam.offlineDetails?.preferredDate || "",
-      examTime: exam.offlineDetails?.preferredTimeSlot || "10:00 AM",
+      examDate: exam.examDate ? new Date(exam.examDate).toISOString().split('T')[0] : (exam.offlineDetails?.preferredDate || ""),
+      examTime: exam.examTime || (exam.offlineDetails?.preferredTimeSlot || "10:00 AM"),
       setId: exam.setId || "",
-      examMode: exam.examMode // Pre-fill with student's choice
+      examMode: exam.examMode || "online" // Pre-fill with student's choice or default
     } as any);
     setShowApproveModal(true);
   };
@@ -303,27 +305,39 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                       <div className="flex items-center gap-2">
                         {exam.approvalStatus === 'pending' && (
                           <>
-                            <button 
-                              onClick={() => openApproveModal(exam)}
-                              disabled={actionLoading === exam._id}
-                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-green-700 transition shadow-sm"
-                            >
-                              Approve
-                            </button>
-                            <button 
-                              onClick={() => handleAction(exam._id, "rejected")}
-                              disabled={actionLoading === exam._id}
-                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-red-700 transition shadow-sm"
-                            >
-                              Reject
-                            </button>
+                            {role === "admin" ? (
+                              <>
+                                <button 
+                                  onClick={() => openApproveModal(exam)}
+                                  disabled={actionLoading === exam._id}
+                                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-green-700 transition shadow-sm"
+                                >
+                                  Approve
+                                </button>
+                                <button 
+                                  onClick={() => handleAction(exam._id, "rejected")}
+                                  disabled={actionLoading === exam._id}
+                                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-red-700 transition shadow-sm"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            ) : (
+                               <button 
+                                  onClick={() => openApproveModal(exam)}
+                                  disabled={actionLoading === exam._id}
+                                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
+                                >
+                                  Set Schedule
+                                </button>
+                            )}
                           </>
                         )}
                         {exam.approvalStatus === 'approved' && (
                            <button 
-                            onClick={() => openApproveModal(exam)}
-                            disabled={actionLoading === exam._id}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
+                            onClick={role === "admin" ? () => openApproveModal(exam) : undefined}
+                            disabled={actionLoading === exam._id || role !== "admin"}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition shadow-sm whitespace-nowrap disabled:opacity-50"
                           >
                             {exam.admitCardReleased ? 'Edit Schedule' : 'Set Date & Release'}
                           </button>
@@ -429,10 +443,10 @@ export default function ExamRequestManager({ atcId }: ExamRequestManagerProps) {
                 </div>
 
                 <button 
-                  onClick={() => handleAction(selectedExam._id, "approved", { ...approvalForm, admitCardReleased: true })}
+                  onClick={() => handleAction(selectedExam._id, "approved", { ...approvalForm, admitCardReleased: role === "admin" })}
                   className="w-full py-4 bg-black text-white rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition shadow-xl"
                 >
-                  Approve & Release Admit Card
+                  {role === "admin" ? "Approve & Release Admit Card" : "Save Schedule Details"}
                 </button>
              </div>
           </div>

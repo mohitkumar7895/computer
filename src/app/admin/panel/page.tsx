@@ -1209,7 +1209,7 @@ export default function AdminPanelPage() {
           )}
 
             {/* ── EXAM REQUESTS TAB ── */}
-            {tab === "examRequests" && <ExamRequestManager />}
+            {tab === "examRequests" && <ExamRequestManager role="admin" />}
 
             {/* ── STUDY MATERIALS TAB ── */}
             {tab === "materials" && <StudyMaterialManager role="admin" />}

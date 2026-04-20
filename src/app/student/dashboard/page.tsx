@@ -203,33 +203,7 @@ export default function StudentDashboardPage() {
                    ))}
                 </div>
 
-                {/* Recent Notices */}
-                <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm overflow-hidden relative">
-                   <div className="flex items-center justify-between mb-8">
-                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                       < Bell className="text-blue-600" /> Academic Notices
-                     </h3>
-                     <button className="text-xs font-black text-blue-600 uppercase tracking-widest hover:underline decoration-2">View History</button>
-                   </div>
-                   <div className="space-y-4">
-                      <div className="flex items-start gap-5 p-6 bg-slate-50/50 rounded-3xl border border-slate-50 relative group cursor-default">
-                         <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-xs shrink-0">01</div>
-                         <div className="flex-1">
-                            <p className="text-xs font-black text-slate-800 mb-1">Welcome to the Portal</p>
-                            <p className="text-xs text-slate-500 leading-relaxed italic">Your student portal registration is confirmed. You can now access all services including Online exams.</p>
-                         </div>
-                         <div className="absolute top-6 right-6 text-[10px] font-bold text-slate-300">Just Now</div>
-                      </div>
-                      <div className="flex items-start gap-5 p-6 bg-white rounded-3xl border border-slate-50 relative group cursor-default opacity-50">
-                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black text-xs shrink-0">02</div>
-                         <div className="flex-1">
-                            <p className="text-xs font-black text-slate-400 mb-1">Verify Identity</p>
-                            <p className="text-xs text-slate-400 leading-relaxed italic italic">Ensure your profile details match your official documents.</p>
-                         </div>
-                         <div className="absolute top-6 right-6 text-[10px] font-bold text-slate-300 italic">Locked</div>
-                      </div>
-                   </div>
-                </div>
+
               </div>
             )}
 
