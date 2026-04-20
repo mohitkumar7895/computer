@@ -32,6 +32,10 @@ export interface IStudent {
   photo?: string;
   idProof?: string;
   aadharNo?: string;
+  aadharDoc?: string;
+  studentSignature?: string;
+  otherDocs?: string;
+  referredBy?: string;
   admissionDate: string;
   password?: string; // hashed
   status: "pending" | "approved" | "rejected" | "active";
