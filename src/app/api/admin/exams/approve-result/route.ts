@@ -20,6 +20,8 @@ export async function POST(request: Request) {
       exam.offlineExamStatus = "published";
       exam.status = "completed";
       exam.resultDeclared = true;
+      exam.marksheetReleased = marksheet !== false;
+      exam.certificateReleased = certificate !== false;
       await exam.save();
 
       // 2. Update Student Profile

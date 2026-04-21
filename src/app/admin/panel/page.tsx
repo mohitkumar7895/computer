@@ -143,14 +143,18 @@ export default function AdminPanelPage() {
   const [viewIdCard, setViewIdCard] = useState<any>(null);
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   
+  // Result Review
+  const [pendingResults, setPendingResults] = useState<any[]>([]);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [selectedResults, setSelectedResults] = useState<string[]>([]);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [releaseForm, setReleaseForm] = useState({ marksheet: true, certificate: true });
+
   // Application Filters
   const [appSearch, setAppSearch] = useState("");
   const [appStateFilter, setAppStateFilter] = useState("");
   const [appDistrictFilter, setAppDistrictFilter] = useState("");
-
-  const [pendingResults, setPendingResults] = useState<any[]>([]);
-  const [resultsLoading, setResultsLoading] = useState(false);
-  const [selectedResults, setSelectedResults] = useState<string[]>([]);
 
   const [studentEditValues, setStudentEditValues] = useState<any>({});
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
@@ -648,10 +652,11 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId, status })
+        body: JSON.stringify({ examId, status, ...releaseForm })
       });
       if (res.ok) {
         showToast("success", status === "published" ? "Result approved & documents generated!" : "Result rejected.");
+        setShowReleaseModal(false);
         void fetchPendingResults();
       }
     } catch { showToast("error", "Action failed"); }
@@ -1228,7 +1233,19 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-slate-400 uppercase tracking-tight">
                                <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {res.atcId?.trainingPartnerName} ({res.atcId?.tpCode})</span>
                                <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> {res.studentId?.course}</span>
-                               <span className="flex items-center gap-1.5 font-black text-amber-600 italic">Score: {res.totalScore} / 100</span>
+                               <span className="flex items-center gap-1.5 font-black text-amber-600 italic">Score: {res.totalScore} / 100 • Grade: {res.grade || '—'}</span>
+                               {res.offlineExamCopy && (
+                                 <button 
+                                   onClick={() => {
+                                     const win = window.open();
+                                     const html = `<html><body style="margin:0"><embed src="${res.offlineExamCopy}" width="100%" height="100%" type="application/pdf"></body></html>`;
+                                     win?.document.write(html);
+                                   }}
+                                   className="text-blue-600 font-black hover:underline"
+                                 >
+                                   View Exam Copy
+                                 </button>
+                               )}
                             </div>
                          </div>
                          <div className="flex items-center gap-3 w-full md:w-auto">
@@ -1239,7 +1256,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               Reject
                             </button>
                             <button 
-                              onClick={() => handleResultApproval(res._id, "published")}
+                              onClick={() => { setSelectedResult(res); setShowReleaseModal(true); }}
                               className="flex-grow md:flex-none px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100"
                             >
                               Approve & Generate
@@ -1904,6 +1921,61 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
           </div>
         </main>
         {/* ID CARD VIEW MODAL */}
+        {showReleaseModal && selectedResult && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+             <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
+                   <div>
+                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Issue Documents</h3>
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-1">Select what to release for {selectedResult.studentId?.name}</p>
+                   </div>
+                   <button onClick={() => setShowReleaseModal(false)} className="p-2 bg-white rounded-full border border-slate-100 text-slate-400">
+                      <XCircle className="w-5 h-5" />
+                   </button>
+                </div>
+                <div className="p-8 space-y-6">
+                   <div className="space-y-4">
+                      <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition group">
+                         <input 
+                           type="checkbox" 
+                           className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" 
+                           checked={releaseForm.marksheet}
+                           onChange={e => setReleaseForm({...releaseForm, marksheet: e.target.checked})}
+                         />
+                         <div>
+                            <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">Generate Marksheet</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Official Statement of Marks</p>
+                         </div>
+                      </label>
+
+                      <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition group">
+                         <input 
+                           type="checkbox" 
+                           className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+                           checked={releaseForm.certificate}
+                           onChange={e => setReleaseForm({...releaseForm, certificate: e.target.checked})}
+                         />
+                         <div>
+                            <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">Generate Certificate</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Official Diploma Document</p>
+                         </div>
+                      </label>
+                   </div>
+
+                   <div className="flex gap-4 pt-4">
+                      <button type="button" onClick={() => setShowReleaseModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
+                      <button 
+                        onClick={() => handleResultApproval(selectedResult._id, "published")}
+                        className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl disabled:opacity-50"
+                      >
+                        Process Release
+                      </button>
+                   </div>
+                </div>
+             </div>
+          </div>
+        )}
+
         {viewIdCard && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
              <div className="relative group">

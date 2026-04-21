@@ -176,12 +176,18 @@ export default function ExamManager({ student }: ExamManagerProps) {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Academic Marksheet</h3>
                 <p className="text-slate-400 text-xs mb-8 leading-relaxed">Comprehensive statement of marks including internal assessment and final examination scores.</p>
-                <button 
-                  onClick={() => window.open(`/student/document/marksheet/${publishedExam._id}`, '_blank')}
-                  className="mt-auto w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-50 transition active:scale-95 flex items-center justify-center gap-3"
-                >
-                  <Download className="w-4 h-4" /> Print Marksheet
-                </button>
+                {publishedExam.marksheetReleased ? (
+                  <button 
+                    onClick={() => window.open(`/student/document/marksheet/${publishedExam._id}`, '_blank')}
+                    className="mt-auto w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-50 transition active:scale-95 flex items-center justify-center gap-3"
+                  >
+                    <Download className="w-4 h-4" /> Print Marksheet
+                  </button>
+                ) : (
+                  <div className="mt-auto w-full py-4 bg-white/5 border border-white/10 text-slate-500 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-center italic">
+                    Marksheet Not Released
+                  </div>
+                )}
               </div>
 
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
@@ -190,12 +196,18 @@ export default function ExamManager({ student }: ExamManagerProps) {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Final Certificate</h3>
                 <p className="text-slate-400 text-xs mb-8 leading-relaxed">Officially recognized diploma for the successful completion of the {publishedExam.courseName || student.course} program.</p>
-                <button 
-                  onClick={() => window.open(`/student/document/certificate/${publishedExam._id}`, '_blank')}
-                  className="mt-auto w-full py-4 bg-amber-500 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-amber-400 transition active:scale-95 flex items-center justify-center gap-3"
-                >
-                  <Award className="w-4 h-4" /> Print Certificate
-                </button>
+                {publishedExam.certificateReleased ? (
+                  <button 
+                    onClick={() => window.open(`/student/document/certificate/${publishedExam._id}`, '_blank')}
+                    className="mt-auto w-full py-4 bg-amber-500 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-amber-400 transition active:scale-95 flex items-center justify-center gap-3"
+                  >
+                    <Award className="w-4 h-4" /> Print Certificate
+                  </button>
+                ) : (
+                  <div className="mt-auto w-full py-4 bg-white/5 border border-white/10 text-slate-500 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-center italic">
+                    Certificate Not Released
+                  </div>
+                )}
               </div>
             </div>
           </div>

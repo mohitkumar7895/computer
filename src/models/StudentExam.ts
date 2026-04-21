@@ -34,6 +34,8 @@ export interface IStudentExam {
   offlineExamStatus?: "not_appeared" | "appeared" | "review_pending" | "published";
   offlineExamResult?: "Pass" | "Fail" | "Waiting";
   offlineExamCopy?: string;
+  marksheetReleased?: boolean;
+  certificateReleased?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +82,8 @@ const StudentExamSchema = new Schema<IStudentExam>(
     offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "review_pending", "published"], default: "not_appeared" },
     offlineExamResult: { type: String, enum: ["Pass", "Fail", "Waiting"], default: "Waiting" },
     offlineExamCopy: { type: String }, // Base64 PDF
+    marksheetReleased: { type: Boolean, default: false },
+    certificateReleased: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

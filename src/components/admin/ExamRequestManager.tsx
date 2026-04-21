@@ -280,7 +280,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       r.atcId?.trainingPartnerName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMode = filterMode === "all" || r.examMode === filterMode;
     const matchesStatus = filterStatus === "all" || r.approvalStatus === filterStatus;
-    return matchesSearch && matchesMode && matchesStatus;
+    // Hide from Scheduling if result is already in review or published
+    const isNotInResultPhase = r.offlineExamStatus !== 'review_pending' && r.offlineExamStatus !== 'published' && r.status !== 'completed';
+    return matchesSearch && matchesMode && matchesStatus && isNotInResultPhase;
   });
 
   const labelCls = "block text-[11px] font-black uppercase text-slate-400 tracking-wider mb-2";

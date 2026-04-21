@@ -36,6 +36,9 @@ interface ExamRequest {
   maxScore?: number;
   offlineExamStatus?: string;
   offlineExamResult?: string;
+  offlineExamCopy?: string;
+  grade?: string;
+  session?: string;
   submittedAt?: string;
   updatedAt: string;
 }
@@ -218,18 +221,16 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId, status, ...releaseForm }),
+        body: JSON.stringify({ examId, status }),
       });
       if (res.ok) {
         await fetchRequests();
-        setShowReleaseModal(false);
       }
     } catch (err) {
       console.error("Approve failed", err);
     } finally {
-      // no-op
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const handleBulkAction = async (action: "approve" | "reject" | "delete") => {
@@ -394,6 +395,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                       <th className="px-6 py-4">Student Identity</th>
                       <th className="px-6 py-4">Opted Course</th>
                       <th className="px-6 py-4 text-center">Eligibility</th>
+                      <th className="px-6 py-4">Result Preview</th>
                       <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
@@ -435,16 +437,62 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                           </td>
                           <td className="px-6 py-5 text-center">
                              <span className="inline-flex px-3 py-1 bg-blue-50 text-blue-700 text-[9px] font-black uppercase rounded-full border border-blue-200 tracking-widest shadow-sm">
-                               {r.examMode} - {r.approvalStatus}
+                               {r.examMode}
                              </span>
                           </td>
+                          <td className="px-6 py-5">
+                             <div className="flex flex-col gap-0.5">
+                                <p className="text-[10px] font-black text-slate-800 uppercase">Marks: <span className="text-emerald-600">{r.totalScore ?? 0}</span></p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">Grade: {r.grade || '—'} | {r.session || '—'}</p>
+                                {r.offlineExamCopy && (
+                                  <button 
+                                    onClick={() => {
+                                      const win = window.open();
+                                      const html = `<html><body style="margin:0"><embed src="${r.offlineExamCopy}" width="100%" height="100%" type="application/pdf"></body></html>`;
+                                      win?.document.write(html);
+                                    }}
+                                    className="text-[9px] font-black text-blue-600 uppercase underline mt-1 text-left"
+                                  >
+                                    View Exam Copy
+                                  </button>
+                                )}
+                             </div>
+                          </td>
                           <td className="px-6 py-5 text-right">
-                             <button 
-                               onClick={() => openResultModal(r)}
-                               className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
-                             >
-                               {r.examMode === "online" ? "Edit Exam Result" : "Enter Exam Result"}
-                             </button>
+                              <div className="flex items-center justify-end gap-2 text-slate-800">
+                                {role === "atc" && (
+                                  <button 
+                                    onClick={() => openResultModal(r)}
+                                    className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
+                                  >
+                                    {r.examMode === "online" ? "Edit Exam Result" : "Enter Exam Result"}
+                                  </button>
+                                )}
+                                {role === "admin" && (
+                                  (r.offlineExamStatus === "review_pending") || 
+                                  (r.examMode === "online" && r.status === "completed" && r.offlineExamStatus !== "published")
+                                ) && (
+                                  <>
+                                    <button 
+                                      onClick={() => { setSelectedExam(r); setShowReleaseModal(true); }}
+                                      className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
+                                    >
+                                      Approve & Issue
+                                    </button>
+                                    <button 
+                                      onClick={() => handleApproveResult(r._id, "appeared")}
+                                      className="px-4 py-2 bg-amber-100 text-amber-700 rounded-xl text-[10px] font-black uppercase hover:bg-amber-200 transition"
+                                    >
+                                      Send Back
+                                    </button>
+                                  </>
+                                )}
+                                {role === "admin" && !(r.offlineExamStatus === "review_pending" || (r.examMode === "online" && r.status === "completed" && r.offlineExamStatus !== "published")) && (
+                                   <span className="text-[9px] font-black italic text-slate-400 uppercase tracking-widest">
+                                     {r.examMode === 'online' && r.status !== 'completed' ? 'Exam Not Started/Finished' : 'Waiting for ATC Action'}
+                                   </span>
+                                )}
+                              </div>
                           </td>
                         </tr>
                       );
@@ -601,22 +649,34 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                              {exam.status === 'completed' && (
                                <>
                                  <div className="flex flex-col gap-1.5">
-                                   <button
-                                     onClick={() => { setSelectedExam(exam); setShowReleaseModal(true); }}
-                                     className="text-[10px] font-black px-2 py-1 rounded bg-slate-900 text-white hover:bg-black transition uppercase whitespace-nowrap"
-                                   >
-                                     Issue Docs
-                                   </button>
+                                   {role === "admin" && (
+                                     <button
+                                       onClick={() => { setSelectedExam(exam); setShowReleaseModal(true); }}
+                                       className="text-[10px] font-black px-2 py-1 rounded bg-slate-900 text-white hover:bg-black transition uppercase whitespace-nowrap"
+                                     >
+                                       Issue Docs
+                                     </button>
+                                   )}
                                    <div className="flex gap-1.5">
                                      <button
                                        onClick={() => window.open(`/${role}/document/marksheet/${exam._id}`, "_blank")}
-                                       className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
+                                       disabled={!exam.marksheetReleased}
+                                       className={`text-[10px] font-black px-3 py-1.5 rounded-lg transition uppercase shadow-sm ${
+                                         exam.marksheetReleased 
+                                           ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100" 
+                                           : "bg-slate-50 text-slate-300 cursor-not-allowed opacity-50"
+                                       }`}
                                      >
                                        M-Sheet
                                      </button>
                                      <button
                                        onClick={() => window.open(`/${role}/document/certificate/${exam._id}`, "_blank")}
-                                       className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
+                                       disabled={!exam.certificateReleased}
+                                       className={`text-[10px] font-black px-3 py-1.5 rounded-lg transition uppercase shadow-sm ${
+                                         exam.certificateReleased 
+                                           ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" 
+                                           : "bg-slate-50 text-slate-300 cursor-not-allowed opacity-50"
+                                       }`}
                                      >
                                        Cert
                                      </button>
