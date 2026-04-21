@@ -5,6 +5,11 @@ import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCir
 
 interface ExamRequest {
   _id: string;
+  atcId?: {
+    _id?: string;
+    trainingPartnerName?: string;
+    tpCode?: string;
+  };
   studentId: {
     _id: string;
     name: string;
@@ -351,7 +356,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
             ) : (
               <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 {/* Bulk Action Bar */}
-                {selectedExams.length > 0 && role === "admin" && (
+                {selectedExams.length > 0 && (
                   <div className="bg-slate-900 px-6 py-3 flex items-center justify-between animate-in slide-in-from-top duration-300">
                     <div className="flex items-center gap-4 text-white text-xs font-bold">
                        <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedExams.length}</div>

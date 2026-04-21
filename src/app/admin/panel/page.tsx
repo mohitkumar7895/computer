@@ -68,6 +68,7 @@ interface Student {
   aadharDoc?: string;
   studentSignature?: string;
   otherDocs?: string;
+  password?: string;
   userStatus?: "active" | "disabled";
 }
 

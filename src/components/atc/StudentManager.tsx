@@ -9,6 +9,17 @@ interface Student {
   registrationNo: string;
   name: string;
   fatherName: string;
+  motherName?: string;
+  dob?: string;
+  gender?: string;
+  email?: string;
+  currentAddress?: string;
+  permanentAddress?: string;
+  highestQualification?: string;
+  aadharNo?: string;
+  category?: string;
+  disability?: boolean;
+  referredBy?: string;
   mobile: string;
   course: string;
   status: string;
@@ -21,6 +32,9 @@ interface Student {
   offlineExamResult?: "Pass" | "Fail" | "Waiting";
   offlineExamCopy?: string;
   session?: string;
+  aadharDoc?: string;
+  studentSignature?: string;
+  marksheet10th?: string;
 }
 
 interface Course {
@@ -274,6 +288,8 @@ export default function StudentManager() {
   const inputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${invalidFields.has(name || "") ? "border-red-700 ring-4 ring-red-50" : "border-slate-200"} rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400`;
   const labelCls = (name?: string) => `block text-[11px] font-bold ${invalidFields.has(name || "") ? "text-red-700" : "text-slate-500"} uppercase tracking-wider mb-1.5`;
   const sectionCls = "bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5";
+  const basicLabelCls = "block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5";
+  const basicInputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400";
 
   // Modal Input Styles with validation
   const modalInputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${modalInvalidFields.has(name || "") ? "border-red-700 ring-4 ring-red-50" : "border-slate-200"} rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400`;
@@ -473,9 +489,9 @@ export default function StudentManager() {
                                       setEditForm({
                                         name: s.name,
                                         fatherName: s.fatherName,
-                                        motherName: s.motherName,
-                                        dob: s.dob,
-                                        gender: s.gender,
+                                        motherName: s.motherName || "",
+                                        dob: s.dob || "",
+                                        gender: s.gender || "",
                                         mobile: s.mobile,
                                         email: s.email || "",
                                         course: s.course,
@@ -509,9 +525,9 @@ export default function StudentManager() {
                                          setEditForm({
                                            name: s.name,
                                            fatherName: s.fatherName,
-                                           motherName: s.motherName,
-                                           dob: s.dob,
-                                           gender: s.gender,
+                                        motherName: s.motherName || "",
+                                        dob: s.dob || "",
+                                        gender: s.gender || "",
                                            mobile: s.mobile,
                                            email: s.email || "",
                                            course: s.course,
@@ -833,7 +849,9 @@ export default function StudentManager() {
                        </div>
                        <div className="space-y-1">
                           <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Date of Birth</label>
-                          <p className="text-sm font-black text-slate-800">{new Date(selectedStudent.dob).toLocaleDateString()}</p>
+                          <p className="text-sm font-black text-slate-800">
+                            {selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : "N/A"}
+                          </p>
                        </div>
                     </div>
                   </div>
@@ -924,24 +942,24 @@ export default function StudentManager() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Basic Identity */}
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Student Full Name *</label>
+                       <label className={basicLabelCls}>Student Full Name *</label>
                        <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className={modalInputCls("edit_name")} required />
                     </div>
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Father's Name *</label>
+                       <label className={basicLabelCls}>Father's Name *</label>
                        <input value={editForm.fatherName} onChange={e => setEditForm({...editForm, fatherName: e.target.value})} className={modalInputCls("edit_father")} required />
                     </div>
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Mother's Name *</label>
+                       <label className={basicLabelCls}>Mother's Name *</label>
                        <input value={editForm.motherName} onChange={e => setEditForm({...editForm, motherName: e.target.value})} className={modalInputCls("edit_mother")} required />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                         <label className={labelCls}>Date of Birth *</label>
+                         <label className={basicLabelCls}>Date of Birth *</label>
                          <input type="date" value={editForm.dob} onChange={e => setEditForm({...editForm, dob: e.target.value})} className={modalInputCls("edit_dob")} required />
                       </div>
                       <div className="space-y-1.5">
-                         <label className={labelCls}>Gender *</label>
+                         <label className={basicLabelCls}>Gender *</label>
                          <select value={editForm.gender} onChange={e => setEditForm({...editForm, gender: e.target.value})} className={modalInputCls("edit_gender")} required>
                             <option>Male</option><option>Female</option><option>Other</option>
                          </select>
@@ -950,19 +968,19 @@ export default function StudentManager() {
 
                     {/* Contact & Social */}
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Mobile No *</label>
+                       <label className={basicLabelCls}>Mobile No *</label>
                        <input value={editForm.mobile} onChange={e => setEditForm({...editForm, mobile: e.target.value})} className={modalInputCls("edit_mobile")} required maxLength={10} />
                     </div>
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Email Address</label>
+                       <label className={basicLabelCls}>Email Address</label>
                        <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className={modalInputCls("edit_email")} />
                     </div>
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Aadhar Number</label>
+                       <label className={basicLabelCls}>Aadhar Number</label>
                        <input value={editForm.aadharNo} onChange={e => setEditForm({...editForm, aadharNo: e.target.value})} className={modalInputCls("edit_aadhar")} maxLength={12} />
                     </div>
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Category</label>
+                       <label className={basicLabelCls}>Category</label>
                        <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})} className={modalInputCls("edit_category")}>
                           <option>General</option><option>OBC</option><option>SC</option><option>ST</option>
                        </select>
@@ -970,29 +988,29 @@ export default function StudentManager() {
 
                     {/* Academic */}
                     <div className="space-y-1.5">
-                       <label className={labelCls}>Course *</label>
+                       <label className={basicLabelCls}>Course *</label>
                        <select value={editForm.course} onChange={e => setEditForm({...editForm, course: e.target.value})} className={modalInputCls("edit_course")} required>
                           {availableCourses.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
                        </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                         <label className={labelCls}>Session *</label>
+                         <label className={basicLabelCls}>Session *</label>
                          <input value={editForm.session} onChange={e => setEditForm({...editForm, session: e.target.value})} className={modalInputCls("edit_session")} required />
                       </div>
                       <div className="space-y-1.5">
-                         <label className={labelCls}>Admission Date *</label>
+                         <label className={basicLabelCls}>Admission Date *</label>
                          <input type="date" value={editForm.admissionDate} onChange={e => setEditForm({...editForm, admissionDate: e.target.value})} className={modalInputCls("edit_date")} required />
                       </div>
                     </div>
 
                     {/* Addresses */}
                     <div className="md:col-span-2 space-y-1.5">
-                       <label className={labelCls}>Current Address *</label>
+                       <label className={basicLabelCls}>Current Address *</label>
                        <textarea value={editForm.currentAddress} onChange={e => setEditForm({...editForm, currentAddress: e.target.value})} className={modalInputCls("edit_curr_addr")} rows={2} required />
                     </div>
                     <div className="md:col-span-2 space-y-1.5">
-                       <label className={labelCls}>Permanent Address *</label>
+                       <label className={basicLabelCls}>Permanent Address *</label>
                        <textarea value={editForm.permanentAddress} onChange={e => setEditForm({...editForm, permanentAddress: e.target.value})} className={modalInputCls("edit_perm_addr")} rows={2} required />
                     </div>
                   </div>
@@ -1036,11 +1054,11 @@ export default function StudentManager() {
 
               <div className="space-y-4">
                  <div className="space-y-1.5">
-                    <label className={labelCls}>Exam Mode</label>
+                    <label className={basicLabelCls}>Exam Mode</label>
                     <select 
                       value={examReqForm.examMode}
                       onChange={e => setExamReqForm({...examReqForm, examMode: e.target.value})}
-                      className={inputCls}
+                      className={basicInputCls}
                       required
                     >
                        <option value="online">Online Exam</option>
@@ -1051,21 +1069,21 @@ export default function StudentManager() {
                  {examReqForm.examMode === 'offline' && (
                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                       <div className="space-y-1.5">
-                         <label className={labelCls}>Preferred Date</label>
+                         <label className={basicLabelCls}>Preferred Date</label>
                          <input 
                            type="date"
                            value={examReqForm.preferredDate}
                            onChange={e => setExamReqForm({...examReqForm, preferredDate: e.target.value})}
-                           className={inputCls}
+                          className={basicInputCls}
                            required
                          />
                       </div>
                       <div className="space-y-1.5">
-                         <label className={labelCls}>Preferred Center / Location</label>
+                         <label className={basicLabelCls}>Preferred Center / Location</label>
                          <input 
                            value={examReqForm.preferredCenter}
                            onChange={e => setExamReqForm({...examReqForm, preferredCenter: e.target.value})}
-                           className={inputCls}
+                          className={basicInputCls}
                            placeholder="Enter center name or location"
                            required
                          />
@@ -1124,12 +1142,12 @@ export default function StudentManager() {
 
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
-                  <label className={labelCls}>Marks Obtained *</label>
+                  <label className={basicLabelCls}>Marks Obtained *</label>
                   <input 
                     type="number"
                     value={resultForm.marks}
                     onChange={e => setResultForm({...resultForm, marks: e.target.value})}
-                    className={inputCls}
+                    className={basicInputCls}
                     placeholder="Out of 100"
                     required
                     min="0"
@@ -1137,11 +1155,11 @@ export default function StudentManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelCls}>Grade *</label>
+                  <label className={basicLabelCls}>Grade *</label>
                   <select 
                     value={resultForm.grade}
                     onChange={e => setResultForm({...resultForm, grade: e.target.value})}
-                    className={inputCls}
+                    className={basicInputCls}
                     required
                   >
                     <option>A+</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option>
@@ -1150,11 +1168,11 @@ export default function StudentManager() {
               </div>
 
               <div className="space-y-1.5">
-                <label className={labelCls}>Academic Session *</label>
+                <label className={basicLabelCls}>Academic Session *</label>
                 <input 
                   value={resultForm.session}
                   onChange={e => setResultForm({...resultForm, session: e.target.value})}
-                  className={inputCls}
+                  className={basicInputCls}
                   placeholder="e.g. 2024-25"
                   required
                 />

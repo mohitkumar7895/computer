@@ -5,6 +5,11 @@ import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCir
 
 interface ExamRequest {
   _id: string;
+  atcId?: {
+    _id?: string;
+    trainingPartnerName?: string;
+    tpCode?: string;
+  };
   studentId: {
     _id: string;
     name: string;
