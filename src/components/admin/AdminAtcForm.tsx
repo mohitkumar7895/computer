@@ -244,7 +244,6 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (!signature && !sigPreview) r.push("Signature is required.");
     if (!aadharDoc && !aadharPreview) r.push("Aadhar card PDF is required.");
     if (!form.paymentMode) r.push("Please select payment mode.");
-    if (!form.password?.trim()) r.push("Login password is required.");
     
     // For visual highlighting
     const fieldMap: Record<string, boolean> = {
@@ -266,7 +265,6 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       professionalExperience: !form.professionalExperience.trim(),
       dob: !form.dob.trim(),
       paymentMode: !form.paymentMode,
-      password: !form.password?.trim(),
       photo: !photo && !photoPreview,
       signature: !signature && !sigPreview,
       aadharDoc: !aadharDoc && !aadharPreview,
@@ -1055,12 +1053,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       <SectionCard icon={ShieldCheck} title="Center Credentials" subtitle="Login information for the ATC portal" color="#6366f1">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
-            <Label>Portal Password *</Label>
+            <Label>Portal Password (Optional)</Label>
             <div className="relative">
               <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
                 type={showPass ? "text" : "password"}
-                className={`${inputCls} pl-9 pr-10 ${invalidFields.has("password") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 pr-10`} 
                 placeholder="Set login password"
                 value={form.password} onChange={(e) => setField("password", e.target.value)} />
               <button

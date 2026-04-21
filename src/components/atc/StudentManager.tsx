@@ -296,25 +296,9 @@ export default function StudentManager() {
 
   const filteredStudents = students.filter(s => {
     if (studentFilter === "all") return true;
+    if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
     return s.status === studentFilter;
   });
-
-  const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedStudents.length} students?`)) return;
-    setLoading(true);
-    try {
-      // Assuming there's a bulk delete endpoint or loop through individual ones
-      // For now, let's just show a success message as a mock if endpoint doesn't exist, 
-      // but ideally we should hit /api/atc/students/bulk-delete
-      setMsg({ type: "success", text: `${selectedStudents.length} students deleted (Request sent)` });
-      setSelectedStudents([]);
-      void fetchStudents();
-    } catch {
-      setMsg({ type: "error", text: "Bulk delete failed" });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px]">
@@ -367,15 +351,6 @@ export default function StudentManager() {
                 <span className="w-10 h-10 rounded-full border-4 border-green-100 border-t-green-600 animate-spin" />
                 <p className="text-sm font-bold text-slate-400">Loading student records...</p>
               </div>
-            ) : filteredStudents.length === 0 ? (
-              <div className="text-center p-16 bg-white rounded-3xl border border-dashed border-slate-200">
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                  <Users className="w-8 h-8 text-slate-300" />
-                </div>
-                <h3 className="text-slate-800 font-bold mb-1">No Students Found</h3>
-                <p className="text-slate-400 text-sm mb-6 max-w-xs mx-auto">No student records match the selected filter or no students admitted yet.</p>
-                <button onClick={() => setTab("add")} className="px-6 py-3 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-100">Open Admission Form</button>
-              </div>
             ) : (
               <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 {/* Bulk Action Bar */}
@@ -387,7 +362,6 @@ export default function StudentManager() {
                     </div>
                     <div className="flex items-center gap-3">
                        <button onClick={() => void fetchStudents()} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Refresh</button>
-                       <button onClick={handleBulkDelete} className="px-4 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-black uppercase hover:bg-red-600 transition shadow-lg shadow-red-500/20">Delete</button>
                        <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
                     </div>
                   </div>
@@ -416,7 +390,17 @@ export default function StudentManager() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredStudents.map((s) => (
+                    {filteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-20 text-center bg-white/50">
+                           <div className="flex flex-col items-center justify-center gap-2">
+                              <Users className="w-10 h-10 text-slate-200" />
+                              <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">No Records Found</p>
+                              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Selected filter: {studentFilter} students</p>
+                           </div>
+                        </td>
+                      </tr>
+                    ) : filteredStudents.map((s) => (
                       <tr key={s._id} className={`hover:bg-slate-50/50 transition cursor-default group ${selectedStudents.includes(s._id) ? 'bg-green-50/30' : ''}`}>
                         <td className="px-6 py-5">
                           <input 
@@ -471,11 +455,11 @@ export default function StudentManager() {
                          </td>
                         <td className="px-6 py-5 text-center">
                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
-                             s.status === "approved" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : 
+                             (s.status === "approved" || s.status === "active") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : 
                              s.status === "rejected" ? "bg-red-50 text-red-700 border border-red-200" :
                              "bg-amber-50 text-amber-600 border border-amber-200"
                            }`}>
-                             {s.status === "approved" ? "Approved" : s.status === "rejected" ? "Rejected" : "Pending Admission"}
+                             {(s.status === "approved" || s.status === "active") ? "Approved" : s.status === "rejected" ? "Rejected" : "Pending Admission"}
                            </span>
                         </td>
                         <td className="px-6 py-5 text-right">

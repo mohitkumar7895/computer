@@ -293,18 +293,9 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     }
   };
 
-  const handleStudentAction = async (id: string, action: "approved" | "rejected" | "toggleStatus" | "delete") => {
+  const handleStudentAction = async (id: string, action: "approved" | "rejected" | "toggleStatus") => {
     setStudentActionId(id + action);
     try {
-      if (action === "delete") {
-        if (!confirm("Are you sure you want to delete this student permanently?")) return;
-        const res = await fetch(`/api/admin/students/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (!res.ok) { showToast("error", data.message); return; }
-        showToast("success", "Student deleted successfully");
-        await fetchStudents();
-        return;
-      }
 
       const res = await fetch(`/api/admin/students/${id}`, {
         method: "PATCH",
@@ -904,7 +895,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                     {[
                       { label: "Total Students", count: studentCounts.all, icon: Users, color: "blue" },
                       { label: "Pending Review", count: studentCounts.pending, icon: Clock, color: "amber" },
-                      { label: "Active Students", count: studentCounts.approved, icon: CheckCircle, color: "green" },
+                      { label: "Approved Students", count: studentCounts.approved, icon: CheckCircle, color: "green" },
                       { label: "Rejected Students", count: studentCounts.rejected, icon: XCircle, color: "red" },
                       { label: "Blocked Students", count: studentCounts.disabled, icon: ShieldAlert, color: "slate" },
                     ].map((stat) => (
@@ -998,9 +989,6 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                      <div className="flex items-center gap-3">
                         <button onClick={() => handleBulkAction("centers", "approve")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
                         <button onClick={() => handleBulkAction("centers", "reject")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Reject Select</button>
-                        <button onClick={() => handleBulkAction("centers", "delete")} className="px-5 py-2 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center gap-2">
-                          <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
                         <button onClick={() => setSelectedApps([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
                      </div>
                    </div>
@@ -1618,7 +1606,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                           : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                       }`}
                     >
-                      {s === "active" ? "Active" : s} ({studentCounts[s === "active" ? "approved" : s] || 0})
+                      {s === "active" ? "Approved" : s} ({studentCounts[s === "active" ? "approved" : s] || 0})
                     </button>
                   ))}
                 </div>
@@ -1632,9 +1620,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         <span className="uppercase tracking-widest">Students Selected</span>
                       </div>
                       <div className="flex items-center gap-3">
+                        <button onClick={() => handleBulkAction("students", "approve")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                        <button onClick={() => handleBulkAction("students", "reject")} className="px-4 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">Reject Select</button>
                         <button onClick={() => handleBulkAction("students", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable</button>
                         <button onClick={() => handleBulkAction("students", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable</button>
-                        <button onClick={() => handleBulkAction("students", "delete")} className="px-4 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-black uppercase hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center gap-1.5"><Trash2 className="w-3 h-3" /> Delete</button>
                         <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
                       </div>
                     </div>
@@ -1717,7 +1706,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                   s.status === "rejected" ? "bg-red-50 text-red-600 border-red-100" : 
                                   "bg-amber-50 text-amber-600 border-amber-100"
                                 }`}>
-                                  {s.userStatus === "disabled" ? "Disabled Account" : (s.status === "active" || s.status === "approved" ? "Active" : s.status)}
+                                  {s.userStatus === "disabled" ? "Disabled Account" : (s.status === "active" || s.status === "approved" ? "Approved" : s.status)}
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-right">
@@ -1768,9 +1757,6 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                           title="Edit Details"
                                        >
                                         <Edit2 className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button onClick={() => handleStudentAction(s._id, "delete")} className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition">
-                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   </div>

@@ -30,7 +30,15 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    if (action === "delete") {
+    if (action === "approve") {
+      await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { status: "active" } });
+      return NextResponse.json({ message: `${ids.length} students approved successfully` });
+    }
+    else if (action === "reject") {
+      await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { status: "rejected" } });
+      return NextResponse.json({ message: `${ids.length} students rejected successfully` });
+    }
+    else if (action === "delete") {
       await AtcStudent.deleteMany({ _id: { $in: ids } });
       return NextResponse.json({ message: `${ids.length} students deleted successfully` });
     } 

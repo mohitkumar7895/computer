@@ -48,6 +48,10 @@ export async function POST(request: Request) {
       await AtcUser.updateMany({ tpCode: { $in: tpCodes } }, { $set: { status: "disabled" } });
       return NextResponse.json({ message: `${ids.length} centers disabled successfully` });
     }
+    else if (action === "reject") {
+      await AtcApplication.updateMany({ _id: { $in: ids } }, { $set: { status: "rejected" } });
+      return NextResponse.json({ message: `${ids.length} applications rejected successfully` });
+    }
     else if (action === "enable") {
       const apps = await AtcApplication.find({ _id: { $in: ids } }, { tpCode: 1 });
       const tpCodes = apps.map(app => app.tpCode).filter(Boolean);
