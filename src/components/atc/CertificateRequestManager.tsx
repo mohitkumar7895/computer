@@ -83,6 +83,11 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [releaseForm, setReleaseForm] = useState({ 
+    marksheet: true, 
+    certificate: true 
+  });
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -213,9 +218,12 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId, status }),
+        body: JSON.stringify({ examId, status, ...releaseForm }),
       });
-      if (res.ok) await fetchRequests();
+      if (res.ok) {
+        await fetchRequests();
+        setShowReleaseModal(false);
+      }
     } catch (err) {
       console.error("Approve failed", err);
     } finally {
@@ -578,8 +586,11 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                             )}
                             {role === "admin" && exam.offlineExamStatus === "review_pending" && (
                                <div className="flex items-center gap-2">
-                                 <button onClick={() => handleApproveResult(exam._id, "published")} className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition uppercase shadow-sm">
-                                   Approve Result
+                                 <button 
+                                   onClick={() => { setSelectedExam(exam); setShowReleaseModal(true); }}
+                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition uppercase shadow-sm"
+                                 >
+                                   Approve & Issue
                                  </button>
                                  <button onClick={() => handleApproveResult(exam._id, "appeared")} className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition uppercase shadow-sm">
                                    Send Back
@@ -589,21 +600,28 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
 
                              {exam.status === 'completed' && (
                                <>
-                                 <div className="text-[10px] font-black uppercase bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 text-slate-700">
-                                    Score: <span className="text-blue-600">{exam.totalScore ?? "N/A"}</span>
+                                 <div className="flex flex-col gap-1.5">
+                                   <button
+                                     onClick={() => { setSelectedExam(exam); setShowReleaseModal(true); }}
+                                     className="text-[10px] font-black px-2 py-1 rounded bg-slate-900 text-white hover:bg-black transition uppercase whitespace-nowrap"
+                                   >
+                                     Issue Docs
+                                   </button>
+                                   <div className="flex gap-1.5">
+                                     <button
+                                       onClick={() => window.open(`/${role}/document/marksheet/${exam._id}`, "_blank")}
+                                       className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
+                                     >
+                                       M-Sheet
+                                     </button>
+                                     <button
+                                       onClick={() => window.open(`/${role}/document/certificate/${exam._id}`, "_blank")}
+                                       className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
+                                     >
+                                       Cert
+                                     </button>
+                                   </div>
                                  </div>
-                                 <button
-                                   onClick={() => window.open(`/atc/document/marksheet/${exam._id}`, "_blank")}
-                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
-                                 >
-                                   View Marksheet
-                                 </button>
-                                 <button
-                                   onClick={() => window.open(`/atc/document/certificate/${exam._id}`, "_blank")}
-                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
-                                 >
-                                   View Certificate
-                                 </button>
                                </>
                              )}
                             <div className="text-[10px] font-black uppercase bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 text-slate-600">
@@ -747,35 +765,42 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                     </div>
 
                     <div className="space-y-2">
-                       <label className={labelCls}>Final Score</label>
+                       <label className={labelCls}>Final Score {selectedExam.examMode === 'online' ? '(System Calculated)' : '*'}</label>
                        <input 
-                         className={inputCls}
-                         placeholder="e.g. 85"
+                         className={`${inputCls} ${selectedExam.examMode === 'online' ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                         placeholder={selectedExam.examMode === 'online' ? "System Score" : "e.g. 85"}
                          value={resultForm.marks}
                          onChange={e => setResultForm({...resultForm, marks: e.target.value})}
+                         readOnly={selectedExam.examMode === 'online'}
+                         required={selectedExam.examMode === 'offline'}
                        />
+                       {selectedExam.examMode === 'online' && (
+                         <p className="text-[9px] font-bold text-blue-600 uppercase">System recorded {resultForm.marks} marks.</p>
+                       )}
                     </div>
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className={labelCls}>Grade</label>
-                      <input
-                        className={inputCls}
-                        placeholder="e.g. A+"
-                        value={resultForm.grade}
-                        onChange={e => setResultForm({ ...resultForm, grade: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className={labelCls}>Session</label>
-                      <input
-                        className={inputCls}
-                        placeholder="e.g. 2025-26"
-                        value={resultForm.session}
-                        onChange={e => setResultForm({ ...resultForm, session: e.target.value })}
-                      />
-                    </div>
+                     <div className="space-y-2">
+                       <label className={labelCls}>Grade *</label>
+                       <input
+                         className={inputCls}
+                         placeholder="e.g. A+"
+                         value={resultForm.grade}
+                         onChange={e => setResultForm({ ...resultForm, grade: e.target.value })}
+                         required
+                       />
+                     </div>
+                     <div className="space-y-2">
+                       <label className={labelCls}>Academic Session *</label>
+                       <input
+                         className={inputCls}
+                         placeholder="e.g. 2025-26"
+                         value={resultForm.session}
+                         onChange={e => setResultForm({ ...resultForm, session: e.target.value })}
+                         required
+                       />
+                     </div>
                  </div>
 
                  {selectedExam.examMode === "offline" && (
@@ -877,6 +902,61 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                      </button>
                   </div>
               </form>
+           </div>
+        </div>
+      )}
+      {showReleaseModal && selectedExam && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+           <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+                 <div>
+                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Issue Documents</h3>
+                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Select what to release for {selectedExam.studentId?.name}</p>
+                 </div>
+                 <button onClick={() => setShowReleaseModal(false)} className="p-2 bg-white rounded-full border border-slate-100 text-slate-400">
+                    <X className="w-5 h-5" />
+                 </button>
+              </div>
+              <div className="p-8 space-y-6">
+                 <div className="space-y-4">
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition group">
+                       <input 
+                         type="checkbox" 
+                         className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" 
+                         checked={releaseForm.marksheet}
+                         onChange={e => setReleaseForm({...releaseForm, marksheet: e.target.checked})}
+                       />
+                       <div>
+                          <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">Generate Marksheet</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Official Statement of Marks</p>
+                       </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition group">
+                       <input 
+                         type="checkbox" 
+                         className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+                         checked={releaseForm.certificate}
+                         onChange={e => setReleaseForm({...releaseForm, certificate: e.target.checked})}
+                       />
+                       <div>
+                          <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">Generate Certificate</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Official Diploma Document</p>
+                       </div>
+                    </label>
+                 </div>
+
+                 <div className="flex gap-4 pt-4">
+                    <button type="button" onClick={() => setShowReleaseModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
+                    <button 
+                      onClick={() => handleApproveResult(selectedExam._id, "published")}
+                      disabled={actionLoading === selectedExam._id || (!releaseForm.marksheet && !releaseForm.certificate)}
+                      className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl disabled:opacity-50"
+                    >
+                      {actionLoading === selectedExam._id ? "Processing..." : "Process Release"}
+                    </button>
+                 </div>
+              </div>
            </div>
         </div>
       )}

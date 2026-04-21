@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const marksheet = await Marksheet.findOne({ examId, atcId: decoded.id }).populate({
       path: "studentId",
       model: AtcStudent,
-      select: "name fatherName photo classRollNo",
+      select: "name fatherName motherName photo registrationNo session",
     });
 
     if (!marksheet) return NextResponse.json({ message: "Marksheet not found" }, { status: 404 });

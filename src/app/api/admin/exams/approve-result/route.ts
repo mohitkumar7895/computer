@@ -8,7 +8,7 @@ import { AtcUser } from "@/models/AtcUser";
 
 export async function POST(request: Request) {
   try {
-    const { examId, status } = await request.json(); // status: 'published' or 'appeared' (rejected)
+    const { examId, status, marksheet, certificate } = await request.json(); // status: 'published' or 'appeared' (rejected)
 
     await connectDB();
 
@@ -31,57 +31,61 @@ export async function POST(request: Request) {
 
       const atc = await AtcUser.findById(exam.atcId);
 
-      // 3. Generate Marksheet
-      await Marksheet.findOneAndUpdate(
-        { examId: exam._id },
-        {
-          studentId: exam.studentId,
-          atcId: exam.atcId,
-          examId: exam._id,
-          enrollmentNo: student.registrationNo || "N/A",
-          rollNo: student.classRollNo || "N/A",
-          courseName: student.course,
-          subjects: [
-            {
-              subjectName: student.course,
-              marksObtained: exam.totalScore || 0,
-              totalMarks: 100
-            }
-          ],
-          totalObtained: exam.totalScore || 0,
-          totalMax: 100,
-          percentage: exam.totalScore || 0,
-          grade: exam.grade || "A",
-          result: (exam.totalScore || 0) >= 33 ? "Pass" : "Fail",
-          issueDate: new Date(),
-          isApproved: true
-        },
-        { upsert: true }
-      );
+      // 3. Conditional Marksheet
+      if (marksheet !== false) {
+        await Marksheet.findOneAndUpdate(
+          { examId: exam._id },
+          {
+            studentId: exam.studentId,
+            atcId: exam.atcId,
+            examId: exam._id,
+            enrollmentNo: student.registrationNo || "N/A",
+            rollNo: student.classRollNo || "N/A",
+            courseName: student.course,
+            subjects: [
+              {
+                subjectName: student.course,
+                marksObtained: exam.totalScore || 0,
+                totalMarks: 100
+              }
+            ],
+            totalObtained: exam.totalScore || 0,
+            totalMax: 100,
+            percentage: exam.totalScore || 0,
+            grade: exam.grade || "A",
+            result: (exam.totalScore || 0) >= 33 ? "Pass" : "Fail",
+            issueDate: new Date(),
+            isApproved: true
+          },
+          { upsert: true }
+        );
+      }
 
-      // 4. Generate Certificate
-      const session = exam.session || student.session || "2024-25";
-      const count = await Certificate.countDocuments();
-      const serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+      // 4. Conditional Certificate
+      if (certificate !== false) {
+        const session = exam.session || student.session || "2024-25";
+        const count = await Certificate.countDocuments();
+        const serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
 
-      await Certificate.findOneAndUpdate(
-        { examId: exam._id },
-        {
-          studentId: exam.studentId,
-          atcId: exam.atcId,
-          examId: exam._id,
-          enrollmentNo: student.registrationNo || "N/A",
-          serialNo,
-          issueDate: new Date(),
-          session,
-          courseName: student.course,
-          centerCode: atc?.centerCode || "N/A",
-          centerName: atc?.centerName || "N/A",
-          grade: exam.grade || "A",
-          isApproved: true
-        },
-        { upsert: true }
-      );
+        await Certificate.findOneAndUpdate(
+          { examId: exam._id },
+          {
+            studentId: exam.studentId,
+            atcId: exam.atcId,
+            examId: exam._id,
+            enrollmentNo: student.registrationNo || "N/A",
+            serialNo,
+            issueDate: new Date(),
+            session,
+            courseName: student.course,
+            centerCode: atc?.centerCode || "N/A",
+            centerName: atc?.centerName || "N/A",
+            grade: exam.grade || "A",
+            isApproved: true
+          },
+          { upsert: true }
+        );
+      }
 
     } else {
       // Revert to 'appeared' (rejected)

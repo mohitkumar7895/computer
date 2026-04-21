@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const cert = await Certificate.findOne({ examId, atcId: decoded.id }).populate({
       path: "studentId",
       model: AtcStudent,
-      select: "name fatherName motherName photo classRollNo",
+      select: "name fatherName motherName photo registrationNo session",
     });
 
     if (!cert) return NextResponse.json({ message: "Certificate not found" }, { status: 404 });
