@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
@@ -18,6 +18,8 @@ import {
   getFeeLabel,
   parseFeeOptions,
   SETTINGS_PROCESS_FEE_KEY,
+  INDIAN_STATES,
+  DISTRICTS_BY_STATE,
 } from "@/utils/atcSettings";
 
 interface Application {
@@ -28,6 +30,7 @@ interface Application {
   paymentMode: string; statusOfInstitution: string; educationQualification: string;
   professionalExperience: string; dob: string; createdAt: string;
   tpCode?: string; photo?: string; paymentScreenshot?: string;
+  signature?: string; logo?: string; aadharDoc?: string; marksheetDoc?: string; otherDocs?: string;
   instituteDocument?: string;
   infrastructure?: string;
   postalAddressOffice?: string;
@@ -134,13 +137,23 @@ export default function AdminPanelPage() {
   const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [studentActionId, setStudentActionId] = useState<string | null>(null);
 
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  
+  // Application Filters
+  const [appSearch, setAppSearch] = useState("");
+  const [appStateFilter, setAppStateFilter] = useState("");
+  const [appDistrictFilter, setAppDistrictFilter] = useState("");
+
   const [pendingResults, setPendingResults] = useState<any[]>([]);
   const [resultsLoading, setResultsLoading] = useState(false);
 
   const [studentEditValues, setStudentEditValues] = useState<any>({});
+  const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
+  const [passSaving, setPassSaving] = useState(false);
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
@@ -255,7 +268,12 @@ export default function AdminPanelPage() {
 
   useEffect(() => { void fetchApplications(); }, [fetchApplications]);
   useEffect(() => { if (tab === "settings") void fetchSettings(); }, [tab, fetchSettings]);
-  useEffect(() => { if (tab === "dashboard") void fetchApplications(); }, [tab, fetchApplications]);
+  useEffect(() => { 
+    if (tab === "dashboard") {
+      void fetchApplications();
+      void fetchStudents();
+    }
+  }, [tab, fetchApplications]);
   useEffect(() => { if (tab === "students") void fetchStudents(); }, [tab]);
 
   const fetchStudents = async () => {
@@ -424,7 +442,15 @@ export default function AdminPanelPage() {
       </tbody></table>
       <h2>Infrastructure</h2>
       <table><thead><tr><th>Particulars</th><th>Rooms</th><th>Seats</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>
-      <script>window.print();window.onafterprint=()=>window.close();</script>
+      
+      ${application.paymentScreenshot ? `
+        <h2>Payment Proof</h2>
+        <div style="text-align:center; margin-top:20px; border:1px solid #ddd; padding:10px; border-radius:8px;">
+          <img src="${application.paymentScreenshot}" style="max-width:100%; max-height:500px; object-contain:contain;" />
+        </div>
+      ` : ""}
+
+      <script>window.onload=()=>{ window.print(); window.onafterprint=()=>window.close(); }</script>
       </body></html>
     `);
     printWindow.document.close();
@@ -601,6 +627,27 @@ export default function AdminPanelPage() {
     finally { setResultsLoading(false); }
   };
 
+  const handlePasswordChange = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!passData.old || !passData.new) { showToast("error", "All password fields are required."); return; }
+    if (passData.new !== passData.confirm) { showToast("error", "New passwords do not match."); return; }
+    if (passData.new.length < 6) { showToast("error", "Password must be at least 6 characters."); return; }
+    
+    setPassSaving(true);
+    try {
+      const res = await fetch("/api/admin/settings/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast("error", data.message || "Failed to change password."); return; }
+      showToast("success", "Password changed successfully!");
+      setPassData({ old: "", new: "", confirm: "" });
+    } catch { showToast("error", "Error changing password."); }
+    finally { setPassSaving(false); }
+  };
+
   const handleResultApproval = async (examId: string, status: "published" | "appeared") => {
     try {
       const res = await fetch("/api/admin/exams/approve-result", {
@@ -616,22 +663,43 @@ export default function AdminPanelPage() {
   };
 
   const handleLogout = async () => {
-
     await fetch("/api/admin/logout", { method: "POST" });
     router.push("/admin/login");
   };
 
-  const filtered = applications.filter((a) => {
-    if (filterStatus === "all") return true;
-    if (filterStatus === "disabled") return a.userStatus === "disabled";
-    return a.status === filterStatus;
+  const districts = appStateFilter ? DISTRICTS_BY_STATE[appStateFilter] || [] : [];
+
+  const filtered = applications.filter((app) => {
+    // Status Filter
+    if (filterStatus !== "all") {
+      if (filterStatus === "disabled" && !(app.status === "approved" && app.userStatus === "disabled")) return false;
+      if (filterStatus === "approved" && !(app.status === "approved" && app.userStatus === "active")) return false;
+      if (filterStatus !== "disabled" && filterStatus !== "approved" && app.status !== filterStatus) return false;
+    }
+    
+    // Search Filter
+    if (appSearch) {
+      const s = appSearch.toLowerCase();
+      const match = app.trainingPartnerName.toLowerCase().includes(s) || 
+                  app.email.toLowerCase().includes(s) || 
+                  app.mobile.includes(s) ||
+                  (app.tpCode && app.tpCode.toLowerCase().includes(s));
+      if (!match) return false;
+    }
+
+    // Location Filter
+    if (appStateFilter && app.state !== appStateFilter) return false;
+    if (appDistrictFilter && app.district !== appDistrictFilter) return false;
+
+    return true;
   });
+
   const counts = {
     all: applications.length,
     pending: applications.filter((a) => a.status === "pending").length,
-    approved: applications.filter((a) => a.status === "approved").length,
+    approved: applications.filter((a) => a.status === "approved" && a.userStatus === "active").length,
     rejected: applications.filter((a) => a.status === "rejected").length,
-    disabled: applications.filter((a) => a.userStatus === "disabled").length,
+    disabled: applications.filter((a) => a.status === "approved" && a.userStatus === "disabled").length,
   };
 
   const filteredCenters = applications.filter((a) => {
@@ -659,7 +727,7 @@ export default function AdminPanelPage() {
     const map = {
       pending: "bg-amber-100 text-amber-700 border-amber-200",
       approved: "bg-green-100 text-green-700 border-green-200",
-      rejected: "bg-red-100 text-red-700 border-red-200",
+      rejected: "bg-red-900/10 text-red-900 border-red-800",
     };
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${map[status]}`}>
@@ -797,246 +865,61 @@ export default function AdminPanelPage() {
           <div className="flex-1 p-6">
             {/* ── DASHBOARD TAB ── */}
             {tab === "dashboard" && (
-              <>
-                {/* Stats */}
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                  {[
-                    { label: "Total", count: counts.all, icon: Users, color: "blue" },
-                    { label: "Pending", count: counts.pending, icon: Clock, color: "amber" },
-                    { label: "Approved", count: counts.approved, icon: CheckCircle, color: "green" },
-                    { label: "Rejected", count: counts.rejected, icon: XCircle, color: "red" },
-                    { label: "Disabled", count: counts.disabled, icon: ShieldAlert, color: "slate" },
-                  ].map((stat) => (
-                    <div key={stat.label} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${stat.color}-50`}>
-                        <stat.icon className={`w-5 h-5 text-${stat.color}-600`} />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-extrabold text-slate-800">{stat.count}</p>
-                        <p className="text-xs font-semibold text-slate-500">{stat.label}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Filter + Refresh */}
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
-                    <button key={s} onClick={() => setFilterStatus(s)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-semibold transition ${filterStatus === s ? "bg-blue-600 text-white shadow" : "bg-white text-slate-600 border border-slate-200 hover:border-blue-300"}`}>
-                      {s.charAt(0).toUpperCase() + s.slice(1)} ({counts[s]})
-                    </button>
-                  ))}
-                  <button onClick={fetchApplications} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-100 transition">
-                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                  </button>
-                </div>
-
-                {/* List */}
-                {loading ? (
-                  <div className="flex items-center justify-center py-24">
-                    <div className="w-10 h-10 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
+              <div className="space-y-8 animate-in fade-in duration-500">
+                {/* Center Stats */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-1.5 h-6 bg-[#0a0aa1] rounded-full" />
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">ATC Center Metrics</h3>
                   </div>
-                ) : filtered.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm">
-                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-semibold">No {filterStatus !== "all" ? filterStatus : ""} applications found.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filtered.map((app) => (
-                      <div key={app._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-4 px-5 py-4">
-                          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                            <ShieldCheck className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-bold text-slate-800 text-sm truncate">{app.trainingPartnerName}</p>
-                              {app.submittedByAdmin && (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold border border-purple-200">Admin Created</span>
-                              )}
-                              {statusBadge(app.status)}
-                              {app.userStatus === "disabled" && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-700 border-slate-200">
-                                  <ShieldAlert className="w-3 h-3" />
-                                  Disabled
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500 mt-0.5">{app.email} · {app.mobile} · {app.district}, {app.state}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase tracking-tighter">
-                                {feeLabel(app.processFee)}
-                              </span>
-                              {app.tpCode && (
-                                <span className="px-3 py-1 bg-green-600 text-white rounded-lg font-black text-[11px] tracking-wider shadow-sm flex items-center gap-1.5">
-                                  <ShieldCheck className="w-3 h-3" />
-                                  ID: {app.tpCode}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {app.status === "pending" && (
-                              <>
-                                <button onClick={() => handleAction(app._id, "approve")} disabled={actionLoading !== null}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-600 text-white text-xs font-bold hover:bg-green-500 transition disabled:opacity-50">
-                                  {actionLoading === app._id + "approve" ? <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                                  Approve
-                                </button>
-                                <button onClick={() => handleAction(app._id, "reject")} disabled={actionLoading !== null}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-500 transition disabled:opacity-50">
-                                  {actionLoading === app._id + "reject" ? <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                            <button type="button" onClick={() => openApplicationForCreateEdit(app)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">
-                              Edit
-                            </button>
-                            <button type="button" onClick={() => printApplication(app)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">
-                              Print
-                            </button>
-                            <button onClick={() => setExpandedId(expandedId === app._id ? null : app._id)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">
-                              <Eye className="w-3.5 h-3.5" />
-                              {expandedId === app._id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
-                          </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[
+                      { label: "Total Centers", count: counts.all, icon: Building2, color: "blue" },
+                      { label: "Pending ATC", count: counts.pending, icon: Clock, color: "amber" },
+                      { label: "Approved ATC", count: counts.approved, icon: ShieldCheck, color: "green" },
+                      { label: "Rejected ATC", count: counts.rejected, icon: XCircle, color: "red" },
+                      { label: "Disabled ATC", count: counts.disabled, icon: ShieldAlert, color: "slate" },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color === 'red' ? 'bg-red-900/10' : `bg-${stat.color}-50`} group-hover:scale-110 transition-transform`}>
+                          <stat.icon className={`w-6 h-6 ${stat.color === 'red' ? 'text-red-900' : `text-${stat.color}-600`}`} />
                         </div>
-
-                        {expandedId === app._id && (
-                          <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
-                            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
-                              {[
-                                { label: "Postal Address", value: app.postalAddressOffice },
-                                { label: "Zones", value: app.zones?.join(", ") },
-                                { label: "Chief Name", value: app.chiefName },
-                                { label: "TP Code", value: app.tpCode },
-                                { label: "Designation", value: app.designation },
-                                { label: "Education", value: app.educationQualification },
-                                { label: "Experience", value: app.professionalExperience },
-                                { label: "Date of Birth", value: app.dob },
-                                { label: "Affiliation Fee", value: feeLabel(app.processFee) },
-                                { label: "Year Est.", value: app.yearOfEstablishment },
-                                { label: "Institution Type", value: app.statusOfInstitution },
-                                { label: "Payment Mode", value: app.paymentMode === "gpay" ? "Google Pay" : "Online" },
-                                { label: "Submitted", value: new Date(app.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) },
-                              ].map((item) => (
-                                <div key={item.label} className="bg-white rounded-xl px-3 py-2.5 border border-slate-200 shadow-sm">
-                                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{item.label}</p>
-                                  <p className="font-semibold text-slate-800 text-sm mt-0.5">{item.value || "—"}</p>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Images Row */}
-                            <div className="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap gap-4">
-                              {app.photo && (
-                                <div className="space-y-1.5 min-w-0">
-                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight truncate">Applicant Photo</p>
-                                  <div className="relative aspect-[3/4] w-full sm:w-32 sm:h-40 rounded-xl border-2 border-slate-200 overflow-hidden bg-white shadow-sm hover:border-blue-300 transition group">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={app.photo} alt="Photo" className="w-full h-full object-cover" />
-                                    <a href={app.photo} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-[10px] font-bold">Full View</a>
-                                  </div>
-                                </div>
-                              )}
-                              {app.paymentScreenshot && (
-                                <div className="space-y-1.5 min-w-0">
-                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1 truncate">
-                                    Verification <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
-                                  </p>
-                                  <div className="relative aspect-[3/4] w-full sm:w-32 sm:h-40 rounded-xl border-2 border-green-200 overflow-hidden bg-white shadow-sm hover:border-green-400 transition group">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={app.paymentScreenshot} alt="Transaction SS" className="w-full h-full object-contain p-1" />
-                                    <a href={app.paymentScreenshot} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-[10px] font-bold">Check Screen</a>
-                                  </div>
-                                </div>
-                              )}
-                              {app.instituteDocument && (
-                                <div className="space-y-1.5 min-w-0">
-                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1 truncate">
-                                    Institute Document
-                                  </p>
-                                  <div className="relative aspect-[3/4] w-full sm:w-32 sm:h-40 rounded-xl border-2 border-slate-200 overflow-hidden bg-white shadow-sm hover:border-blue-400 transition group">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <embed src={app.instituteDocument} className="w-full h-full object-cover p-1" />
-                                    <a href={app.instituteDocument} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-[10px] font-bold">View Doc</a>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Infrastructure Section */}
-                            {app.infrastructure && (
-                              <div className="mt-6 border-t border-slate-200 pt-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
-                                    <PlusCircle className="w-4 h-4 text-emerald-600" /> Infrastructure Details
-                                  </p>
-                                  <span className="sm:hidden text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full animate-pulse">Scroll →</span>
-                                </div>
-                                <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white">
-                                  <table className="w-full text-[11px] sm:text-xs text-left min-w-[400px]">
-                                    <thead className="bg-slate-50 border-b border-slate-200">
-                                      <tr>
-                                        <th className="px-4 py-2.5 font-bold text-slate-600 uppercase tracking-tight">Particulars</th>
-                                        <th className="px-4 py-3 font-bold text-slate-600 uppercase tracking-tight">Rooms</th>
-                                        <th className="px-4 py-3 font-bold text-slate-600 uppercase tracking-tight">Seats</th>
-                                        <th className="px-4 py-3 font-bold text-slate-600 uppercase tracking-tight">Area (Sq.Ft.)</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                      {Object.entries(parseInfra(app.infrastructure) || {}).map(([key, val]) => (
-                                        <tr key={key} className="hover:bg-slate-50/50 transition">
-                                          <td className="px-4 py-2.5 font-semibold text-slate-700">{key}</td>
-                                          <td className="px-4 py-2.5 text-slate-600">{val.rooms}</td>
-                                          <td className="px-4 py-2.5 text-slate-600">{val.seats}</td>
-                                          <td className="px-4 py-2.5 text-slate-600">{val.area}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <div>
+                          <p className={`text-2xl font-black tracking-tighter ${stat.color === 'red' ? 'text-red-900' : 'text-slate-800'}`}>{stat.count}</p>
+                          <p className={`text-[10px] font-black uppercase tracking-wider ${stat.color === 'red' ? 'text-red-900/60' : 'text-slate-400'}`}>{stat.label}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
 
-                {editingApplication && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-                      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900">Edit Application</h3>
-                          <p className="text-sm text-slate-500">Update the full application form and save your changes.</p>
-                        </div>
-                        <button type="button" onClick={closeApplicationEditor} className="text-slate-500 hover:text-slate-800">Close</button>
-                      </div>
-                      <div className="p-6">
-                        <AdminAtcForm
-                          mode="edit"
-                          applicationId={editingApplication._id}
-                          initialData={editingApplication}
-                          onCancel={closeApplicationEditor}
-                          onSuccess={async () => {
-                            closeApplicationEditor();
-                            await fetchApplications();
-                          }}
-                        />
-                      </div>
-                    </div>
+                {/* Student Stats */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Student Registration Metrics</h3>
                   </div>
-                )}
-              </>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[
+                      { label: "Total Students", count: studentCounts.all, icon: Users, color: "blue" },
+                      { label: "Pending Review", count: studentCounts.pending, icon: Clock, color: "amber" },
+                      { label: "Active Students", count: studentCounts.approved, icon: CheckCircle, color: "green" },
+                      { label: "Rejected Students", count: studentCounts.rejected, icon: XCircle, color: "red" },
+                      { label: "Blocked Students", count: studentCounts.disabled, icon: ShieldAlert, color: "slate" },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color === 'red' ? 'bg-red-900/10' : `bg-${stat.color}-50`} group-hover:scale-110 transition-transform`}>
+                          <stat.icon className={`w-6 h-6 ${stat.color === 'red' ? 'text-red-900' : `text-${stat.color}-600`}`} />
+                        </div>
+                        <div>
+                          <p className={`text-2xl font-black tracking-tighter ${stat.color === 'red' ? 'text-red-900' : 'text-slate-800'}`}>{stat.count}</p>
+                          <p className={`text-[10px] font-black uppercase tracking-wider ${stat.color === 'red' ? 'text-red-900/60' : 'text-slate-400'}`}>{stat.label}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* ── CREATE TAB ── */}
@@ -1069,222 +952,184 @@ export default function AdminPanelPage() {
             {/* ── MANAGE CENTERS TAB ── */}
             {tab === "centers" && (
               <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
 
-                   <div className="flex flex-wrap items-center gap-2">
-                      {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setCenterFilter(s)}
-                          className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border ${
-                            centerFilter === s
-                              ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-md shadow-blue-100"
-                              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                          }`}
-                        >
-                          {s} ({centerCounts[s]})
-                        </button>
-                      ))}
-                    </div>
-                   <button 
-                     onClick={() => {
-                       setPrefillApplication(null); // Clear any edit state
-                       setTab("create");
-                     }}
-                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition shadow-lg shadow-blue-100"
-                   >
-                     <PlusCircle className="w-4 h-4" /> Add New ATC Center
-                   </button>
-                </div>
 
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-                  {/* Bulk Actions Bar */}
-                  {selectedApps.length > 0 && (
-                    <div className="bg-[#0a0aa1] px-6 py-3 flex items-center justify-between animate-in slide-in-from-top duration-300">
-                      <div className="flex items-center gap-4 text-white text-xs font-bold">
-                        <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedApps.length}</div>
-                        <span className="uppercase tracking-widest">Centers Selected</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => handleBulkAction("centers", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable</button>
-                        <button onClick={() => handleBulkAction("centers", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable</button>
-                        <button onClick={() => handleBulkAction("centers", "delete")} className="px-4 py-1.5 rounded-lg bg-red-500 text-white text-[10px] font-black uppercase hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center gap-1.5"><Trash2 className="w-3 h-3" /> Delete</button>
-                        <button onClick={() => setSelectedApps([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
-                      <tr>
-                        <th className="px-6 py-4 w-4">
+                 {/* Tab Selection & Bulk Row */}
+                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                       <div className="flex items-center gap-2 mr-4 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">
                           <input 
                             type="checkbox" 
                             className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
-                            checked={filteredCenters.length > 0 && selectedApps.length === filteredCenters.length}
+                            checked={filtered.length > 0 && selectedApps.length === filtered.length}
                             onChange={(e) => {
-                              if (e.target.checked) setSelectedApps(filteredCenters.map(a => a._id));
+                              if (e.target.checked) setSelectedApps(filtered.map(a => a._id));
                               else setSelectedApps([]);
                             }}
                           />
-                        </th>
-                        <th className="px-6 py-4">TP CODE / CENTER NAME</th>
-                        <th className="px-6 py-4">LOCATION</th>
-                        <th className="px-6 py-4">ZONES</th>
-                        <th className="px-6 py-4">ADMISSION STATUS</th>
-                        <th className="px-6 py-4 text-right">ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredCenters.length === 0 ? (
-                        <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-medium">No centers found.</td></tr>
-                      ) : (
-                        filteredCenters.map((app) => (
-                          <tr key={app._id} className="hover:bg-slate-50 transition group">
-                            <td className="px-6 py-4">
-                               <input 
-                                  type="checkbox" 
-                                  className="w-4 h-4 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1]"
-                                  checked={selectedApps.includes(app._id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) setSelectedApps(prev => [...prev, app._id]);
-                                    else setSelectedApps(prev => prev.filter(id => id !== app._id));
-                                  }}
-                                />
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="font-black text-slate-800 leading-none mb-1">{app.tpCode || "NEW-ATC"}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">{app.trainingPartnerName}</p>
-                            </td>
-                            <td className="px-6 py-4 text-slate-500 font-medium">{app.district}, {app.state}</td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-wrap gap-1">
-                                {app.zones?.map(z => (
-                                  <span key={z} className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-black uppercase border border-blue-100">{z}</span>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${app.userStatus === "active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
-                                 {app.userStatus === "active" ? "ACTIVE / ENABLED" : "DISABLED / BLOCKED"}
-                               </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openCenterEditor(app)}
-                                  className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-black uppercase hover:bg-slate-200 transition"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  disabled={actionLoading === app._id + "toggleStatus"}
-                                  onClick={() => handleAction(app._id, "toggleStatus")}
-                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm transition active:scale-95 ${app.userStatus === "active" ? "bg-red-600 text-white hover:bg-red-700 shadow-red-100" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100"}`}
-                                >
-                                  {actionLoading === app._id + "toggleStatus" ? "..." : (app.userStatus === "active" ? "Disable Center" : "Enable Center")}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select All</span>
+                       </div>
+                       {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
+                         <button key={s} onClick={() => setFilterStatus(s)}
+                           className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${filterStatus === s ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-lg shadow-blue-100" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
+                           {s} ({counts[s]})
+                         </button>
+                       ))}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setPrefillApplication(null);
+                        setTab("create");
+                      }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition shadow-lg shadow-blue-100"
+                    >
+                      <PlusCircle className="w-4 h-4" /> New Center
+                    </button>
+                 </div>
 
-                {editingCenter && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-                      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                 {/* Application Bulk Actions Bar */}
+                 {selectedApps.length > 0 && (
+                   <div className="bg-[#0a0aa1] px-6 py-4 rounded-3xl flex items-center justify-between animate-in slide-in-from-top duration-300 shadow-2xl shadow-blue-200">
+                     <div className="flex items-center gap-4 text-white">
+                        <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center font-black text-lg">{selectedApps.length}</div>
                         <div>
-                          <h3 className="text-lg font-bold text-slate-900">Edit Center Details</h3>
-                          <p className="text-sm text-slate-500">Update center name, location, zones, email and mobile.</p>
+                          <p className="text-xs font-black uppercase tracking-widest">Centers Selected</p>
+                          <p className="text-[10px] text-blue-200 font-bold">Perform bulk actions on selection</p>
                         </div>
-                        <button type="button" onClick={closeCenterEditor} className="text-slate-400 hover:text-slate-600">Close</button>
+                     </div>
+                     <div className="flex items-center gap-3">
+                        <button onClick={() => handleBulkAction("centers", "approve")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                        <button onClick={() => handleBulkAction("centers", "reject")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Reject Select</button>
+                        <button onClick={() => handleBulkAction("centers", "delete")} className="px-5 py-2 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition shadow-lg shadow-red-500/20 flex items-center gap-2">
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
+                        <button onClick={() => setSelectedApps([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
+                     </div>
+                   </div>
+                 )}
+
+                {/* List of Applications (The Nice Card Style from Dashboard) */}
+                {loading ? (
+                  <div className="flex items-center justify-center py-24 bg-white rounded-3xl border border-slate-100">
+                    <div className="w-10 h-10 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center shadow-sm">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-bold uppercase tracking-wider">No {filterStatus !== "all" ? filterStatus : ""} centers found.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filtered.map((app) => (
+                      <div key={app._id} className="group relative bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all">
+                        <div className="flex flex-col md:flex-row md:items-center gap-6 px-6 py-5">
+                          <div className="shrink-0 flex items-center pr-2">
+                             <input 
+                               type="checkbox" 
+                               className="w-5 h-5 rounded border-slate-300 text-[#0a0aa1] focus:ring-[#0a0aa1] cursor-pointer"
+                               checked={selectedApps.includes(app._id)}
+                               onChange={(e) => {
+                                 if (e.target.checked) setSelectedApps(prev => [...prev, app._id]);
+                                 else setSelectedApps(prev => prev.filter(id => id !== app._id));
+                               }}
+                             />
+                          </div>
+                          <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0 border border-blue-100">
+                            {app.logo ? <img src={app.logo} alt="" className="w-10 h-10 object-contain" /> : <ShieldCheck className="w-7 h-7 text-blue-600" />}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <h4 className="font-black text-slate-800 text-lg tracking-tight uppercase">{app.trainingPartnerName}</h4>
+                              {app.submittedByAdmin && (
+                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-lg font-black uppercase border border-purple-200">Admin Created</span>
+                              )}
+                              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${app.status === "approved" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : app.status === "pending" ? "bg-amber-50 text-amber-600 border border-amber-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
+                                {app.status}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-tight flex flex-wrap gap-x-4">
+                              <span>{app.email}</span>
+                              <span>{app.mobile}</span>
+                              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {app.district}, {app.state}</span>
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3 mt-2">
+                              <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
+                                {feeLabel(app.processFee)}
+                              </span>
+                              {app.tpCode && (
+                                <span className="px-3 py-1 bg-slate-800 text-white rounded-lg font-black text-[11px] tracking-widest shadow-sm">
+                                  ID: {app.tpCode}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
+                            {app.status === "pending" && (
+                              <div className="flex gap-2">
+                                <button onClick={() => handleAction(app._id, "approve")} disabled={actionLoading !== null}
+                                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500 transition shadow-lg shadow-emerald-100 disabled:opacity-50">
+                                  Approve
+                                </button>
+                                <button onClick={() => handleAction(app._id, "reject")} disabled={actionLoading !== null}
+                                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-red-500 transition shadow-lg shadow-red-100 disabled:opacity-50">
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                            {app.status === "approved" && (
+                              <button
+                                disabled={actionLoading === app._id + "toggleStatus"}
+                                onClick={() => handleAction(app._id, "toggleStatus")}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition active:scale-95 ${app.userStatus === "active" ? "bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100"}`}
+                              >
+                                {app.userStatus === "active" ? "Disable Center" : "Enable Center"}
+                              </button>
+                            )}
+                            <button type="button" onClick={() => openApplicationForCreateEdit(app)}
+                              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition">
+                              Edit
+                            </button>
+                            <button type="button" onClick={() => printApplication(app)}
+                              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition">
+                              Print
+                            </button>
+                          </div>
+                        </div>
+
                       </div>
-                      <form className="space-y-5 p-6" onSubmit={handleCenterSave}>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div>
-                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Center Name</label>
-                            <input
-                              value={editValues.trainingPartnerName}
-                              onChange={(e) => setEditValues((prev) => ({ ...prev, trainingPartnerName: e.target.value }))}
-                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">District</label>
-                            <input
-                              value={editValues.district}
-                              onChange={(e) => setEditValues((prev) => ({ ...prev, district: e.target.value }))}
-                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            />
-                          </div>
+                    ))}
+                  </div>
+                )}
+
+                {editingApplication && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-5xl overflow-hidden rounded-[2.5rem] bg-white shadow-2xl border border-white/20">
+                      <div className="flex items-center justify-between border-b border-slate-100 px-8 py-6 bg-slate-50/50">
+                        <div>
+                          <h3 className="text-xl font-black text-slate-900 uppercase">Edit ATC Application</h3>
+                          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Modify center details and credentials</p>
                         </div>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div>
-                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">State</label>
-                            <input
-                              value={editValues.state}
-                              onChange={(e) => setEditValues((prev) => ({ ...prev, state: e.target.value }))}
-                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Zones</label>
-                            <input
-                              value={editValues.zones}
-                              onChange={(e) => setEditValues((prev) => ({ ...prev, zones: e.target.value }))}
-                              placeholder="Comma separated zones"
-                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div>
-                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Mobile</label>
-                            <input
-                              value={editValues.mobile}
-                              onChange={(e) => setEditValues((prev) => ({ ...prev, mobile: e.target.value.replace(/\D/g, "") }))}
-                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                              maxLength={10}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Email</label>
-                            <input
-                              value={editValues.email}
-                              onChange={(e) => setEditValues((prev) => ({ ...prev, email: e.target.value }))}
-                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                          <button
-                            type="button"
-                            onClick={closeCenterEditor}
-                            className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={editSaving}
-                            className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
-                          >
-                            {editSaving ? "Saving..." : "Save Changes"}
-                          </button>
-                        </div>
-                      </form>
+                        <button type="button" onClick={closeApplicationEditor} className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-500 transition shadow-sm">
+                          <XCircle className="w-6 h-6" />
+                        </button>
+                      </div>
+                      <div className="p-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                        <AdminAtcForm
+                          mode="edit"
+                          applicationId={editingApplication._id}
+                          initialData={editingApplication}
+                          onCancel={closeApplicationEditor}
+                          onSuccess={async () => {
+                            closeApplicationEditor();
+                            await fetchApplications();
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
             {/* ── EXAM REQUESTS TAB ── */}
             {tab === "examRequests" && <ExamRequestManager role="admin" />}
@@ -1627,6 +1472,76 @@ export default function AdminPanelPage() {
 
                   <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 text-xs text-purple-800">
                     <strong>Tip:</strong> Upload a clear image of your signature with a transparent background (.png format) for best results when overlaid onto certificates or official documents.
+                  </div>
+                </div>
+
+                {/* Account Settings - Password Change */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                      <Lock className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">Security & Password</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Change your admin login password to maintain account security.</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handlePasswordChange} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">Current Password</label>
+                      <div className="relative">
+                        <input 
+                          type={showOldPass ? "text" : "password"} 
+                          value={passData.old} 
+                          onChange={e => setPassData(p => ({ ...p, old: e.target.value }))}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-red-100 transition" 
+                          placeholder="Current" 
+                        />
+                        <button type="button" onClick={() => setShowOldPass(!showOldPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                          {showOldPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">New Password</label>
+                      <div className="relative">
+                        <input 
+                          type={showNewPass ? "text" : "password"} 
+                          value={passData.new} 
+                          onChange={e => setPassData(p => ({ ...p, new: e.target.value }))}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-red-100 transition" 
+                          placeholder="6+ characters" 
+                        />
+                        <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                          {showNewPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">Confirm New Password</label>
+                      <input 
+                        type="password" 
+                        value={passData.confirm} 
+                        onChange={e => setPassData(p => ({ ...p, confirm: e.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-red-100 transition" 
+                        placeholder="Repeat new password" 
+                      />
+                    </div>
+                    <div className="md:col-span-3 flex justify-end">
+                       <button
+                         type="submit"
+                         disabled={passSaving}
+                         className="px-8 py-3 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
+                       >
+                         {passSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
+                         Update Admin Password
+                       </button>
+                    </div>
+                  </form>
+
+                  <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-xs text-red-800">
+                    <strong>Warning:</strong> Changing your password will not log out other active sessions but will be required for next login. Keep it secure.
                   </div>
                 </div>
               </div>

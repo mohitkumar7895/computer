@@ -199,7 +199,7 @@ export async function POST(request: Request) {
     
     if (!existingUser) {
       let tpCode = String(formData.get("customTpCode") || "").trim();
-      let rawPassword = String(formData.get("customPassword") || "").trim();
+      let rawPassword = String(formData.get("password") || formData.get("customPassword") || "").trim();
 
       if (!tpCode) {
         let nextId = 1;

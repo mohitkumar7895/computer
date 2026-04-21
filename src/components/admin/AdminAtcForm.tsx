@@ -4,7 +4,8 @@ import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
 import {
   Building2, User, Layers, CreditCard, ChevronDown,
   Send, RotateCcw, CheckCircle, MapPin, Phone, Mail,
-  BookOpen, Briefcase, Calendar, Camera, ShieldCheck, FileText, X, QrCode
+  BookOpen, Briefcase, Calendar, Camera, ShieldCheck, FileText, X, QrCode,
+  Eye, EyeOff, ExternalLink, Trash2
 } from "lucide-react";
 import {
   FeeOption,
@@ -23,7 +24,7 @@ type FormState = {
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
   chiefName: string; designation: string; educationQualification: string;
   professionalExperience: string; dob: string; paymentMode: string;
-  paidAmount: string; transactionNo: string;
+  paidAmount: string; transactionNo: string; password?: string;
 };
 
 const initialFormState: FormState = {
@@ -31,7 +32,7 @@ const initialFormState: FormState = {
   totalName: "", district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
   educationQualification: "", professionalExperience: "", dob: "", paymentMode: "",
-  paidAmount: "", transactionNo: "",
+  paidAmount: "", transactionNo: "", password: "",
 };
 
 const infraFields = ["Staff Room", "Class Room", "Computer Lab", "Reception", "Toilets", "Any Other"] as const;
@@ -128,10 +129,28 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   const [docPreview, setDocPreview] = useState<string | null>(null);
   const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfrastructureRow>>(emptyInfra);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
+  const [showPass, setShowPass] = useState(false);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  const [viewingDoc, setViewingDoc] = useState<{ url: string; title: string; type: "image" | "pdf" } | null>(null);
+
+  const openDoc = (file: File | null, preview: string | null, title: string, defaultType: "image" | "pdf" = "image") => {
+    const url = file ? URL.createObjectURL(file) : (preview || "");
+    if (!url) return;
+    
+    let type = defaultType;
+    // Auto-detect type if it's a data URL or blob
+    if (url.startsWith("data:application/pdf") || url.toLowerCase().endsWith(".pdf")) {
+      type = "pdf";
+    } else if (url.startsWith("data:image/") || url.includes("blob:")) {
+      // Keep default or assume image if it's blob/data and not pdf
+    }
+    
+    setViewingDoc({ url, title, type });
+  };
 
   useEffect(() => {
     if (mode !== "edit" || !initialData) return;
@@ -225,11 +244,50 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (!signature && !sigPreview) r.push("Signature is required.");
     if (!aadharDoc && !aadharPreview) r.push("Aadhar card PDF is required.");
     if (!form.paymentMode) r.push("Please select payment mode.");
-    return r;
-  }, [form]);
+    if (!form.password?.trim()) r.push("Login password is required.");
+    
+    // For visual highlighting
+    const fieldMap: Record<string, boolean> = {
+      processFee: !form.processFee,
+      trainingPartnerName: !form.trainingPartnerName.trim(),
+      trainingPartnerAddress: !form.trainingPartnerAddress.trim(),
+      postalAddressOffice: !form.postalAddressOffice.trim(),
+      totalName: !form.totalName.trim(),
+      district: !form.district.trim(),
+      state: !form.state,
+      pin: !/^\d{6}$/.test(form.pin),
+      mobile: !/^\d{10}$/.test(form.mobile),
+      email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email),
+      statusOfInstitution: !form.statusOfInstitution,
+      yearOfEstablishment: !form.yearOfEstablishment,
+      chiefName: !form.chiefName.trim(),
+      designation: !form.designation.trim(),
+      educationQualification: !form.educationQualification.trim(),
+      professionalExperience: !form.professionalExperience.trim(),
+      dob: !form.dob.trim(),
+      paymentMode: !form.paymentMode,
+      password: !form.password?.trim(),
+      photo: !photo && !photoPreview,
+      signature: !signature && !sigPreview,
+      aadharDoc: !aadharDoc && !aadharPreview,
+    };
+    
+    const invalidSet = new Set<string>();
+    Object.entries(fieldMap).forEach(([k, v]) => { if (v) invalidSet.add(k); });
+    
+    return { list: r, set: invalidSet };
+  }, [form, photo, photoPreview, signature, sigPreview, aadharDoc, aadharPreview]);
 
-  const setField = (field: keyof FormState, value: string) =>
+  const setField = (field: keyof FormState, value: string) => {
     setForm((c) => ({ ...c, [field]: value }));
+    if (invalidFields.has(field)) {
+      setInvalidFields(prev => {
+        const n = new Set(prev);
+        n.delete(field);
+        return n;
+      });
+    }
+  };
 
   const onReset = () => {
     if (mode === "edit" && initialData) {
@@ -257,6 +315,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         paymentMode: initialData.paymentMode ?? current.paymentMode,
         paidAmount: initialData.paidAmount ?? current.paidAmount,
         transactionNo: initialData.transactionNo ?? current.transactionNo,
+        password: initialData.password ?? current.password,
       }));
       setInfra(initialData.infrastructure ? JSON.parse(initialData.infrastructure) : emptyInfra);
       setPhoto(null);
@@ -286,7 +345,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage(null);
-    if (errors.length) { setMessage({ type: "error", text: errors[0] }); return; }
+    if (errors.list.length) { 
+      setMessage({ type: "error", text: errors.list[0] }); 
+      setInvalidFields(errors.set);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return; 
+    }
     setLoading(true);
     try {
       const payload = new FormData();
@@ -301,6 +365,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         payload.append("photo", photo);
       } else if (photoPreview) {
         payload.append("existingPhoto", photoPreview);
+      }
+      if (form.password) {
+        payload.append("customPassword", form.password);
       }
       if (logo) {
         payload.append("logo", logo);
@@ -378,7 +445,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           <div>
             <Label>Affiliation Process Fee *</Label>
             <SelectWrapper>
-              <select className={selectCls} value={form.processFee} onChange={(e) => setField("processFee", e.target.value)}>
+              <select 
+                className={`${selectCls} ${invalidFields.has("processFee") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                value={form.processFee} 
+                onChange={(e) => setField("processFee", e.target.value)}
+              >
                 <option value="">— Select Plan —</option>
                 {feeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 {form.processFee && !feeOptions.some((o) => o.value === form.processFee) && (
@@ -390,13 +461,17 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
           <div className="sm:col-span-2">
             <Label>Training Partner Name *</Label>
-            <input className={inputCls} placeholder="Enter full name of the institute" value={form.trainingPartnerName}
+            <input 
+              className={`${inputCls} ${invalidFields.has("trainingPartnerName") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              placeholder="Enter full name of the institute" value={form.trainingPartnerName}
               onChange={(e) => setField("trainingPartnerName", e.target.value)} />
           </div>
 
           <div className="sm:col-span-2">
             <Label>Training Partner Address *</Label>
-            <input className={inputCls} placeholder="Full address of the institute" value={form.trainingPartnerAddress}
+            <input 
+              className={`${inputCls} ${invalidFields.has("trainingPartnerAddress") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              placeholder="Full address of the institute" value={form.trainingPartnerAddress}
               onChange={(e) => setField("trainingPartnerAddress", e.target.value)} />
           </div>
 
@@ -405,7 +480,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Tehsil / Taluka Name *</Label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className={inputCls + " pl-9"} placeholder="Tehsil or Taluka name"
+              <input 
+                className={`${inputCls} pl-9 ${invalidFields.has("totalName") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="Tehsil or Taluka name"
                 value={form.totalName} onChange={(e) => setField("totalName", e.target.value)} />
             </div>
           </div>
@@ -413,7 +490,10 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           <div>
             <Label>State *</Label>
             <SelectWrapper>
-              <select className={selectCls} value={form.state} onChange={(e) => setStateField(e.target.value)}>
+              <select 
+                className={`${selectCls} ${invalidFields.has("state") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                value={form.state} onChange={(e) => setStateField(e.target.value)}
+              >
                 <option value="">— Select State —</option>
                 {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -424,7 +504,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>District *</Label>
             <SelectWrapper>
               <select
-                className={selectCls}
+                className={`${selectCls} ${invalidFields.has("district") ? "border-red-700 ring-2 ring-red-700/10" : ""}`}
                 value={form.district}
                 onChange={(e) => setField("district", e.target.value)}
                 disabled={!form.state || districtOptions.length === 0}
@@ -443,7 +523,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
           <div>
             <Label>PIN Code *</Label>
-            <input className={inputCls} placeholder="6-digit PIN code" maxLength={6}
+            <input 
+              className={`${inputCls} ${invalidFields.has("pin") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              placeholder="6-digit PIN code" maxLength={6}
               value={form.pin} onChange={(e) => setField("pin", e.target.value.replace(/\D/g, "").slice(0, 6))} />
           </div>
 
@@ -454,7 +536,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
           <div className="sm:col-span-2">
             <Label>Postal Address (Office) *</Label>
-            <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
+            <input 
+              className={`${inputCls} ${invalidFields.has("postalAddressOffice") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              placeholder="Office mailing address" value={form.postalAddressOffice}
               onChange={(e) => setField("postalAddressOffice", e.target.value)} />
           </div>
 
@@ -462,7 +546,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Mobile Number *</Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className={inputCls + " pl-9"} placeholder="10-digit mobile number"
+              <input 
+                className={`${inputCls} pl-9 ${invalidFields.has("mobile") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="10-digit mobile number"
                 value={form.mobile} onChange={(e) => setField("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} />
             </div>
           </div>
@@ -471,7 +557,10 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Email Address *</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="email" className={inputCls + " pl-9"} placeholder="email@example.com"
+              <input 
+                type="email" 
+                className={`${inputCls} pl-9 ${invalidFields.has("email") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="email@example.com"
                 value={form.email} onChange={(e) => setField("email", e.target.value)} />
             </div>
           </div>
@@ -484,7 +573,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold cursor-pointer transition select-none
                     ${form.statusOfInstitution === s
                       ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-sm"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-[#0a0aa1]/40"}`}>
+                      : invalidFields.has("statusOfInstitution")
+                        ? "bg-red-50 text-red-600 border-red-200"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-[#0a0aa1]/40"}`}>
                   <input type="radio" name="statusOfInstitution" className="sr-only"
                     checked={form.statusOfInstitution === s} onChange={() => setField("statusOfInstitution", s)} />
                   {s}
@@ -496,7 +587,10 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           <div>
             <Label>Year of Establishment *</Label>
             <SelectWrapper>
-              <select className={selectCls} value={form.yearOfEstablishment} onChange={(e) => setField("yearOfEstablishment", e.target.value)}>
+              <select 
+                className={`${selectCls} ${invalidFields.has("yearOfEstablishment") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                value={form.yearOfEstablishment} onChange={(e) => setField("yearOfEstablishment", e.target.value)}
+              >
                 <option value="">— Select Year —</option>
                 {getYearOptions(50).map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -507,13 +601,30 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
           <div className="sm:col-span-2">
             <Label>Institute Document (Optional)</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {instituteDocument ? instituteDocument.name : "Click to upload JPG / PDF"}
-              </span>
-              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setInstituteDocument(e.target.files?.[0] ?? null)} />
-            </label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {instituteDocument ? instituteDocument.name : docPreview ? "Institute Document Available" : "Click to upload JPG / PDF"}
+                </span>
+                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setInstituteDocument(e.target.files?.[0] ?? null)} />
+              </label>
+
+              {(instituteDocument || docPreview) && (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 w-full animate-in fade-in slide-in-from-top-1">
+                   <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm">
+                      <ShieldCheck className="w-6 h-6 text-slate-400" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Institution Record</p>
+                      <button type="button" onClick={() => openDoc(instituteDocument, docPreview, "Institute Document", "pdf")} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-900 transition shadow-sm">
+                        <ExternalLink className="w-3 h-3" /> View Document
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </SectionCard>
@@ -552,7 +663,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Full Name *</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className={inputCls + " pl-9"} placeholder="Head's full name" value={form.chiefName}
+              <input 
+                className={`${inputCls} pl-9 ${invalidFields.has("chiefName") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="Head's full name" value={form.chiefName}
                 onChange={(e) => setField("chiefName", e.target.value)} />
             </div>
           </div>
@@ -561,7 +674,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Designation / Position *</Label>
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className={inputCls + " pl-9"} placeholder="e.g. Director, Principal" value={form.designation}
+              <input 
+                className={`${inputCls} pl-9 ${invalidFields.has("designation") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="e.g. Director, Principal" value={form.designation}
                 onChange={(e) => setField("designation", e.target.value)} />
             </div>
           </div>
@@ -570,7 +685,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Education Qualification *</Label>
             <div className="relative">
               <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className={inputCls + " pl-9"} placeholder="e.g. M.Sc, B.Ed, MBA" value={form.educationQualification}
+              <input 
+                className={`${inputCls} pl-9 ${invalidFields.has("educationQualification") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="e.g. M.Sc, B.Ed, MBA" value={form.educationQualification}
                 onChange={(e) => setField("educationQualification", e.target.value)} />
             </div>
           </div>
@@ -579,7 +696,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Professional Experience *</Label>
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className={inputCls + " pl-9"} placeholder="e.g. 5 Years" value={form.professionalExperience}
+              <input 
+                className={`${inputCls} pl-9 ${invalidFields.has("professionalExperience") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="e.g. 5 Years" value={form.professionalExperience}
                 onChange={(e) => setField("professionalExperience", e.target.value)} />
             </div>
           </div>
@@ -588,81 +707,194 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Date of Birth *</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="date" className={inputCls + " pl-9"} value={form.dob}
+              <input 
+                type="date" 
+                className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                value={form.dob}
                 onChange={(e) => setField("dob", e.target.value)} />
             </div>
           </div>
 
           <div>
             <Label>Passport Size Photo *</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <Camera className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {photo ? photo.name : photoPreview ? "Photo Uploaded" : "Click to choose photo"}
-              </span>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
-            </label>
-            {photoPreview && !photo && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Photo present</p>}
+            <div className="space-y-2">
+              <label 
+                className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
+                  ${invalidFields.has("photo") ? "border-red-400 bg-red-50 ring-2 ring-red-500/10" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
+                <Camera className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {photo ? photo.name : photoPreview ? "Photo Uploaded" : "Click to choose photo"}
+                </span>
+                <input type="file" accept="image/*" className="hidden" 
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setPhoto(f);
+                    if (f && invalidFields.has("photo")) {
+                      setInvalidFields(prev => { const n = new Set(prev); n.delete("photo"); return n; });
+                    }
+                  }} />
+              </label>
+              {(photo || photoPreview) && (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-50/50 border border-blue-100 w-full animate-in fade-in slide-in-from-top-1">
+                   <div className="w-16 h-16 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md">
+                      <img src={photo ? URL.createObjectURL(photo) : photoPreview!} alt="Preview" className="w-full h-full object-cover" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Photo Preview</p>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => openDoc(photo, photoPreview, "Applicant Photo", "image")} 
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition shadow-sm">
+                          <ExternalLink className="w-3 h-3" /> View
+                        </button>
+                      </div>
+                   </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <Label>Logo (Optional)</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {logo ? logo.name : logoPreview ? "Logo Uploaded" : "Click to choose logo"}
-              </span>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => setLogo(e.target.files?.[0] ?? null)} />
-            </label>
-            {logoPreview && !logo && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Logo present</p>}
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {logo ? logo.name : logoPreview ? "Logo Uploaded" : "Click to choose logo"}
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => setLogo(e.target.files?.[0] ?? null)} />
+              </label>
+              {(logo || logoPreview) && (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 w-full animate-in fade-in slide-in-from-top-1">
+                   <div className="w-16 h-16 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md flex items-center justify-center p-1">
+                      <img src={logo ? URL.createObjectURL(logo) : logoPreview!} alt="Logo" className="max-w-full max-h-full object-contain" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Logo Preview</p>
+                      <button type="button" onClick={() => openDoc(logo, logoPreview, "Center Logo", "image")} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-900 transition shadow-sm">
+                        <ExternalLink className="w-3 h-3" /> View
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <Label>Signature *</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {signature ? signature.name : sigPreview ? "Signature Uploaded" : "Click to choose signature"}
-              </span>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
-            </label>
-            {sigPreview && !signature && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Signature present</p>}
+            <div className="space-y-2">
+              <label 
+                className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
+                  ${invalidFields.has("signature") ? "border-red-400 bg-red-50 ring-2 ring-red-500/10" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {signature ? signature.name : sigPreview ? "Signature Uploaded" : "Click to choose signature"}
+                </span>
+                <input type="file" accept="image/*" className="hidden" 
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setSignature(f);
+                    if (f && invalidFields.has("signature")) {
+                      setInvalidFields(prev => { const n = new Set(prev); n.delete("signature"); return n; });
+                    }
+                  }} />
+              </label>
+              {(signature || sigPreview) && (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50/50 border border-amber-100 w-full animate-in fade-in slide-in-from-top-1">
+                   <div className="w-20 h-12 rounded-lg border-2 border-white bg-white overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
+                      <img src={signature ? URL.createObjectURL(signature) : sigPreview!} alt="Signature" className="max-w-full max-h-full object-contain contrast-125" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Signature</p>
+                      <button type="button" onClick={() => openDoc(signature, sigPreview, "Digital Signature", "image")} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-700 transition shadow-sm">
+                        <ExternalLink className="w-3 h-3" /> View
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <Label>Aadhar Card (PDF) *</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {aadharDoc ? aadharDoc.name : aadharPreview ? "Aadhar Uploaded" : "Click to choose aadhar PDF"}
-              </span>
-              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setAadharDoc(e.target.files?.[0] ?? null)} />
-            </label>
-            {aadharPreview && !aadharDoc && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Aadhar present</p>}
+            <div className="space-y-2">
+              <label 
+                className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
+                  ${invalidFields.has("aadharDoc") ? "border-red-400 bg-red-50 ring-2 ring-red-500/10" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {aadharDoc ? aadharDoc.name : aadharPreview ? "Aadhar Uploaded" : "Click to choose aadhar PDF"}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" 
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setAadharDoc(f);
+                    if (f && invalidFields.has("aadharDoc")) {
+                       setInvalidFields(prev => { const n = new Set(prev); n.delete("aadharDoc"); return n; });
+                    }
+                  }} />
+              </label>
+              {(aadharDoc || aadharPreview) && (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-red-50/50 border border-red-100 w-full animate-in fade-in slide-in-from-top-1">
+                   <div className="w-12 h-12 rounded-xl bg-white border border-red-100 flex items-center justify-center shrink-0 shadow-sm">
+                      <FileText className="w-6 h-6 text-red-500" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Aadhar Document (PDF)</p>
+                      <button type="button" onClick={() => openDoc(aadharDoc, aadharPreview, "Aadhar Card PDF", "pdf")} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-red-700 transition shadow-sm">
+                        <ExternalLink className="w-3 h-3" /> View PDF
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <Label>Marksheet (Optional)</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {marksheetDoc ? marksheetDoc.name : marksheetPreview ? "Marksheet Uploaded" : "Click to choose marksheet PDF"}
-              </span>
-              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setMarksheetDoc(e.target.files?.[0] ?? null)} />
-            </label>
-            {marksheetPreview && !marksheetDoc && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Marksheet present</p>}
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {marksheetDoc ? marksheetDoc.name : marksheetPreview ? "Marksheet Uploaded" : "Click to choose marksheet PDF"}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setMarksheetDoc(e.target.files?.[0] ?? null)} />
+              </label>
+              {(marksheetDoc || marksheetPreview) && (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 w-full animate-in fade-in slide-in-from-top-1">
+                   <div className="w-12 h-12 rounded-xl bg-white border border-emerald-100 flex items-center justify-center shrink-0 shadow-sm">
+                      <FileText className="w-6 h-6 text-emerald-500" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Marksheet (PDF)</p>
+                      <button type="button" onClick={() => openDoc(marksheetDoc, marksheetPreview, "Marksheet PDF", "pdf")} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm">
+                        <ExternalLink className="w-3 h-3" /> View PDF
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <Label>Other Docs (Optional)</Label>
-            <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
-              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm text-slate-500 truncate">
-                {otherDocs ? otherDocs.name : otherPreview ? "Other Docs Uploaded" : "Click to choose other docs PDF"}
-              </span>
-              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setOtherDocs(e.target.files?.[0] ?? null)} />
-            </label>
-            {otherPreview && !otherDocs && <p className="text-[10px] text-green-600 font-bold mt-1">Existing Docs present</p>}
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-500 truncate">
+                  {otherDocs ? otherDocs.name : otherPreview ? "Other Docs Uploaded" : "Click to choose other docs PDF"}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setOtherDocs(e.target.files?.[0] ?? null)} />
+              </label>
+              {(otherDocs || otherPreview) && (
+                <button type="button" onClick={() => window.open(otherDocs ? URL.createObjectURL(otherDocs) : otherPreview!, '_blank')} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 w-fit text-[10px] font-bold text-slate-600 uppercase">
+                   <ExternalLink className="w-3 h-3" /> View Documents
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </SectionCard>
@@ -716,7 +948,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                   className={`flex items-center gap-3 px-4 py-2 rounded-xl border-2 cursor-pointer transition select-none
                     ${form.paymentMode === opt.value
                       ? "border-amber-500 bg-amber-50 shadow-sm"
-                      : "border-slate-200 bg-white hover:border-amber-300"}`}>
+                      : invalidFields.has("paymentMode")
+                        ? "border-red-200 bg-red-50"
+                        : "border-slate-200 bg-white hover:border-amber-300"}`}>
                   <input type="radio" name="paymentMode" className="sr-only"
                     checked={form.paymentMode === opt.value} onChange={() => setField("paymentMode", opt.value)} />
                   <span className="text-sm font-semibold text-slate-700">{opt.label}</span>
@@ -766,12 +1000,81 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             
             <div>
               <Label>Payment Screenshot (Optional)</Label>
-              <input type="file" accept="image/*" className={inputCls} onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)} />
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-amber-400 hover:bg-amber-50/10 transition">
+                  <Camera className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span className="text-sm text-slate-500 truncate">
+                    {screenshot ? screenshot.name : screenshotPreview ? "Screenshot Available" : "Upload Payment Screenshot"}
+                  </span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)} />
+                </label>
+                
+                {(screenshot || screenshotPreview) && (
+                  <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm animate-in fade-in slide-in-from-top-1">
+                    <div className="w-12 h-12 rounded-xl bg-white border border-amber-200 flex items-center justify-center shrink-0 shadow-sm p-1">
+                      <img src={screenshot ? URL.createObjectURL(screenshot) : screenshotPreview!} alt="Payment" className="max-w-full max-h-full object-contain" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5">Payment Record</p>
+                      <button type="button" onClick={() => openDoc(screenshot, screenshotPreview, "Payment Record", "image")} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-700 transition">
+                        <ExternalLink className="w-3 h-3" /> View Large
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 mt-2">
+              <Label>Login Password {mode === "edit" ? "(Leave blank to keep current)" : "(Default is Mobile Number)"}</Label>
+              <div className="relative">
+                <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type={showPass ? "text" : "password"} 
+                  className={inputCls + " pl-9 pr-12"} 
+                  placeholder="Set custom password"
+                  value={form.password} 
+                  onChange={(e) => setField("password", e.target.value)} 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0a0aa1] transition"
+                >
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </SectionCard>
 
+
+      {/* ── SECTION: Credentials ────────────────────────────────── */}
+      <SectionCard icon={ShieldCheck} title="Center Credentials" subtitle="Login information for the ATC portal" color="#6366f1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <Label>Portal Password *</Label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                type={showPass ? "text" : "password"}
+                className={`${inputCls} pl-9 pr-10 ${invalidFields.has("password") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                placeholder="Set login password"
+                value={form.password} onChange={(e) => setField("password", e.target.value)} />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0a0aa1] transition"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium uppercase tracking-wider">Password used by center for dashboard login</p>
+          </div>
+        </div>
+      </SectionCard>
 
       {/* ── Message Banner ───────────────────────────────────────── */}
       {message && (
@@ -840,6 +1143,57 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               className="w-full py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition">
               Close
             </button>
+          </div>
+        </div>
+      )}
+      {/* ── Document Preview Modal ─────────────────────────────── */}
+      {viewingDoc && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 md:p-8 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-5xl h-full flex flex-col bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/20">
+             <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 bg-slate-50/50">
+                <div>
+                   <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">{viewingDoc.title}</h4>
+                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{viewingDoc.type === "pdf" ? "Portable Document Format" : "Image Preview"}</p>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setViewingDoc(null)}
+                  className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-500 transition shadow-sm"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+             </div>
+             
+             <div className="flex-1 overflow-hidden bg-slate-100 p-4 flex items-center justify-center">
+                {viewingDoc.type === "pdf" ? (
+                  <iframe src={viewingDoc.url} className="w-full h-full rounded-xl shadow-inner bg-white" title="PDF Preview" />
+                ) : (
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={viewingDoc.url} alt="Document" className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" />
+                  </div>
+                )}
+             </div>
+             
+             <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <p className="text-xs font-bold text-slate-400 italic">Secure Internal Viewer</p>
+                <div className="flex items-center gap-3">
+                   <button 
+                     type="button" 
+                     onClick={() => window.open(viewingDoc.url, "_blank")}
+                     className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition"
+                    >
+                      Open in New Tab
+                    </button>
+                   <button 
+                     type="button" 
+                     onClick={() => setViewingDoc(null)}
+                     className="px-8 py-2.5 bg-[#0a0aa1] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0a0aa1]/90 transition shadow-lg shadow-blue-100"
+                    >
+                      Close
+                    </button>
+                </div>
+             </div>
           </div>
         </div>
       )}

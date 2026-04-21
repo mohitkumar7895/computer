@@ -4,7 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2, LayoutDashboard, LogOut, CheckCircle,
-  Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText
+  Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText,
+  Lock, Eye, EyeOff, ShieldAlert
 } from "lucide-react";
 import StudentManager from "@/components/atc/StudentManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
@@ -30,6 +31,11 @@ export default function AtcDashboardPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [centerInfo, setCenterInfo] = useState({ trainingPartnerName: "", mobile: "", email: "" });
+  const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
+  const [passSaving, setPassSaving] = useState(false);
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [passMsg, setPassMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/atc/me")
@@ -112,6 +118,30 @@ export default function AtcDashboardPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePasswordChange = async (e: FormEvent) => {
+    e.preventDefault();
+    setPassMsg(null);
+    if (!passData.old || !passData.new) { setPassMsg({ type: "error", text: "All fields are required." }); return; }
+    if (passData.new !== passData.confirm) { setPassMsg({ type: "error", text: "Passwords do not match." }); return; }
+    if (passData.new.length < 6) { setPassMsg({ type: "error", text: "Password must be 6+ chars." }); return; }
+
+    setPassSaving(true);
+    try {
+      const res = await fetch("/api/atc/settings/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPassMsg({ type: "error", text: data.message || "Failed." }); }
+      else { 
+        setPassMsg({ type: "success", text: "Password updated!" });
+        setPassData({ old: "", new: "", confirm: "" });
+      }
+    } catch { setPassMsg({ type: "error", text: "Network error." }); }
+    finally { setPassSaving(false); }
   };
 
   if (loading) {
@@ -383,7 +413,7 @@ export default function AtcDashboardPage() {
                         </div>
                       </form>
                     ) : (
-                      <div className="space-y-3">
+                    <div className="space-y-3">
                         {[
                           { icon: Building2, label: "Training Partner", value: user.trainingPartnerName },
                           { icon: Mail, label: "Email", value: user.email },
@@ -402,6 +432,78 @@ export default function AtcDashboardPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  {/* Security & Password */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
+                        <Lock className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800">Security & Credentials</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Maintain your account security by updating your login password regularly.</p>
+                      </div>
+                    </div>
+
+                    {passMsg && (
+                      <div className={`mb-6 rounded-2xl px-4 py-3 text-sm font-semibold ${passMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-700 border border-red-100"}`}>
+                        {passMsg.text}
+                      </div>
+                    )}
+
+                    <form onSubmit={handlePasswordChange} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Current Password</label>
+                        <div className="relative">
+                          <input 
+                            type={showOldPass ? "text" : "password"} 
+                            value={passData.old}
+                            onChange={e => setPassData(p => ({ ...p, old: e.target.value }))}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-orange-100 transition" 
+                            placeholder="Current" 
+                          />
+                          <button type="button" onClick={() => setShowOldPass(!showOldPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            {showOldPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">New Password</label>
+                        <div className="relative">
+                          <input 
+                            type={showNewPass ? "text" : "password"} 
+                            value={passData.new}
+                            onChange={e => setPassData(p => ({ ...p, new: e.target.value }))}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-orange-100 transition" 
+                            placeholder="6+ characters" 
+                          />
+                          <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            {showNewPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Confirm New Password</label>
+                        <input 
+                          type="password" 
+                          value={passData.confirm}
+                          onChange={e => setPassData(p => ({ ...p, confirm: e.target.value }))}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-100 transition" 
+                          placeholder="Repeat" 
+                        />
+                      </div>
+                      <div className="md:col-span-3 flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={passSaving}
+                          className="px-8 py-3 rounded-2xl bg-orange-600 text-white font-bold text-sm hover:bg-orange-700 transition transform active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {passSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
+                          Update Portal Password
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
                   {/* Contact Support */}

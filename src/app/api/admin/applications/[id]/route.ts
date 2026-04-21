@@ -163,6 +163,12 @@ export async function PATCH(
           user.trainingPartnerName = application.trainingPartnerName;
           user.mobile = application.mobile;
           user.email = application.email;
+          
+          const newPass = String(formData.get("password") ?? formData.get("customPassword") ?? "").trim();
+          if (newPass) {
+            user.password = await bcrypt.hash(newPass, 12);
+          }
+          
           await user.save();
         }
       }

@@ -7,7 +7,8 @@ import {
   Settings, LogOut, CheckCircle, Calendar, 
   MapPin, Phone, Mail, Award, Clock, Download,
   Fingerprint, CreditCard, ShieldCheck, LayoutDashboard,
-  Menu, XCircle, Bell, ChevronRight, Share2, ReceiptText
+  Menu, XCircle, Bell, ChevronRight, Share2, ReceiptText,
+  Eye, EyeOff, Lock, ShieldAlert
 } from "lucide-react";
 import ExamManager from "@/components/student/ExamManager";
 import StudentStudyMaterial from "@/components/student/StudentStudyMaterial";
@@ -18,6 +19,16 @@ export default function StudentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "study" | "idcard" | "profile">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
+  const [passSaving, setPassSaving] = useState(false);
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error", msg: string } | null>(null);
+
+  const showToast = (type: "success" | "error", msg: string) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   useEffect(() => {
     fetch("/api/student/me")
@@ -33,6 +44,27 @@ export default function StudentDashboardPage() {
   const handleLogout = async () => {
     await fetch("/api/student/logout", { method: "POST" });
     router.push("/student/login");
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passData.old || !passData.new) { showToast("error", "All fields are required."); return; }
+    if (passData.new !== passData.confirm) { showToast("error", "Passwords do not match."); return; }
+    if (passData.new.length < 6) { showToast("error", "Minimum 6 characters required."); return; }
+    
+    setPassSaving(true);
+    try {
+      const res = await fetch("/api/student/settings/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast("error", data.message || "Failed to update."); return; }
+      showToast("success", "Password updated successfully!");
+      setPassData({ old: "", new: "", confirm: "" });
+    } catch { showToast("error", "Network error."); }
+    finally { setPassSaving(false); }
   };
 
   if (loading) {
@@ -71,6 +103,13 @@ export default function StudentDashboardPage() {
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl text-white text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>
+          {toast.msg}
+        </div>
       )}
 
       {/* SIDEBAR */}
@@ -377,13 +416,81 @@ export default function StudentDashboardPage() {
                              <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">{student.district}</p>
                           </div>
                           <div className="md:col-span-2 lg:col-span-1">
+                   <div className="md:col-span-2 lg:col-span-1">
                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Current Address</p>
                              <p className="text-sm font-bold text-slate-800 leading-relaxed">{student.currentAddress}</p>
                           </div>
                        </div>
                     </div>
-                 </div>
-              </div>
+                        </div>
+                     </div>
+
+                     {/* Security Section */}
+                     <div className="md:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                           <div>
+                              <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                                 <Lock className="text-red-500" /> Security Settings
+                              </h3>
+                              <p className="text-xs text-slate-500 font-medium mt-1">Manage your account access and credentials.</p>
+                           </div>
+                        </div>
+
+                        <form onSubmit={handlePasswordChange} className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                           <div className="space-y-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Password</p>
+                              <div className="relative">
+                                 <input 
+                                    type={showOldPass ? "text" : "password"} 
+                                    value={passData.old}
+                                    onChange={e => setPassData(p => ({ ...p, old: e.target.value }))}
+                                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-red-100 transition" 
+                                    placeholder="••••••••" 
+                                 />
+                                 <button type="button" onClick={() => setShowOldPass(!showOldPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    {showOldPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                                 </button>
+                              </div>
+                           </div>
+                           <div className="space-y-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">New Password</p>
+                              <div className="relative">
+                                 <input 
+                                    type={showNewPass ? "text" : "password"} 
+                                    value={passData.new}
+                                    onChange={e => setPassData(p => ({ ...p, new: e.target.value }))}
+                                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-red-100 transition" 
+                                    placeholder="Min 6 chars" 
+                                 />
+                                 <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                                 </button>
+                              </div>
+                           </div>
+                           <div className="space-y-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Confirm Password</p>
+                              <input 
+                                 type="password" 
+                                 value={passData.confirm}
+                                 onChange={e => setPassData(p => ({ ...p, confirm: e.target.value }))}
+                                 className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-red-100 transition" 
+                                 placeholder="Repeat password" 
+                              />
+                           </div>
+                           <div className="md:col-span-3">
+                              <button 
+                                 type="submit"
+                                 disabled={passSaving}
+                                 className="px-10 py-4 bg-red-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-red-600/20 hover:bg-red-700 transition transform active:scale-95 disabled:opacity-50 flex items-center gap-3"
+                              >
+                                 {passSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <ShieldAlert size={16} />}
+                                 Authenticate & Update Password
+                              </button>
+                           </div>
+                        </form>
+                     </div>
+                  </div>
+               </div>
             )}
           </div>
         </main>
