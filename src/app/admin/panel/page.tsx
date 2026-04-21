@@ -277,6 +277,7 @@ export default function AdminPanelPage() {
     }
   }, [tab, fetchApplications]);
   useEffect(() => { if (tab === "students") void fetchStudents(); }, [tab]);
+useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [tab]);
 
   const fetchStudents = async () => {
     setStudentLoading(true);
@@ -751,7 +752,7 @@ export default function AdminPanelPage() {
     materials: "Study Materials",
     settings: "Panel Settings",
     students: "Manage Students",
-    resultReview: "Result Proposals",
+    resultReview: "Certificate Authorize",
   };
 
   const tabDesc: Record<Tab, string> = {
@@ -764,7 +765,7 @@ export default function AdminPanelPage() {
     materials: "Upload and manage course study resources",
     settings: "System configurations and assets",
     students: "Review and approve student registrations from all centers",
-    resultReview: "Verify and authorize student exam results for document generation",
+    resultReview: "Authorize ATC submitted results and generate marksheet/certificate instantly",
   };
 
   return (
@@ -812,7 +813,7 @@ export default function AdminPanelPage() {
               { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
               { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
-              { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Result Proposals", badge: pendingResults.length },
+              { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Certificate Authorize", badge: pendingResults.length },
             ]).map((item) => (
               <button
                 key={item.id}
@@ -1162,7 +1163,7 @@ export default function AdminPanelPage() {
                                  await fetch("/api/admin/exams/approve-result", {
                                    method: "POST",
                                    headers: { "Content-Type": "application/json" },
-                                   body: JSON.stringify({ examId: id }),
+                                  body: JSON.stringify({ examId: id, status: "published" }),
                                  });
                                }
                                setSelectedResults([]);

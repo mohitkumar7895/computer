@@ -8,9 +8,8 @@ export async function GET() {
   try {
     await connectDB();
     
-    const results = await StudentExam.find({ 
+    const results = await StudentExam.find({
       offlineExamStatus: "review_pending",
-      examMode: "offline" 
     })
     .populate({
       path: "studentId",
@@ -20,7 +19,7 @@ export async function GET() {
     .populate({
       path: "atcId",
       model: AtcUser,
-      select: "centerName centerCode"
+      select: "trainingPartnerName tpCode centerName centerCode"
     })
     .sort({ createdAt: -1 });
 

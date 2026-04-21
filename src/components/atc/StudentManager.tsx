@@ -533,32 +533,7 @@ export default function StudentManager() {
                                        }}
                                        className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
                                      >
-                                       View Details
-                                     </button>
-                                     <button 
-                                       onClick={() => {
-                                         if (!s.offlineExamStatus || s.offlineExamStatus === 'not_appeared') {
-                                           setShowResultModal(s);
-                                            setResultForm({ 
-                                              marks: "", 
-                                              examStatus: "appeared", 
-                                              grade: "A",
-                                              session: s.session || "2024-25"
-                                            });
-                                         } else {
-                                           setShowResultModal(s);
-                                           setResultForm({ 
-                                             marks: s.offlineExamMarks || "",
-                                             examStatus: s.offlineExamStatus as any,
-                                             grade: (s as any).grade || "A",
-                                             session: s.session || "2024-25"
-                                           });
-                                         }
-                                       }}
-                                       className="text-[10px] font-black uppercase underline underline-offset-2 text-emerald-600 hover:text-emerald-800"
-                                     >
-                                       {(s.offlineExamStatus === 'review_pending' || s.offlineExamStatus === 'published') ? 'View/Edit Result' : 'Enter Result'}
-                                     </button>
+                                       View Details                                     </button>
 
                                    </div>
                                  </div>

@@ -32,6 +32,8 @@ export async function POST(request: Request) {
       totalScoreStr = formData.get("totalScore") as string;
       offlineExamResult = formData.get("offlineExamResult") as string;
       examCopyFile = formData.get("examCopy") as File | null;
+      grade = formData.get("grade") as string;
+      session = formData.get("session") as string;
     }
 
     if (!examId && !studentId) {
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
       }
       const buffer = await examCopyFile.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
-      base64Copy = `data:application/pdf;base64,${base64}`;
+      base64Copy = `data:${examCopyFile.type || "application/pdf"};base64,${base64}`;
     }
 
     // Update StudentExam record

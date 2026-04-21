@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, Eye, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, Building2, ClipboardCheck, Trash2 } from "lucide-react";
+import { Users, Clock, Search, RefreshCw, Calendar, Eye, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2 } from "lucide-react";
 
 interface ExamRequest {
   _id: string;
@@ -78,6 +78,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const showRosterTab = role === "atc";
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -198,13 +199,13 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     }
   };
 
-  const handleApproveResult = async (examId: string) => {
+  const handleApproveResult = async (examId: string, status: "published" | "appeared" = "published") => {
     setActionLoading(examId);
     try {
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId }),
+        body: JSON.stringify({ examId, status }),
       });
       if (res.ok) await fetchRequests();
     } catch (err) {
@@ -283,16 +284,18 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px] text-slate-800">
       {/* Top Tabs styling same as StudentManager */}
       <div className="flex items-center gap-2 px-6 pt-4 border-b border-slate-100 bg-white">
-        <button
-          onClick={() => setAtcTab("new")}
-          className={`px-4 py-3 text-sm font-bold transition-all relative ${atcTab === "new" ? "text-green-600" : "text-slate-400 hover:text-slate-600"}`}
-        >
-          <span className="flex items-center gap-2">
-            {role === "admin" ? <Building2 className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-            {role === "admin" ? "ATC Student Roster" : "All Students"}
-          </span>
-          {atcTab === "new" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full" />}
-        </button>
+        {showRosterTab && (
+          <button
+            onClick={() => setAtcTab("new")}
+            className={`px-4 py-3 text-sm font-bold transition-all relative ${atcTab === "new" ? "text-green-600" : "text-slate-400 hover:text-slate-600"}`}
+          >
+            <span className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              All Students
+            </span>
+            {atcTab === "new" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full" />}
+          </button>
+        )}
         <button
           onClick={() => setAtcTab("history")}
           className={`px-4 py-3 text-sm font-bold transition-all relative ${atcTab === "history" ? "text-green-600" : "text-slate-400 hover:text-slate-600"}`}
@@ -332,7 +335,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           </button>
         </div>
 
-        {atcTab === "new" ? (
+        {showRosterTab && atcTab === "new" ? (
           <div className="animate-in fade-in duration-300">
             {loading ? (
               <div className="flex flex-col items-center justify-center p-20 gap-4">
@@ -573,6 +576,22 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                    className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
                                  >
                                    <Trash2 size={14} />
+                                 </button>
+                               </div>
+                             )}
+                             {role === "admin" && exam.offlineExamStatus === "review_pending" && (
+                               <div className="flex gap-2">
+                                 <button
+                                   onClick={() => handleApproveResult(exam._id, "published")}
+                                   className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition"
+                                 >
+                                   Approve Result
+                                 </button>
+                                 <button
+                                   onClick={() => handleApproveResult(exam._id, "appeared")}
+                                   className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-black uppercase hover:bg-amber-200 transition"
+                                 >
+                                   Send Back
                                  </button>
                                </div>
                              )}
