@@ -415,7 +415,7 @@ export default function StudentManager() {
                         </td>
                         <td className="px-6 py-5">
                           <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 group-hover:bg-white transition-colors">
-                            {s.registrationNo || "PENDING"}
+                            {(!s.registrationNo || s.registrationNo.startsWith("PENDING-")) ? "PENDING" : s.registrationNo}
                           </span>
                         </td>
                         <td className="px-6 py-5">

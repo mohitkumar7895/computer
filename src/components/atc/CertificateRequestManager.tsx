@@ -58,7 +58,6 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   const [selectedExam, setSelectedExam] = useState<ExamRequest | null>(null);
   const [approvalForm, setApprovalForm] = useState({
     examDate: "",
-    examTime: "",
     setId: "",
     examMode: "online"
   });
@@ -71,7 +70,6 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     preferredDate: "", 
     preferredCenter: "",
     examDate: "",
-    examTime: "",
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);
@@ -260,7 +258,6 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     setSelectedExam(exam);
     setApprovalForm({
       examDate: exam.examDate || "",
-      examTime: exam.examTime || "",
       setId: exam.setId || "",
       examMode: exam.examMode
     });
@@ -533,7 +530,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                                   <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
                                     <Calendar size={12} className="text-slate-400" /> {new Date(exam.examDate).toLocaleDateString()}
                                   </p>
-                                  <p className="text-[10px] bg-slate-100 w-fit px-2 rounded text-slate-500 font-bold">{exam.examTime}</p>
+
                                 </>
                               ) : (
                                 <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Waiting for schedule...</p>
@@ -664,16 +661,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                   <label className={labelCls}>Time Slot</label>
-                   <input 
-                      type="text"
-                      placeholder="e.g. 11:00 AM - 01:00 PM"
-                      className={inputCls}
-                      value={approvalForm.examTime}
-                      onChange={(e) => setApprovalForm({...approvalForm, examTime: e.target.value})}
-                   />
-                </div>
+
 
                 <div className="space-y-2">
                    <label className={labelCls}>Select Question Set</label>
@@ -851,16 +839,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                        />
                     </div>
 
-                    <div className="space-y-2">
-                       <label className={labelCls}>Time Slot *</label>
-                       <input 
-                         className={inputCls}
-                         placeholder="e.g. 10:00 AM"
-                         required
-                         value={examReqForm.examTime}
-                         onChange={e => setExamReqForm({...examReqForm, examTime: e.target.value})}
-                       />
-                    </div>
+
 
                     <div className="space-y-2 col-span-full">
                        <label className={labelCls}>Select Question Set *</label>

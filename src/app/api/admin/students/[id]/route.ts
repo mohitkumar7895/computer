@@ -37,7 +37,7 @@ export async function PATCH(
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
     if (action === "approved" || action === "rejected") {
-      if (action === "approved" && !student.registrationNo) {
+      if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-"))) {
         // Generate Reg No: TPCODE-YYMM-RANDO
         const count = await AtcStudent.countDocuments({ tpCode: student.tpCode, registrationNo: { $ne: "" } });
         const dateCode = new Date().toISOString().slice(2,7).replace("-", ""); // YYMM

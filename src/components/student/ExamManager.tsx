@@ -19,8 +19,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
   const [modeSelection, setModeSelection] = useState<"online" | "offline" | null>(null);
   const [offlineForm, setOfflineForm] = useState({
     preferredDate: "",
-    preferredCenter: "",
-    preferredTimeSlot: ""
+    preferredCenter: ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [selectedExam, setSelectedExam] = useState<any>(null);
@@ -49,8 +48,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
     if (exam.examMode === "offline") {
       setOfflineForm({
         preferredDate: exam.offlineDetails?.preferredDate || "",
-        preferredCenter: exam.offlineDetails?.preferredCenter || "",
-        preferredTimeSlot: exam.offlineDetails?.preferredTimeSlot || ""
+        preferredCenter: exam.offlineDetails?.preferredCenter || ""
       });
     }
   };
@@ -119,19 +117,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                   onChange={(e) => setOfflineForm({...offlineForm, preferredDate: e.target.value})}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preferred Time Slot</label>
-                <select 
-                  className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 transition"
-                  value={offlineForm.preferredTimeSlot}
-                  onChange={(e) => setOfflineForm({...offlineForm, preferredTimeSlot: e.target.value})}
-                >
-                  <option value="">Select Slot</option>
-                  <option value="10:00 AM - 12:00 PM">10:00 AM - 12:00 PM</option>
-                  <option value="01:00 PM - 03:00 PM">01:00 PM - 03:00 PM</option>
-                  <option value="04:00 PM - 06:00 PM">04:00 PM - 06:00 PM</option>
-                </select>
-              </div>
+
               <div className="sm:col-span-2 space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preferred Center (ATC)</label>
                 <input 
@@ -249,7 +235,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                       <p className="text-sm font-bold text-slate-800">
                         {exam.examDate ? new Date(exam.examDate).toLocaleDateString() : 'TBD'}
                       </p>
-                      <p className="text-[10px] font-medium text-slate-400">{exam.examTime || 'TBD'}</p>
+
                     </td>
                     <td className="px-6 py-5 bg-slate-50/50">
                        <span className={`flex items-center gap-1.5 text-xs font-black uppercase ${

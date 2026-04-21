@@ -59,7 +59,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [selectedExam, setSelectedExam] = useState<ExamRequest | null>(null);
   const [approvalForm, setApprovalForm] = useState({
     examDate: "",
-    examTime: "",
     setId: "",
     examMode: "online"
   });
@@ -72,7 +71,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     preferredDate: "", 
     preferredCenter: "",
     examDate: "",
-    examTime: "",
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);
@@ -256,7 +254,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     setSelectedExam(exam);
     setApprovalForm({
       examDate: exam.examDate || "",
-      examTime: exam.examTime || "",
       setId: exam.setId || "",
       examMode: exam.examMode
     });
@@ -703,16 +700,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                   <label className={labelCls}>Time Slot</label>
-                   <input 
-                      type="text"
-                      placeholder="e.g. 11:00 AM - 01:00 PM"
-                      className={inputCls}
-                      value={approvalForm.examTime}
-                      onChange={(e) => setApprovalForm({...approvalForm, examTime: e.target.value})}
-                   />
-                </div>
+
 
                 <div className="space-y-2">
                    <label className={labelCls}>Select Question Set</label>
@@ -849,16 +837,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                        />
                     </div>
 
-                    <div className="space-y-2">
-                       <label className={labelCls}>Time Slot *</label>
-                       <input 
-                         className={inputCls}
-                         placeholder="e.g. 10:00 AM"
-                         required
-                         value={examReqForm.examTime}
-                         onChange={e => setExamReqForm({...examReqForm, examTime: e.target.value})}
-                       />
-                    </div>
+
 
                     <div className="space-y-2 col-span-full">
                        <label className={labelCls}>Select Question Set *</label>

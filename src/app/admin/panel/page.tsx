@@ -987,8 +987,12 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         </div>
                      </div>
                      <div className="flex items-center gap-3">
-                        <button onClick={() => handleBulkAction("centers", "approve")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
-                        <button onClick={() => handleBulkAction("centers", "reject")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Reject Select</button>
+                        {applications.filter(a => selectedApps.includes(a._id)).some(a => a.status !== "approved" || !a.tpCode) && (
+                          <button onClick={() => handleBulkAction("centers", "approve")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                        )}
+                        {applications.filter(a => selectedApps.includes(a._id)).some(a => a.status !== "rejected") && (
+                          <button onClick={() => handleBulkAction("centers", "reject")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Reject Select</button>
+                        )}
                         <button onClick={() => setSelectedApps([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
                      </div>
                    </div>
@@ -1050,17 +1054,17 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
-                            {app.status === "pending" && (
-                              <div className="flex gap-2">
+                            {app.status !== "approved" && (
                                 <button onClick={() => handleAction(app._id, "approve")} disabled={actionLoading !== null}
                                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500 transition shadow-lg shadow-emerald-100 disabled:opacity-50">
                                   Approve
                                 </button>
+                            )}
+                            {app.status !== "rejected" && app.status !== "approved" && (
                                 <button onClick={() => handleAction(app._id, "reject")} disabled={actionLoading !== null}
                                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-red-500 transition shadow-lg shadow-red-100 disabled:opacity-50">
                                   Reject
                                 </button>
-                              </div>
                             )}
                             {app.status === "approved" && (
                               <button
@@ -1620,8 +1624,12 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         <span className="uppercase tracking-widest">Students Selected</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => handleBulkAction("students", "approve")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
-                        <button onClick={() => handleBulkAction("students", "reject")} className="px-4 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">Reject Select</button>
+                         {students.filter(s => selectedStudents.includes(s._id)).some(s => (s.status !== "approved" && s.status !== "active") || !s.registrationNo) && (
+                           <button onClick={() => handleBulkAction("students", "approve")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                         )}
+                         {students.filter(s => selectedStudents.includes(s._id)).some(s => s.status !== "rejected") && (
+                           <button onClick={() => handleBulkAction("students", "reject")} className="px-4 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">Reject Select</button>
+                         )}
                         <button onClick={() => handleBulkAction("students", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable</button>
                         <button onClick={() => handleBulkAction("students", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable</button>
                         <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
@@ -1674,7 +1682,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               </td>
                               <td className="px-6 py-4">
                                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black border border-slate-200">
-                                   {s.registrationNo || "PENDING"}
+                                     {(s.registrationNo && !s.registrationNo.startsWith("PENDING-")) ? s.registrationNo : "PENDING"}
                                  </span>
                               </td>
                               <td className="px-6 py-4">
@@ -1713,23 +1721,23 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                 <div className="flex justify-end gap-2">
                                   <div className="flex flex-col gap-1 items-end">
                                     <div className="flex gap-2">
-                                      {(s.status !== "approved" && s.status !== "active") && (
-                                        <div className="flex gap-2">
-                                          <button 
-                                            onClick={() => handleStudentAction(s._id, "approved")} 
-                                            disabled={!!studentActionId}
-                                            className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
-                                          >
-                                            Approve
-                                          </button>
-                                          <button 
-                                            onClick={() => handleStudentAction(s._id, "rejected")} 
-                                            disabled={!!studentActionId}
-                                            className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition shadow-lg shadow-red-200"
-                                          >
-                                            Reject
-                                          </button>
-                                        </div>
+                                      {(s.status !== "approved" && s.status !== "active" || !s.registrationNo) && (
+                                        <button 
+                                          onClick={() => handleStudentAction(s._id, "approved")} 
+                                          disabled={!!studentActionId}
+                                          className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
+                                        >
+                                          {(!s.registrationNo && (s.status === "active" || s.status === "approved")) ? "Assign ID" : "Approve"}
+                                        </button>
+                                      )}
+                                      {s.status === "pending" && (
+                                        <button 
+                                          onClick={() => handleStudentAction(s._id, "rejected")} 
+                                          disabled={!!studentActionId}
+                                          className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition shadow-lg shadow-red-200"
+                                        >
+                                          Reject
+                                        </button>
                                       )}
                                       <button onClick={() => handleStudentAction(s._id, "toggleStatus")} 
                                         className={`px-3 py-1.5 rounded-xl text-white text-[10px] font-black uppercase transition ${s.userStatus === "disabled" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-amber-500 hover:bg-amber-600"}`}>

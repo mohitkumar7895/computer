@@ -68,7 +68,7 @@ const StudentSchema = new Schema<IStudent>(
     permanentAddress: { type: String, required: true },
     course: { type: String, required: true },
     courseId: { type: Schema.Types.ObjectId, ref: "Course" },
-    courseType: { type: String, enum: ["Regular", "ODL", "OL"], default: "Regular" },
+    courseType: { type: String, enum: ["Regular", "ODL", "OL", "ODL (Open Distance Learning)", "OL (Online Learning)"], default: "Regular" },
     session: { type: String, required: true },
     classRollNo: { type: String },
     nationality: { type: String, default: "Indian" },

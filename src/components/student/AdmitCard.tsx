@@ -87,10 +87,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
                   <Calendar size={10} className="text-slate-400" />
                   <p className="text-[9px] font-black text-slate-700">{exam.examDate ? new Date(exam.examDate).toLocaleDateString("en-IN") : "TBD"}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={10} className="text-slate-400" />
-                  <p className="text-[9px] font-black text-slate-700">{exam.examTime || "Batch 1"}</p>
-                </div>
+
                 <div className="col-span-2 flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100/50 overflow-hidden">
                   <MapPin size={10} className="text-blue-500 shrink-0" />
                   <p className="text-[8px] font-bold text-slate-500 uppercase truncate">

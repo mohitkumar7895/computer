@@ -31,8 +31,25 @@ export async function POST(request: Request) {
     await connectDB();
 
     if (action === "approve") {
-      await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { status: "active" } });
-      return NextResponse.json({ message: `${ids.length} students approved successfully` });
+      const students = await AtcStudent.find({ _id: { $in: ids } });
+      const results = [];
+      
+      for (const student of students) {
+        if (!student.registrationNo || student.registrationNo.startsWith("PENDING-")) {
+          // Generate Reg No: TPCODE-YYMM-COUNT-RANDO
+          const count = await AtcStudent.countDocuments({ tpCode: student.tpCode, registrationNo: { $ne: "" } });
+          const dateCode = new Date().toISOString().slice(2, 7).replace("-", ""); // YYMM
+          const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
+          const regNo = `${student.tpCode}-${dateCode}-${String(count + 1).padStart(3, "0")}-${randomSuffix}`;
+          
+          student.registrationNo = regNo;
+        }
+        student.status = "active";
+        await student.save();
+        results.push(student);
+      }
+
+      return NextResponse.json({ message: `${ids.length} students approved successfully with Registration Numbers generated.` });
     }
     else if (action === "reject") {
       await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { status: "rejected" } });
