@@ -586,9 +586,23 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                             )}
 
                              {exam.status === 'completed' && (
-                                <div className="text-[10px] font-black uppercase bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 text-slate-700">
-                                   Score: <span className="text-blue-600">{exam.totalScore ?? "N/A"}</span>
-                                </div>
+                               <>
+                                 <div className="text-[10px] font-black uppercase bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 text-slate-700">
+                                    Score: <span className="text-blue-600">{exam.totalScore ?? "N/A"}</span>
+                                 </div>
+                                 <button
+                                   onClick={() => window.open(`/atc/document/marksheet/${exam._id}`, "_blank")}
+                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
+                                 >
+                                   View Marksheet
+                                 </button>
+                                 <button
+                                   onClick={() => window.open(`/atc/document/certificate/${exam._id}`, "_blank")}
+                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
+                                 >
+                                   View Certificate
+                                 </button>
+                               </>
                              )}
                             <div className="text-[10px] font-black uppercase bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 text-slate-600">
                               {exam.offlineExamStatus === "review_pending" ? "Pending Admin Review" : "Result Workflow"}

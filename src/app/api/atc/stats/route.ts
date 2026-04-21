@@ -24,16 +24,20 @@ export async function GET() {
   await connectDB();
 
   const total = await AtcStudent.countDocuments({ atcId: user.id });
-  const active = await AtcStudent.countDocuments({ atcId: user.id, status: "active" });
-  const inactive = await AtcStudent.countDocuments({ atcId: user.id, status: "inactive" });
-  
-  // Since there's no completion field currently, we'll return 0 or placeholder
-  // Or maybe user means 'inactive' is pending?
-  
+  const pendingReview = await AtcStudent.countDocuments({ atcId: user.id, status: "pending" });
+  const active = await AtcStudent.countDocuments({
+    atcId: user.id,
+    $or: [{ status: "active" }, { status: "approved" }],
+    userStatus: { $ne: "disabled" },
+  });
+  const rejected = await AtcStudent.countDocuments({ atcId: user.id, status: "rejected" });
+  const blocked = await AtcStudent.countDocuments({ atcId: user.id, userStatus: "disabled" });
+
   return NextResponse.json({
     total,
+    pendingReview,
     active,
-    completing: 0, // Placeholder
-    pending: inactive,
+    rejected,
+    blocked,
   });
 }

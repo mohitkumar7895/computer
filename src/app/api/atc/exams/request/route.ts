@@ -23,15 +23,24 @@ export async function POST(request: Request) {
 
     await dbConnect();
 
-    // Check if there is already a pending or approved exam for this student
-    const existingExam = await StudentExam.findOne({ 
-      studentId, 
-      status: { $ne: "completed" },
-      approvalStatus: { $in: ["pending", "approved"] }
+    // Enforce one request per student per day (ATC-wise)
+    const now = new Date();
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(now);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const todayRequest = await StudentExam.findOne({
+      studentId,
+      atcId: decoded.id,
+      createdAt: { $gte: dayStart, $lte: dayEnd },
     });
 
-    if (existingExam) {
-      return NextResponse.json({ message: "An exam request is already active for this student" }, { status: 400 });
+    if (todayRequest) {
+      return NextResponse.json(
+        { message: "Only one exam request per student is allowed in a day" },
+        { status: 400 },
+      );
     }
 
     const student = await AtcStudent.findById(studentId);

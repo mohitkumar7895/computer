@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, Eye, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2 } from "lucide-react";
+import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2 } from "lucide-react";
 
 interface ExamRequest {
   _id: string;
@@ -32,6 +32,7 @@ interface ExamRequest {
   offlineExamStatus?: string;
   offlineExamResult?: string;
   submittedAt?: string;
+  createdAt?: string;
   updatedAt: string;
 }
 
@@ -388,6 +389,17 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   <tbody className="divide-y divide-slate-100">
                     {availableStudents.map(s => {
                       const existingRequest = requests.find(r => r.studentId?._id === s._id || r.studentId === s._id);
+                      const hasTodayRequest = requests.some((r) => {
+                        const sameStudent = r.studentId?._id === s._id || r.studentId === s._id;
+                        if (!sameStudent) return false;
+                        const dt = new Date(r.createdAt || r.updatedAt);
+                        const now = new Date();
+                        return (
+                          dt.getDate() === now.getDate() &&
+                          dt.getMonth() === now.getMonth() &&
+                          dt.getFullYear() === now.getFullYear()
+                        );
+                      });
                       return (
                         <tr key={s._id} className={`hover:bg-slate-50/50 transition cursor-default ${selectedExams.includes(s._id) ? 'bg-green-50/30' : ''}`}>
                           <td className="px-6 py-5">
@@ -439,16 +451,21 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                             )}
                           </td>
                           <td className="px-6 py-5 text-right">
-                             {existingRequest ? (
-                                <button onClick={() => setAtcTab("history")} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2">Track in History</button>
-                             ) : (
-                                <button 
-                                  onClick={() => { setRequestExamStudent(s); setExamReqForm({ ...examReqForm, examMode: s.preferredMode || 'online' }); }}
-                                  className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition shadow-lg shadow-slate-100"
-                                >
-                                  Exam Request
-                                </button>
-                             )}
+                             <div className="flex items-center justify-end gap-2">
+                               <button
+                                 onClick={() => setAtcTab("history")}
+                                 className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
+                               >
+                                 Track in History
+                               </button>
+                               <button
+                                 onClick={() => { setRequestExamStudent(s); setExamReqForm({ ...examReqForm, examMode: s.preferredMode || 'online' }); }}
+                                 disabled={hasTodayRequest}
+                                 className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition shadow-lg shadow-slate-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
+                               >
+                                 {hasTodayRequest ? "Requested Today" : "Exam Request"}
+                               </button>
+                             </div>
                           </td>
                         </tr>
                       );
@@ -509,8 +526,23 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           />
                         </td>
                         <td className="px-6 py-5">
-                          <p className="font-bold text-slate-800 uppercase text-xs leading-none mb-1">{exam.studentId?.name || "N/A"}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">{exam.studentId?.registrationNo || "No Reg"}</p>
+                          <div className="flex items-center gap-3">
+                            {exam.studentId?.profileImage || exam.studentId?.photo ? (
+                              <img
+                                src={exam.studentId.profileImage || exam.studentId.photo}
+                                alt={exam.studentId?.name || "Student"}
+                                className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 font-black text-slate-400">
+                                {(exam.studentId?.name || "N").charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-bold text-slate-800 uppercase text-xs leading-none mb-1">{exam.studentId?.name || "N/A"}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">{exam.studentId?.registrationNo || "No Reg"}</p>
+                            </div>
+                          </div>
                         </td>
                         {role === "admin" && (
                           <td className="px-6 py-5">
@@ -598,9 +630,22 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                              {(role === "admin" || role === "atc") && exam.examMode === 'offline' && exam.approvalStatus === 'approved' && exam.status !== 'completed' && (
                                 <button onClick={() => openResultModal(exam)} className="text-[10px] font-black uppercase underline underline-offset-4 text-orange-600 hover:text-orange-800">Enter Result</button>
                              )}
-                             <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
-                               <Eye size={16} />
-                             </button>
+                            {role === "admin" && exam.status === "completed" && (
+                              <>
+                                <button
+                                  onClick={() => window.open(`/admin/document/marksheet/${exam._id}`, "_blank")}
+                                  className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
+                                >
+                                  View Marksheet
+                                </button>
+                                <button
+                                  onClick={() => window.open(`/admin/document/certificate/${exam._id}`, "_blank")}
+                                  className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
+                                >
+                                  View Certificate
+                                </button>
+                              </>
+                            )}
                            </div>
                         </td>
                       </tr>
