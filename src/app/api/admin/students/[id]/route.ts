@@ -45,14 +45,14 @@ export async function PATCH(
         const regNo = `${student.tpCode}-${dateCode}-${String(count + 1).padStart(3, "0")}-${randomSuffix}`;
         student.registrationNo = regNo;
       }
-      student.status = action;
+      student.status = action === "approved" ? "active" : action;
     } 
     else if (action === "toggleStatus") {
       student.userStatus = student.userStatus === "active" ? "disabled" : "active";
     }
     else if (action === "resetPassword") {
       if (!newPassword) return NextResponse.json({ message: "New password is required" }, { status: 400 });
-      student.password = await bcrypt.hash(newPassword, 10);
+      student.password = newPassword;
     }
     else if (action === "updateDetails") {
       if (!updateData) return NextResponse.json({ message: "Update data is required" }, { status: 400 });
@@ -70,7 +70,7 @@ export async function PATCH(
       });
 
       if (updateData.password) {
-        student.password = await bcrypt.hash(updateData.password, 10);
+        student.password = updateData.password;
       }
     }
 

@@ -21,8 +21,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
     }
 
-    const isMatch = await bcrypt.compare(password, student.password || "");
-    if (!isMatch) {
+    const isPlainMatch = password === student.password;
+    const isHashMatch = student.password?.startsWith("$2b$") 
+      ? await bcrypt.compare(password, student.password) 
+      : false;
+    
+    if (!isPlainMatch && !isHashMatch) {
       return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
     }
 

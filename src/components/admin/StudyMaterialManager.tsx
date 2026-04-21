@@ -23,6 +23,7 @@ export default function StudyMaterialManager({ role }: Props) {
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -68,7 +69,6 @@ export default function StudyMaterialManager({ role }: Props) {
       setSaving(false);
     }
   };
-
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this material?")) return;
     try {
@@ -82,6 +82,26 @@ export default function StudyMaterialManager({ role }: Props) {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selectedMaterials.length} materials?`)) return;
+    setLoading(true);
+    try {
+      for (const id of selectedMaterials) {
+        await fetch(`/api/${role}/study-material`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+      }
+      setSelectedMaterials([]);
+      await fetchMaterials();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,6 +125,19 @@ export default function StudyMaterialManager({ role }: Props) {
           <PlusCircle className="w-5 h-5" /> Add Material
         </button>
       </div>
+
+      {selectedMaterials.length > 0 && (
+         <div className="bg-slate-900 px-6 py-3 rounded-2xl flex items-center justify-between animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-4 text-white text-xs font-bold">
+               <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedMaterials.length}</div>
+               <span className="uppercase tracking-widest">Resources Selected</span>
+            </div>
+            <div className="flex items-center gap-3">
+               <button onClick={handleBulkDelete} className="px-5 py-2 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition shadow-lg shadow-red-500/20">Delete All</button>
+               <button onClick={() => setSelectedMaterials([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
+            </div>
+         </div>
+      )}
 
       {isAdding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -249,7 +282,18 @@ export default function StudyMaterialManager({ role }: Props) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {materials.map((m) => (
-            <div key={m._id} className="group bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 overflow-hidden flex flex-col">
+            <div key={m._id} className={`group bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 overflow-hidden flex flex-col relative ${selectedMaterials.includes(m._id) ? 'border-blue-600 bg-blue-50/10' : ''}`}>
+              <div className="absolute top-4 left-4 z-10">
+                 <input 
+                   type="checkbox" 
+                   className="w-5 h-5 rounded-lg border-white/50 text-blue-600 focus:ring-blue-500 bg-black/20 backdrop-blur-sm cursor-pointer shadow-sm"
+                   checked={selectedMaterials.includes(m._id)}
+                   onChange={(e) => {
+                     if (e.target.checked) setSelectedMaterials(prev => [...prev, m._id]);
+                     else setSelectedMaterials(prev => prev.filter(id => id !== m._id));
+                   }}
+                 />
+              </div>
               <div className="p-1">
                 <div className="aspect-video bg-slate-100 rounded-[22px] flex items-center justify-center relative overflow-hidden">
                   {m.type === "video" ? (

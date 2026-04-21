@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
-import CenterAssignmentManager from "@/components/admin/CenterAssignmentManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
+import StudentIdCard from "@/components/common/StudentIdCard";
 import {
   DEFAULT_FEE_OPTIONS,
   FeeOption,
@@ -89,7 +89,7 @@ const FEE_LABEL: Record<string, string> = {
 
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "assignments" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview";
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -139,6 +139,7 @@ export default function AdminPanelPage() {
 
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [viewIdCard, setViewIdCard] = useState<any>(null);
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   
   // Application Filters
@@ -148,6 +149,7 @@ export default function AdminPanelPage() {
 
   const [pendingResults, setPendingResults] = useState<any[]>([]);
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [selectedResults, setSelectedResults] = useState<string[]>([]);
 
   const [studentEditValues, setStudentEditValues] = useState<any>({});
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
@@ -744,7 +746,6 @@ export default function AdminPanelPage() {
     create: "Create ATC Application",
     courses: "Course Management",
     questionSets: "Exam Sets",
-    assignments: "Exam Assignments",
     centers: "Manage Centers",
     examRequests: "Exam Requests",
     materials: "Study Materials",
@@ -758,7 +759,6 @@ export default function AdminPanelPage() {
     create: "Manually create an ATC application as admin",
     courses: "Define and manage courses by zones",
     questionSets: "Build question sets and populate the exam bank",
-    assignments: "Assign exam sets and schedule tests for approved centers",
     centers: "View and manage status of approved ATC centers",
     examRequests: "Manage online/offline exam requests and results",
     materials: "Upload and manage course study resources",
@@ -809,7 +809,6 @@ export default function AdminPanelPage() {
               { id: "students" as Tab, icon: Users, label: "Manage Students" },
               { id: "examRequests" as Tab, icon: Layers, label: "Exam Requests" },
               { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
-              { id: "assignments" as Tab, icon: FileText, label: "Exam Assignments" },
               { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
               { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
               { id: "settings" as Tab, icon: Settings, label: "Settings" },
@@ -945,9 +944,6 @@ export default function AdminPanelPage() {
 
             {/* ── EXAM SETS TAB ── */}
             {tab === "questionSets" && <ExamSetManager role="admin" />}
-
-            {/* ── ASSIGNMENTS TAB ── */}
-            {tab === "assignments" && <CenterAssignmentManager approvedCenters={applications.filter((a) => a.status === "approved")} />}
 
             {/* ── MANAGE CENTERS TAB ── */}
             {tab === "centers" && (
@@ -1150,6 +1146,39 @@ export default function AdminPanelPage() {
                   </button>
                 </div>
 
+                {selectedResults.length > 0 && (
+                   <div className="bg-amber-600 px-6 py-3 rounded-2xl flex items-center justify-between animate-in slide-in-from-top duration-300 shadow-lg shadow-amber-100">
+                      <div className="flex items-center gap-4 text-white text-xs font-bold">
+                         <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedResults.length}</div>
+                         <span className="uppercase tracking-widest">Results Selected</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <button 
+                           onClick={async () => {
+                             if (!confirm(`Approve and generate documents for ${selectedResults.length} students?`)) return;
+                             setResultsLoading(true);
+                             try {
+                               for (const id of selectedResults) {
+                                 await fetch("/api/admin/exams/approve-result", {
+                                   method: "POST",
+                                   headers: { "Content-Type": "application/json" },
+                                   body: JSON.stringify({ examId: id }),
+                                 });
+                               }
+                               setSelectedResults([]);
+                               await fetchPendingResults();
+                             } catch { showToast("error", "Bulk approval failed"); }
+                             finally { setResultsLoading(false); }
+                           }} 
+                           className="px-5 py-2 rounded-xl bg-white text-amber-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition"
+                         >
+                           Approve Selective
+                         </button>
+                         <button onClick={() => setSelectedResults([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
+                      </div>
+                   </div>
+                )}
+
                 {resultsLoading ? (
                   <div className="p-20 flex flex-col items-center gap-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
                     <div className="w-12 h-12 border-4 border-amber-100 border-t-amber-600 rounded-full animate-spin" />
@@ -1167,8 +1196,33 @@ export default function AdminPanelPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
+                    <div className="flex items-center px-6 py-2 bg-slate-50/50 rounded-xl border border-slate-100">
+                       <label className="flex items-center gap-3 cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            className="w-5 h-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                            checked={pendingResults.length > 0 && selectedResults.length === pendingResults.length}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedResults(pendingResults.map(r => r._id));
+                              else setSelectedResults([]);
+                            }}
+                          />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition">Select All Pending Results</span>
+                       </label>
+                    </div>
                     {pendingResults.map((res) => (
-                      <div key={res._id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center hover:border-amber-200 transition-all group">
+                      <div key={res._id} className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center hover:border-amber-200 transition-all group ${selectedResults.includes(res._id) ? 'bg-amber-50/20 border-amber-200' : ''}`}>
+                         <div className="shrink-0 flex items-center pr-2">
+                            <input 
+                              type="checkbox" 
+                              className="w-5 h-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                              checked={selectedResults.includes(res._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedResults(prev => [...prev, res._id]);
+                                else setSelectedResults(prev => prev.filter(id => id !== res._id));
+                              }}
+                            />
+                         </div>
                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0">
                             {res.studentId?.photo ? <img src={res.studentId.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-8 h-8 m-4 text-slate-300" />}
                          </div>
@@ -1178,7 +1232,7 @@ export default function AdminPanelPage() {
                                <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase border border-blue-100">{res.studentId?.registrationNo}</span>
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-slate-400 uppercase tracking-tight">
-                               <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {res.atcId?.centerName} ({res.atcId?.centerCode})</span>
+                               <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {res.atcId?.trainingPartnerName} ({res.atcId?.tpCode})</span>
                                <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> {res.studentId?.course}</span>
                                <span className="flex items-center gap-1.5 font-black text-amber-600 italic">Score: {res.totalScore} / 100</span>
                             </div>
@@ -1552,17 +1606,17 @@ export default function AdminPanelPage() {
               <div className="space-y-4 animate-in fade-in duration-300">
                 {/* Student Filter Bar */}
                 <div className="flex flex-wrap items-center gap-3">
-                  {(["all", "pending", "approved", "rejected", "disabled"] as const).map((s) => (
+                  {(["all", "pending", "active", "rejected", "disabled"] as const).map((s) => (
                     <button
                       key={s}
-                      onClick={() => setStudentFilter(s)}
+                      onClick={() => setStudentFilter(s as any)}
                       className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
                         studentFilter === s
                           ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-lg shadow-blue-100 scale-105"
                           : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                       }`}
                     >
-                      {s} ({studentCounts[s]})
+                      {s === "active" ? "Active" : s} ({studentCounts[s === "active" ? "approved" : s] || 0})
                     </button>
                   ))}
                 </div>
@@ -1599,10 +1653,11 @@ export default function AdminPanelPage() {
                             }}
                           />
                         </th>
-                        <th className="px-6 py-4">REG NO / NAME</th>
+                        <th className="px-6 py-4">REG NO / ID</th>
+                        <th className="px-6 py-4">STUDENT IDENTITY</th>
                         <th className="px-6 py-4">CENTER</th>
                         <th className="px-6 py-4">COURSE</th>
-                        <th className="px-6 py-4">USER STATUS</th>
+                        <th className="px-6 py-4 text-center">STATUS</th>
                         <th className="px-6 py-4 text-right">ACTION</th>
                       </tr>
                     </thead>
@@ -1627,48 +1682,89 @@ export default function AdminPanelPage() {
                                 />
                               </td>
                               <td className="px-6 py-4">
-                                <p className="font-black text-slate-800 leading-none mb-1">{s.registrationNo || "PENDING"}</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">{s.name}</p>
+                                 <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black border border-slate-200">
+                                   {s.registrationNo || "PENDING"}
+                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-slate-500 font-medium">{s.tpCode}</td>
-                              <td className="px-6 py-4 text-slate-500 font-medium">{s.course}</td>
                               <td className="px-6 py-4">
-                                <div className="space-y-1.5">
-                                  {(s.status !== "approved" && s.status !== "active") && (
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                      s.status === "rejected" ? "bg-red-50 text-red-600 border border-red-100" : "bg-amber-50 text-amber-600 border border-amber-100"
-                                    }`}>
-                                      {s.status}
-                                    </span>
+                                <div className="flex items-center gap-3">
+                                  {s.photo ? (
+                                    <img src={s.photo} alt={s.name} className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm ring-1 ring-slate-100" />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-200"><User className="w-5 h-5 text-slate-300" /></div>
                                   )}
                                   <div>
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[8px] font-black uppercase ${s.userStatus === "disabled" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-                                      {s.userStatus || "active"}
-                                    </span>
+                                    <p className="font-black text-slate-800 leading-none mb-1.5">{s.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                       S/o: {s.fatherName} • {s.mobile}
+                                    </p>
                                   </div>
                                 </div>
+                              </td>
+                              <td className="px-6 py-4 text-[11px] font-black uppercase text-slate-500">{s.tpCode}</td>
+                              <td className="px-6 py-4">
+                                 <div className="flex flex-col">
+                                    <span className="text-[11px] font-black uppercase text-emerald-700">{s.course}</span>
+                                    <span className="text-[9px] font-bold text-slate-400 capitalize">{s.session}</span>
+                                 </div>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase border shadow-sm ${
+                                  s.userStatus === "disabled" ? "bg-red-50 text-red-600 border-red-100" :
+                                  (s.status === "active" || s.status === "approved") ? "bg-emerald-50 text-emerald-700 border-emerald-100" : 
+                                  s.status === "rejected" ? "bg-red-50 text-red-600 border-red-100" : 
+                                  "bg-amber-50 text-amber-600 border-amber-100"
+                                }`}>
+                                  {s.userStatus === "disabled" ? "Disabled Account" : (s.status === "active" || s.status === "approved" ? "Active" : s.status)}
+                                </span>
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex justify-end gap-2">
                                   <div className="flex flex-col gap-1 items-end">
                                     <div className="flex gap-2">
                                       {(s.status !== "approved" && s.status !== "active") && (
-                                        <button onClick={() => handleStudentAction(s._id, "approved")} disabled={!!studentActionId}
-                                          className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition">
-                                          Approve
-                                        </button>
+                                        <div className="flex gap-2">
+                                          <button 
+                                            onClick={() => handleStudentAction(s._id, "approved")} 
+                                            disabled={!!studentActionId}
+                                            className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
+                                          >
+                                            Approve
+                                          </button>
+                                          <button 
+                                            onClick={() => handleStudentAction(s._id, "rejected")} 
+                                            disabled={!!studentActionId}
+                                            className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition shadow-lg shadow-red-200"
+                                          >
+                                            Reject
+                                          </button>
+                                        </div>
                                       )}
                                       <button onClick={() => handleStudentAction(s._id, "toggleStatus")} 
                                         className={`px-3 py-1.5 rounded-xl text-white text-[10px] font-black uppercase transition ${s.userStatus === "disabled" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-amber-500 hover:bg-amber-600"}`}>
                                         {s.userStatus === "disabled" ? "Enable" : "Disable"}
                                       </button>
 
+                                      <button 
+                                          onClick={() => setViewIdCard(s)}
+                                          className="p-2 rounded-xl bg-[#0a0aa1] text-white hover:bg-blue-700 transition shadow-lg shadow-blue-200"
+                                          title="View ID Card"
+                                       >
+                                         <CreditCard className="w-3.5 h-3.5" />
+                                       </button>
+
                                        <button 
                                           onClick={() => {
+                                            const studentData = { ...s };
+                                            if (studentData.password && studentData.password.startsWith("$2b$")) {
+                                              studentData.password = "";
+                                            }
                                             setEditingStudent(s);
-                                            setStudentEditValues(s);
+                                            setStudentEditValues(studentData);
                                           }} 
-                                          className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+                                          className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                                          title="Edit Details"
+                                       >
                                         <Edit2 className="w-3.5 h-3.5" />
                                       </button>
                                       <button onClick={() => handleStudentAction(s._id, "delete")} className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition">
@@ -1729,15 +1825,16 @@ export default function AdminPanelPage() {
                     { label: "Parents Mobile", key: "parentsMobile" },
                     { label: "Aadhar Number", key: "aadharNo" },
                     { label: "Course Name", key: "course" },
-                    { label: "New Password (Leave blank to keep same)", key: "password" },
+                    { label: "Student Password", key: "password" },
                   ].map((field) => (
                     <div key={field.key}>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
                       <input 
-                        type="text" 
+                        type={field.key === "password" ? "text" : "text"} 
                         value={studentEditValues[field.key] || ""} 
                         onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))}
                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                        placeholder={field.key === "password" ? "Enter new password" : ""}
                       />
                     </div>
                   ))}
@@ -1810,6 +1907,56 @@ export default function AdminPanelPage() {
         )}
           </div>
         </main>
+        {/* ID CARD VIEW MODAL */}
+        {viewIdCard && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+             <div className="relative group">
+                <div className="absolute -top-12 right-0 flex gap-4">
+                   <button 
+                     onClick={() => window.print()}
+                     className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 backdrop-blur-md transition border border-white/20 flex items-center gap-2 px-4 shadow-lg"
+                   >
+                      <Download className="w-4 h-4" /> <span className="text-[10px] font-black uppercase tracking-widest">Print ID</span>
+                   </button>
+                   <button 
+                     onClick={() => setViewIdCard(null)} 
+                     className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 backdrop-blur-md transition border border-white/20 shadow-lg"
+                   >
+                     <XCircle className="w-5 h-5" />
+                   </button>
+                </div>
+                <div id="student-id-card-container" className="animate-in zoom-in-95 duration-300">
+                   <StudentIdCard 
+                     student={{
+                       ...viewIdCard,
+                       registrationNo: viewIdCard.registrationNo || "PENDING",
+                       tpCode: (viewIdCard as any).tpCode || "PENDING",
+                       dob: (viewIdCard as any).dob || "N/A"
+                     }} 
+                   />
+                </div>
+             </div>
+          </div>
+        )}
+
+        <style jsx global>{`
+          @media print {
+            @page { margin: 0; size: auto; }
+            body * { visibility: hidden !important; }
+            #student-id-card-container, #student-id-card-container * {
+              visibility: visible !important;
+            }
+            #student-id-card-container {
+              position: fixed !important;
+              top: 50% !important;
+              left: 50% !important;
+              transform: translate(-50%, -50%) scale(1.3) !important;
+              width: 100% !important;
+              display: flex !important;
+              justify-content: center !important;
+            }
+          }
+        `}</style>
       </div>
     </div>
   );

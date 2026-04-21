@@ -44,6 +44,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
   const [pendingStudents, setPendingStudents] = useState<any[]>([]);
   const [assignForm, setAssignForm] = useState({ date: "", time: "10:00 AM", mode: "online" });
   const [assigning, setAssigning] = useState(false);
+  const [selectedStudentExams, setSelectedStudentExams] = useState<string[]>([]);
 
   const apiBase = role === "admin" ? "/api/admin" : "/api/atc";
 
@@ -491,17 +492,28 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                             />
                          </div>
                          <button 
-                           onClick={() => handleBulkAssign(pendingStudents.map(p => p._id))}
-                           disabled={assigning || pendingStudents.length === 0}
-                           className="px-12 py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 transition-all shadow-2xl active:scale-95"
+                           onClick={() => handleBulkAssign(selectedStudentExams)}
+                           disabled={assigning || selectedStudentExams.length === 0}
+                           className="px-12 py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
                          >
-                           {assigning ? "DEPLOYING..." : `DEPLOY TO ${pendingStudents.length} STUDENTS`}
+                           {assigning ? "DEPLOYING..." : `DEPLOY TO ${selectedStudentExams.length} SELECTED`}
                          </button>
                       </div>
 
                       <div className="space-y-6">
                          <div className="flex items-center justify-between px-2">
-                            <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Queue: Students Awaiting Assignment</h5>
+                            <div className="flex items-center gap-4">
+                               <input 
+                                 type="checkbox"
+                                 className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                 checked={pendingStudents.length > 0 && selectedStudentExams.length === pendingStudents.length}
+                                 onChange={(e) => {
+                                   if (e.target.checked) setSelectedStudentExams(pendingStudents.map(p => p._id));
+                                   else setSelectedStudentExams([]);
+                                 }}
+                               />
+                               <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Queue: Students Awaiting Assignment</h5>
+                            </div>
                             <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold">{pendingStudents.length} IN QUEUE</span>
                          </div>
                          
@@ -513,25 +525,38 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                </div>
                             ) : (
                                pendingStudents.map(s => (
-                                 <div key={s._id} className="group p-6 bg-slate-50 rounded-3xl border-2 border-transparent hover:border-blue-100 hover:bg-white transition-all">
-                                    <div className="flex justify-between items-start">
-                                       <div>
-                                          <p className="font-black text-slate-800 text-lg uppercase tracking-tight">{s.studentId?.name}</p>
-                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">REG # {s.studentId?.registrationNo}</p>
-                                       </div>
-                                       <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                         s.examMode === 'online' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                       }`}>
-                                          {s.examMode} REQUESTED
-                                       </span>
-                                    </div>
-                                    <div className="mt-6 flex items-center gap-2">
-                                       <div className="h-1 flex-1 bg-slate-200 rounded-full overflow-hidden">
-                                          <div className="h-full w-1/3 bg-blue-500 rounded-full animate-progress" />
-                                       </div>
-                                       <span className="text-[8px] font-black text-slate-300 uppercase">Awaiting Set</span>
-                                    </div>
-                                 </div>
+                                  <div key={s._id} className={`group p-6 rounded-3xl border-2 transition-all flex gap-4 ${selectedStudentExams.includes(s._id) ? 'border-emerald-500 bg-emerald-50/20' : 'border-transparent bg-slate-50 hover:border-blue-100 hover:bg-white'}`}>
+                                     <div className="pt-1">
+                                        <input 
+                                          type="checkbox"
+                                          className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                          checked={selectedStudentExams.includes(s._id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) setSelectedStudentExams(prev => [...prev, s._id]);
+                                            else setSelectedStudentExams(prev => prev.filter(id => id !== s._id));
+                                          }}
+                                        />
+                                     </div>
+                                     <div className="flex-1">
+                                        <div className="flex justify-between items-start">
+                                           <div>
+                                              <p className="font-black text-slate-800 text-lg uppercase tracking-tight">{s.studentId?.name}</p>
+                                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">REG # {s.studentId?.registrationNo}</p>
+                                           </div>
+                                           <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                             s.examMode === 'online' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                           }`}>
+                                              {s.examMode} REQUESTED
+                                           </span>
+                                        </div>
+                                        <div className="mt-6 flex items-center gap-2">
+                                           <div className="h-1 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                                              <div className="h-full w-1/3 bg-blue-500 rounded-full animate-progress" />
+                                           </div>
+                                           <span className="text-[8px] font-black text-slate-300 uppercase">Awaiting Set</span>
+                                        </div>
+                                     </div>
+                                  </div>
                                ))
                             )}
                          </div>

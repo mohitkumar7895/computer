@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET as string;
 
 import { connectDB } from "@/lib/mongodb";
 import { AtcUser } from "@/models/AtcUser";
+import { AtcApplication } from "@/models/AtcApplication";
 
 export async function GET() {
   try {
@@ -17,7 +18,7 @@ export async function GET() {
     if (decoded.role !== "atc") return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
 
     await connectDB();
-    const user = await AtcUser.findById(decoded.id).select("-password").lean();
+    const user = await AtcUser.findById(decoded.id).select("-password").populate("applicationId").lean() as any;
     if (!user) return NextResponse.json({ message: "User not found." }, { status: 404 });
 
     return NextResponse.json({ user: { 
@@ -25,7 +26,8 @@ export async function GET() {
       tpCode: user.tpCode, 
       trainingPartnerName: user.trainingPartnerName,
       mobile: user.mobile,
-      email: user.email
+      email: user.email,
+      application: user.applicationId
     } });
   } catch {
     return NextResponse.json({ message: "Unauthorized." }, { status: 401 });

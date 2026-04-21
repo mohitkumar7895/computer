@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     
-    const { studentId, examMode, offlineDetails } = await request.json();
+    const { studentId, examMode, offlineDetails, examDate, examTime, setId } = await request.json();
 
     if (!studentId || !examMode) {
       return NextResponse.json({ message: "Student ID and Exam Mode are required" }, { status: 400 });
@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     // Check if there is already a pending or approved exam for this student
     const existingExam = await StudentExam.findOne({ 
       studentId, 
-      status: "pending",
-      $or: [{ approvalStatus: "pending" }, { approvalStatus: "approved" }]
+      status: { $ne: "completed" },
+      approvalStatus: { $in: ["pending", "approved"] }
     });
 
     if (existingExam) {
@@ -44,6 +44,9 @@ export async function POST(request: Request) {
       atcId: decoded.id,
       examMode,
       offlineDetails: examMode === "offline" ? offlineDetails : undefined,
+      examDate,
+      examTime,
+      setId,
       approvalStatus: "pending",
       status: "pending"
     });

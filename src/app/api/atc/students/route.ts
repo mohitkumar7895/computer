@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       aadharDoc: aadharDoc,
       studentSignature: studentSignature,
       referredBy: String(formData.get("referredBy") || "").trim(),
-      password: hashedPassword,
+      password: studentMobile,
       examMode: String(formData.get("examMode") || "online").trim(),
       status: "pending"
     };

@@ -11,6 +11,7 @@ import StudentManager from "@/components/atc/StudentManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
+import CertificateRequestManager from "@/components/atc/CertificateRequestManager";
 
 interface AtcUser {
   id: string;
@@ -18,6 +19,18 @@ interface AtcUser {
   trainingPartnerName: string;
   mobile?: string;
   email?: string;
+  application?: {
+    chiefName: string;
+    designation: string;
+    trainingPartnerAddress: string;
+    district: string;
+    state: string;
+    pin: string;
+    yearOfEstablishment: string;
+    statusOfInstitution: string;
+    educationQualification: string;
+    dob: string;
+  };
 }
 
 export default function AtcDashboardPage() {
@@ -25,7 +38,7 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets" | "materials">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets" | "materials" | "certificates">("dashboard");
   const [stats, setStats] = useState({ total: 0, active: 0, completing: 0, pending: 0 });
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -201,6 +214,13 @@ export default function AtcDashboardPage() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "exams" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <Monitor className="w-4 h-4" /> Exam Requests
+          </button>
+
+          <button
+            onClick={() => { setTab("certificates"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "certificates" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+          >
+            <CheckCircle className="w-4 h-4" /> Certificate Requests
           </button>
           <button
             onClick={() => { setTab("materials"); setIsSidebarOpen(false); }}
@@ -434,6 +454,40 @@ export default function AtcDashboardPage() {
                     )}
                   </div>
 
+                  {/* ATC REGISTRATION DETAILS */}
+                  {user.application && (
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-hidden">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-800 uppercase tracking-tight">Detailed Registration Records</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">Below are your full details as per the Approved Center Application.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        {[
+                          { label: "Director / Chief Name", value: user.application.chiefName },
+                          { label: "Designation", value: user.application.designation },
+                          { label: "Registered Address", value: user.application.trainingPartnerAddress },
+                          { label: "City / District", value: user.application.district },
+                          { label: "State & PIN", value: `${user.application.state} - ${user.application.pin}` },
+                          { label: "Year of Establishment", value: user.application.yearOfEstablishment },
+                          { label: "Status of Institution", value: user.application.statusOfInstitution },
+                          { label: "Qualifications", value: user.application.educationQualification },
+                          { label: "Director DOB", value: user.application.dob },
+                        ].map((detail) => (
+                          <div key={detail.label} className="flex flex-col border-b border-slate-50 pb-2">
+                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{detail.label}</span>
+                             <span className="text-xs font-bold text-slate-700 uppercase">{detail.value || "Not Provided"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Security & Password */}
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                     <div className="flex items-center gap-3 mb-6">
@@ -532,6 +586,10 @@ export default function AtcDashboardPage() {
 
           {tab === "exams" && (
             <ExamRequestManager atcId={user.id} role="atc" />
+          )}
+
+          {tab === "certificates" && (
+            <CertificateRequestManager atcId={user.id} role="atc" />
           )}
 
           {tab === "examSets" && (
