@@ -24,14 +24,21 @@ export async function POST(req: Request) {
     if (!isAdmin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, shortName, durationMonths, zone } = body;
+    const { name, shortName, durationMonths, zone, hasMarksheet, hasCertificate } = body;
 
     if (!name || !shortName || !durationMonths || !zone) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
     await connectDB();
-    const course = await Course.create({ name, shortName, durationMonths, zone });
+    const course = await Course.create({ 
+      name, 
+      shortName, 
+      durationMonths, 
+      zone,
+      hasMarksheet: hasMarksheet ?? true,
+      hasCertificate: hasCertificate ?? true
+    });
     return NextResponse.json(course, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

@@ -35,6 +35,9 @@ export interface IStudent {
   aadharDoc?: string;
   studentSignature?: string;
   otherDocs?: string;
+  marksheet12th?: string;
+  graduationDoc?: string;
+  highestQualDoc?: string;
   referredBy?: string;
   admissionDate: string;
   password?: string; // hashed
@@ -46,6 +49,7 @@ export interface IStudent {
   offlineExamMarks: string;
   offlineExamResult: "Pass" | "Fail" | "Waiting";
   offlineExamCopy?: string; // PDF URL
+  examMode?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -87,6 +91,9 @@ const StudentSchema = new Schema<IStudent>(
     aadharDoc: { type: String },
     studentSignature: { type: String },
     otherDocs: { type: String },
+    marksheet12th: { type: String },
+    graduationDoc: { type: String },
+    highestQualDoc: { type: String },
     referredBy: { type: String },
     password: { type: String },
     status: { type: String, enum: ["pending", "approved", "rejected", "active"], default: "pending" },
@@ -97,6 +104,7 @@ const StudentSchema = new Schema<IStudent>(
     offlineExamMarks: { type: String, default: "" },
     offlineExamResult: { type: String, enum: ["Pass", "Fail", "Waiting"], default: "Waiting" },
     offlineExamCopy: { type: String, default: "" },
+    examMode: { type: String, default: "online" }
   },
   { timestamps: true }
 );

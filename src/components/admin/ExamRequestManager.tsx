@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2 } from "lucide-react";
+import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2, FileText, ShieldCheck } from "lucide-react";
 
 interface ExamRequest {
   _id: string;
@@ -36,6 +36,8 @@ interface ExamRequest {
   maxScore?: number;
   offlineExamStatus?: string;
   offlineExamResult?: string;
+  grade?: string;
+  offlineExamCopy?: string;
   submittedAt?: string;
   createdAt?: string;
   updatedAt: string;
@@ -59,6 +61,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [selectedExam, setSelectedExam] = useState<ExamRequest | null>(null);
   const [approvalForm, setApprovalForm] = useState({
     examDate: "",
+    examTime: "",
     setId: "",
     examMode: "online"
   });
@@ -71,6 +74,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     preferredDate: "", 
     preferredCenter: "",
     examDate: "",
+    examTime: "",
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);
@@ -82,6 +86,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [releaseForm, setReleaseForm] = useState({ marksheet: true, certificate: true });
   const showRosterTab = role === "atc";
 
   const fetchRequests = async () => {
@@ -209,9 +215,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId, status, ...releaseForm }),
+        body: JSON.stringify({ examId, status, marksheet: true, certificate: true }),
       });
       if (res.ok) {
+        alert("Result Submitted Successfully");
         await fetchRequests();
         setShowReleaseModal(false);
       }
@@ -257,6 +264,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     setSelectedExam(exam);
     setApprovalForm({
       examDate: exam.examDate || "",
+      examTime: exam.examTime || "",
       setId: exam.setId || "",
       examMode: exam.examMode
     });
@@ -273,6 +281,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     setShowResultModal(true);
   };
 
+  const [reviewOnly, setReviewOnly] = useState(false);
+
   const filtered = requests.filter(r => {
     const matchesSearch = 
       r.studentId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -280,8 +290,17 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       r.atcId?.trainingPartnerName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMode = filterMode === "all" || r.examMode === filterMode;
     const matchesStatus = filterStatus === "all" || r.approvalStatus === filterStatus;
-    // Hide from Scheduling if result is already in review or published
-    const isNotInResultPhase = r.offlineExamStatus !== 'review_pending' && r.offlineExamStatus !== 'published' && r.status !== 'completed';
+    
+    // Review Queue logic
+    if (role === "admin" && reviewOnly) {
+       return matchesSearch && r.offlineExamStatus === "review_pending";
+    }
+
+    // For ATCs: Hide from Scheduling if result is already in review or published
+    const isNotInResultPhase = role === "atc" 
+      ? (r.offlineExamStatus !== 'review_pending' && r.offlineExamStatus !== 'published' && r.status !== 'completed')
+      : true;
+
     return matchesSearch && matchesMode && matchesStatus && isNotInResultPhase;
   });
 
@@ -291,29 +310,45 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   return (
     <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px] text-slate-800">
       {/* Top Tabs styling same as StudentManager */}
-      <div className="flex items-center gap-2 px-6 pt-4 border-b border-slate-100 bg-white">
-        {showRosterTab && (
+      {/* Unifed Filter Tabs */}
+      <div className="flex items-center gap-6 px-8 pt-6 bg-white border-b border-slate-100">
+        {[
+          { id: "all_students", label: "All Request", icon: Users },
+          { id: "pending", label: "Pending", icon: Clock },
+          { id: "approved", label: "Admit Card", icon: ShieldCheck },
+          ...(role === "admin" ? [{ id: "review_queue", label: "Review Queue", icon: AlertCircle }] : [])
+        ].map(tab => (
           <button
-            onClick={() => setAtcTab("new")}
-            className={`px-4 py-3 text-sm font-bold transition-all relative ${atcTab === "new" ? "text-green-600" : "text-slate-400 hover:text-slate-600"}`}
+            key={tab.id}
+            onClick={() => {
+              if (tab.id === "all_students") {
+                setAtcTab("new");
+                setReviewOnly(false);
+              } else if (tab.id === "review_queue") {
+                setAtcTab("history");
+                setFilterStatus("all" as any);
+                setReviewOnly(true);
+              } else {
+                setAtcTab("history");
+                setFilterStatus(tab.id as any);
+                setReviewOnly(false);
+              }
+            }}
+            className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative flex items-center gap-2 ${
+              (tab.id === "all_students" && atcTab === "new") || 
+              (tab.id === "review_queue" && atcTab === "history" && reviewOnly) ||
+              (atcTab === "history" && filterStatus === tab.id && !reviewOnly)
+                ? "text-green-600"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
           >
-            <span className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              All Students
-            </span>
-            {atcTab === "new" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full" />}
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+            {((tab.id === "all_students" && atcTab === "new") || (atcTab === "history" && filterStatus === tab.id)) && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full shadow-[0_-2px_10px_rgba(22,163,74,0.3)]" />
+            )}
           </button>
-        )}
-        <button
-          onClick={() => setAtcTab("history")}
-          className={`px-4 py-3 text-sm font-bold transition-all relative ${atcTab === "history" ? "text-green-600" : "text-slate-400 hover:text-slate-600"}`}
-        >
-          <span className="flex items-center gap-2">
-            {role === "admin" ? <ClipboardCheck className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-            {role === "admin" ? "Manage Requests" : "Exam History"}
-          </span>
-          {atcTab === "history" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full" />}
-        </button>
+        ))}
       </div>
 
       <div className="p-6">
@@ -329,15 +364,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select 
-            className="px-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500 transition font-bold text-slate-600"
-            value={filterMode}
-            onChange={(e: any) => setFilterMode(e.target.value)}
-          >
-            <option value="all">All Modes</option>
-            <option value="online">Online Only</option>
-            <option value="offline">Offline Only</option>
-          </select>
           <button onClick={fetchRequests} className="px-4 py-2 bg-slate-50 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-100 transition flex items-center gap-2">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
@@ -459,6 +485,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           </td>
                           <td className="px-6 py-5 text-right">
                              <div className="flex items-center justify-end gap-2">
+                               {existingRequest?.approvalStatus === "approved" && (
+                                 <button
+                                   onClick={() => window.open(`/atc/document/admit-card/${existingRequest._id}`, "_blank")}
+                                   className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[9px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition"
+                                 >
+                                   Admit Card
+                                 </button>
+                               )}
                                <button
                                  onClick={() => setAtcTab("history")}
                                  className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
@@ -596,7 +630,15 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         </td>
                         <td className="px-6 py-5 text-right">
                            <div className="flex items-center justify-end gap-2 text-slate-800">
-                             {role === "admin" && exam.approvalStatus === "pending" && (
+                              {role === "atc" && exam.approvalStatus === "approved" && (
+                                <button
+                                  onClick={() => window.open(`/atc/document/admit-card/${exam._id}`, "_blank")}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition"
+                                >
+                                  Admit Card
+                                </button>
+                              )}
+                              {role === "admin" && exam.approvalStatus === "pending" && (
                                <div className="flex gap-2">
                                  <button 
                                    onClick={() => openApproveModal(exam)}
@@ -637,6 +679,18 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                              {(role === "admin" || role === "atc") && exam.examMode === 'offline' && exam.approvalStatus === 'approved' && exam.status !== 'completed' && (
                                 <button onClick={() => openResultModal(exam)} className="text-[10px] font-black uppercase underline underline-offset-4 text-orange-600 hover:text-orange-800">Enter Result</button>
                              )}
+                             {exam.offlineExamCopy && (
+                                <button
+                                  onClick={() => {
+                                    const win = window.open();
+                                    win?.document.write(`<html><head><title>Exam Copy - ${exam.studentId?.name}</title></head><body style="margin:0"><iframe src="${exam.offlineExamCopy}" frameborder="0" style="border:0; width:100%; height:100vh;" allowfullscreen></iframe></body></html>`);
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition text-[10px] font-black uppercase shadow-sm"
+                                >
+                                  <FileText size={12} />
+                                  View Copy
+                                </button>
+                              )}
                              {role === "admin" && exam.status === "completed" && (
                                <>
                                  <button
@@ -670,7 +724,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       {showApproveModal && selectedExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
           <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in duration-300">
-             <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Finalize Schedule</h3>
                   <p className="text-xs text-slate-500 font-medium">Set the official exam date and time.</p>
@@ -679,6 +733,20 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
              </div>
+
+             {/* Highlight ATC Suggestion */}
+             {selectedExam?.examDate && (
+               <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <Calendar className="w-5 h-5 text-blue-600" />
+                     <div>
+                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Suggested by ATC</p>
+                        <p className="text-sm font-black text-blue-900">{new Date(selectedExam.examDate).toLocaleDateString("en-IN")}</p>
+                     </div>
+                  </div>
+                  <div className="px-2 py-1 bg-blue-600 text-white text-[9px] font-black rounded uppercase">Pre-filled</div>
+               </div>
+             )}
 
              <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -703,6 +771,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         onChange={(e) => setApprovalForm({...approvalForm, examDate: e.target.value})}
                     />
                   </div>
+
                 </div>
 
 
@@ -767,39 +836,62 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
               </div>
 
               <form onSubmit={handleResultSubmit} className="space-y-6">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                       <label className={labelCls}>Exam Status</label>
-                       <select 
-                         className={inputCls}
-                         value={resultForm.status}
-                         onChange={e => setResultForm({...resultForm, status: e.target.value as any})}
-                         required
-                       >
-                          <option value="not_appeared">Not Appeared</option>
-                          <option value="appeared">Attended</option>
-                          <option value="published">Result Published</option>
-                       </select>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="space-y-2">
+                        <label className={labelCls}>Exam Status</label>
+                        <select 
+                          className={inputCls}
+                          value={resultForm.status}
+                          onChange={e => setResultForm({...resultForm, status: e.target.value as any})}
+                          required
+                        >
+                           <option value="not_appeared">Not Appeared</option>
+                           <option value="appeared">Attended</option>
+                           <option value="published">Result Published (In Review)</option>
+                        </select>
+                     </div>
 
-                    <div className="space-y-2">
-                       <label className={labelCls}>Final Score</label>
-                       <input 
-                         className={inputCls}
-                         placeholder="e.g. 85"
-                         value={resultForm.marks}
-                         onChange={e => setResultForm({...resultForm, marks: e.target.value})}
-                       />
-                    </div>
-                 </div>
+                     <div className="space-y-2">
+                        <label className={labelCls}>Final Score</label>
+                        <input 
+                          type="number"
+                          className={inputCls}
+                          placeholder="e.g. 85"
+                          value={resultForm.marks}
+                          onChange={e => setResultForm({...resultForm, marks: e.target.value})}
+                          required={resultForm.status === 'published'}
+                        />
+                     </div>
+                  </div>
 
-                 <div className="flex gap-4 pt-4">
-                    <button type="button" onClick={() => setShowResultModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                    <button type="submit" disabled={resultSaving} className="flex-[2] py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
-                      {resultSaving ? "Processing..." : "Submit Result"}
-                    </button>
-                 </div>
-              </form>
+                  <div className="space-y-2">
+                     <label className={labelCls}>Upload Exam Copy (PDF/Image)</label>
+                     <div className="relative group">
+                        <input 
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => setResultCopyFile(e.target.files?.[0] || null)}
+                          className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        />
+                        <div className={`w-full py-10 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all ${resultCopyFile ? 'border-orange-500 bg-orange-50/30' : 'border-slate-200 bg-slate-50 group-hover:border-orange-200 group-hover:bg-orange-50/20'}`}>
+                           <div className={`p-4 rounded-2xl mb-3 transition-colors ${resultCopyFile ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-orange-100 group-hover:text-orange-500'}`}>
+                              <FileText size={24} />
+                           </div>
+                           <p className="text-xs font-black uppercase text-slate-500 tracking-widest leading-none mb-1">
+                              {resultCopyFile ? resultCopyFile.name : "Click or Drag to Upload Copy"}
+                           </p>
+                           <p className="text-[10px] font-bold text-slate-400 uppercase">Maximum size: 5MB (PDF or JPG)</p>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                     <button type="button" onClick={() => setShowResultModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
+                     <button type="submit" disabled={resultSaving} className="flex-[2] py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
+                       {resultSaving ? <span className="flex items-center gap-2 justify-center"><RefreshCw size={14} className="animate-spin" /> Uploading...</span> : "Submit Result & Copy"}
+                     </button>
+                  </div>
+               </form>
            </div>
         </div>
       )}
@@ -841,6 +933,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                          onChange={e => setExamReqForm({...examReqForm, examDate: e.target.value})}
                        />
                     </div>
+
 
 
 

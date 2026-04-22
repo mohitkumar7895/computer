@@ -18,10 +18,16 @@ export async function GET() {
 
     await connectDB();
     const student = await AtcStudent.findById(decoded.id).select("-password").lean();
-    
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
-    return NextResponse.json({ student });
+    // Merge media
+    const { StudentMedia } = await import("@/models/StudentMedia");
+    const media = await StudentMedia.find({ studentId: student._id }).lean();
+    const mediaMap: any = {};
+    media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
+    const studentWithMedia = { ...student, ...mediaMap };
+
+    return NextResponse.json({ student: studentWithMedia });
   } catch (error) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }

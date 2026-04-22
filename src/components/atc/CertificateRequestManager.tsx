@@ -37,6 +37,8 @@ interface ExamRequest {
   offlineExamStatus?: string;
   offlineExamResult?: string;
   offlineExamCopy?: string;
+  marksheetReleased?: boolean;
+  certificateReleased?: boolean;
   grade?: string;
   session?: string;
   submittedAt?: string;
@@ -73,6 +75,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     preferredDate: "", 
     preferredCenter: "",
     examDate: "",
+    examTime: "",
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);

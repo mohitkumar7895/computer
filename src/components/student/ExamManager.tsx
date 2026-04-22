@@ -290,7 +290,16 @@ export default function ExamManager({ student }: ExamManagerProps) {
                            <div className="flex flex-col gap-2">
                              <span className="text-xs font-black text-slate-800">{exam.totalScore}/{exam.maxScore}</span>
                              {exam.examMode === 'offline' && exam.offlineExamCopy && (
-                               <a href={exam.offlineExamCopy} target="_blank" className="text-[10px] font-bold text-blue-600 uppercase">View Copy</a>
+                               <button 
+                                 onClick={() => {
+                                   const win = window.open();
+                                   win?.document.write(`<html><body style="margin:0"><iframe src="${exam.offlineExamCopy}" frameborder="0" style="border:0; width:100%; height:100vh;" allowfullscreen></iframe></body></html>`);
+                                 }}
+                                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition text-[10px] font-black uppercase"
+                               >
+                                 <FileText size={12} className="text-orange-600" />
+                                 View Answer Copy
+                               </button>
                              )}
                            </div>
                          )}

@@ -6,6 +6,8 @@ export interface ICourse {
   shortName: string;
   durationMonths: number;
   zone: string; // Software Zone, Hardware Zone, Vocational Zone, Others (Custom)
+  hasMarksheet: boolean;
+  hasCertificate: boolean;
   status: "active" | "inactive";
   createdAt: Date;
 }
@@ -16,6 +18,8 @@ const CourseSchema = new Schema<ICourse>(
     shortName: { type: String, required: true },
     durationMonths: { type: Number, required: true },
     zone: { type: String, required: true },
+    hasMarksheet: { type: Boolean, default: true },
+    hasCertificate: { type: Boolean, default: true },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   { timestamps: true }

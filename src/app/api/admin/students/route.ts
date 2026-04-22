@@ -25,7 +25,17 @@ export async function GET(request: Request) {
 
     await connectDB();
     const students = await AtcStudent.find().sort({ createdAt: -1 }).lean();
-    return NextResponse.json({ students });
+    
+    // Merge media
+    const { StudentMedia } = await import("@/models/StudentMedia");
+    const studentsWithMedia = await Promise.all(students.map(async (s: any) => {
+      const media = await StudentMedia.find({ studentId: s._id }).lean();
+      const mediaMap: any = {};
+      media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
+      return { ...s, ...mediaMap };
+    }));
+
+    return NextResponse.json({ students: studentsWithMedia });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }

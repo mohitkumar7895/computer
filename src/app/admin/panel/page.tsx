@@ -11,7 +11,8 @@ import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
-import StudentIdCard, { StudentIdCardPrintStyles } from "@/components/common/StudentIdCard";
+import StudentIdCard from "@/components/common/StudentIdCard";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { toPng } from "html-to-image";
 import {
   DEFAULT_FEE_OPTIONS,
@@ -108,6 +109,7 @@ const PrintField = ({ label, value }: any) => (
 );
 
 export default function AdminPanelPage() {
+  usePageTitle("admin");
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [applications, setApplications] = useState<Application[]>([]);
@@ -141,7 +143,7 @@ export default function AdminPanelPage() {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrSaving, setQrSaving] = useState(false);
   const [bgLoading, setBgLoading] = useState(true);
-  const [bgs, setBgs] = useState({ id_front: "", id_back: "", certificate: "", marksheet: "" });
+  const [bgs, setBgs] = useState({ id_front: "", id_back: "", certificate: "", marksheet: "", admit_card: "" });
   const [bgSaving, setBgSaving] = useState<string | null>(null);
 
   // Signature Settings
@@ -687,10 +689,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId, status, ...releaseForm })
+        body: JSON.stringify({ examId, status, marksheet: true, certificate: true })
       });
       if (res.ok) {
-        showToast("success", status === "published" ? "Result approved & documents generated!" : "Result rejected.");
+        alert("Result Submitted Successfully");
         setShowReleaseModal(false);
         void fetchPendingResults();
       }
@@ -804,6 +806,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <title>Admin Panel | Yukti Computer Institute</title>
       {/* Toast */}
       {toastMsg && (
         <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 sm:max-w-md px-5 py-4 rounded-2xl shadow-2xl text-sm font-semibold transition-all ${toastMsg.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
@@ -1329,7 +1332,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               Reject
                             </button>
                             <button 
-                              onClick={() => { setSelectedResult(res); setShowReleaseModal(true); }}
+                              onClick={() => handleResultApproval(res._id, "published")}
                               className="flex-grow md:flex-none px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100"
                             >
                               Approve & Generate
@@ -1423,29 +1426,29 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     {[
-                      { id: "id_front", label: "ID Card (Front)" },
-                      { id: "id_back", label: "ID Card (Back)" },
-                      { id: "certificate", label: "Main Certificate" },
-                      { id: "marksheet", label: "Grade Marksheet" },
+                      { id: "id_front", label: "ID Front" },
+                      { id: "id_back", label: "ID Back" },
+                      { id: "certificate", label: "Certificate" },
+                      { id: "marksheet", label: "Marksheet" },
+                      { id: "admit_card", label: "Admit Card" },
                     ].map((item) => (
-                      <div key={item.id} className="space-y-4">
-                        <div className="aspect-[1/1.41] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
-                          {bgs[item.id as keyof typeof bgs] ? (
+                      <div key={item.id} className="space-y-3">
+                        <div className="relative aspect-[3.5/2] bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden group shadow-sm">
+                          {(bgs as any)[item.id] ? (
                             <>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={bgs[item.id as keyof typeof bgs]} alt={item.label} className="w-full h-full object-cover" />
+                              <img src={(bgs as any)[item.id]} alt={item.label} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                                <button onClick={() => handleBgRemove(item.id)} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                                <button onClick={() => handleBgRemove(item.id)} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </>
                           ) : (
-                            <div className="text-center p-4">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
                               <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</p>
+                              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter leading-tight">{item.label}</p>
                             </div>
                           )}
                           {bgSaving === item.id && (
@@ -2167,60 +2170,6 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
           </div>
         </main>
         {/* ID CARD VIEW MODAL */}
-        {showReleaseModal && selectedResult && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
-             <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
-                   <div>
-                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Issue Documents</h3>
-                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-1">Select what to release for {selectedResult.studentId?.name}</p>
-                   </div>
-                   <button onClick={() => setShowReleaseModal(false)} className="p-2 bg-white rounded-full border border-slate-100 text-slate-400">
-                      <XCircle className="w-5 h-5" />
-                   </button>
-                </div>
-                <div className="p-8 space-y-6">
-                   <div className="space-y-4">
-                      <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition group">
-                         <input 
-                           type="checkbox" 
-                           className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" 
-                           checked={releaseForm.marksheet}
-                           onChange={e => setReleaseForm({...releaseForm, marksheet: e.target.checked})}
-                         />
-                         <div>
-                            <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">Generate Marksheet</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Official Statement of Marks</p>
-                         </div>
-                      </label>
-
-                      <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition group">
-                         <input 
-                           type="checkbox" 
-                           className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
-                           checked={releaseForm.certificate}
-                           onChange={e => setReleaseForm({...releaseForm, certificate: e.target.checked})}
-                         />
-                         <div>
-                            <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">Generate Certificate</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Official Diploma Document</p>
-                         </div>
-                      </label>
-                   </div>
-
-                   <div className="flex gap-4 pt-4">
-                      <button type="button" onClick={() => setShowReleaseModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                      <button 
-                        onClick={() => handleResultApproval(selectedResult._id, "published")}
-                        className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl disabled:opacity-50"
-                      >
-                        Process Release
-                      </button>
-                   </div>
-                </div>
-             </div>
-          </div>
-        )}
 
         {viewIdCard && (
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">

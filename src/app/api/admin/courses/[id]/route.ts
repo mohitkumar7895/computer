@@ -11,13 +11,13 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     if (!isAdmin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, shortName, durationMonths, zone, status } = body;
+    const { name, shortName, durationMonths, zone, status, hasMarksheet, hasCertificate } = body;
     const { id } = await context.params;
 
     await connectDB();
     const course = await Course.findByIdAndUpdate(
       id,
-      { name, shortName, durationMonths, zone, status },
+      { name, shortName, durationMonths, zone, status, hasMarksheet, hasCertificate },
       { new: true }
     );
 

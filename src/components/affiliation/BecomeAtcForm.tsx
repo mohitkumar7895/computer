@@ -101,6 +101,8 @@ export default function BecomeAtcForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastRefNumber, setLastRefNumber] = useState("");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
@@ -192,12 +194,15 @@ export default function BecomeAtcForm() {
       const response = await fetch("/api/become-atc", { method: "POST", body: payload });
       const data = (await response.json()) as { message?: string; refNumber?: string };
       if (!response.ok) { setError(data.message ?? "Form submission failed. Try again."); return; }
+      const newRef = data.refNumber ?? Date.now().toString().slice(-6);
+      setLastRefNumber(newRef);
       setReceiptData({
-        refNumber: data.refNumber ?? Date.now().toString().slice(-6),
+        refNumber: newRef,
         submitDate: new Date().toLocaleString("en-IN"),
         ...form,
         infrastructure: infra as Record<string, InfraRow>,
       });
+      setShowSuccessModal(true);
     } catch {
       setError("Network error while submitting form.");
     } finally {
@@ -211,7 +216,7 @@ export default function BecomeAtcForm() {
     setScreenshot(null); setInstituteDocument(null); setError(null); setReceiptData(null);
   };
 
-  if (receiptData) {
+  if (receiptData && !showSuccessModal) {
     return <PaymentReceipt data={receiptData} onBack={onReset} />;
   }
 
@@ -780,6 +785,27 @@ export default function BecomeAtcForm() {
               className="w-full py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition">
               Close
             </button>
+          </div>
+        </div>
+      )}
+      {/* SUCCESS POPUP MODAL */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-[#0a0a2e]/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300 text-center p-10 relative">
+             <div className="absolute top-0 left-0 w-full h-2 bg-[#0a0aa1]"></div>
+             <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <CheckCircle className="w-10 h-10 text-[#0a0aa1]" />
+             </div>
+             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Application Success</h3>
+             <p className="text-slate-500 text-sm mb-6 leading-relaxed">Registration form submitted Successfully! <br /> Your Reference Number is: <b>{lastRefNumber}</b></p>
+             <button 
+               onClick={() => {
+                 setShowSuccessModal(false);
+               }}
+               className="w-full py-4 bg-[#0a0aa1] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#0a0a2e] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+             >
+               View Payment Receipt
+             </button>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
-import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle } from "lucide-react";
+import { useRef, useState, useEffect, type FormEvent } from "react";
+import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle, Search } from "lucide-react";
 import StudentIdCard from "@/components/common/StudentIdCard";
 
 interface Student {
@@ -58,6 +58,11 @@ export default function StudentManager() {
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastRegNo, setLastRegNo] = useState("");
+  const [lookupRegNo, setLookupRegNo] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const [requestExamStudent, setRequestExamStudent] = useState<Student | null>(null);
   const [examReqForm, setExamReqForm] = useState({ examMode: "online", preferredDate: "", preferredCenter: "" });
   const [editForm, setEditForm] = useState({ 
@@ -108,12 +113,57 @@ export default function StudentManager() {
     } catch { /* ignore */ }
   };
 
+  const handleLookup = async () => {
+    if (!lookupRegNo.trim()) return;
+    setIsFetching(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/atc/students/fetch?regNo=${encodeURIComponent(lookupRegNo.trim())}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg({ type: "error", text: data.message || "Student not found" });
+        return;
+      }
+      
+      const s = data.student;
+      if (formRef.current) {
+        // Auto-fill fields
+        const fields = [
+          'name', 'fatherName', 'motherName', 'dob', 'gender', 'category', 
+          'nationality', 'religion', 'maritalStatus', 'mobile', 'parentsMobile', 
+          'email', 'currentAddress', 'permanentAddress', 'highestQualification', 
+          'qualificationDetail', 'aadharNo', 'session', 'course', 'courseType', 
+          'examMode', 'admissionFees'
+        ];
+        
+        fields.forEach(field => {
+          const input = formRef.current?.elements.namedItem(field) as HTMLInputElement | HTMLSelectElement;
+          if (input && s[field] !== undefined) {
+             input.value = s[field];
+          }
+        });
+
+        // Handle specific states
+        if (s.currentAddress) setCurrentAddr(s.currentAddress);
+        if (s.disability) setDisability(s.disability ? "Yes" : "No");
+        if (s.highestQualification) setSelectedQual(s.highestQualification);
+        
+        setMsg({ type: "success", text: "Student details fetched and auto-filled!" });
+      }
+    } catch {
+      setMsg({ type: "error", text: "Network error while fetching student data" });
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === "list") void fetchStudents();
     if (tab === "add") void fetchCourses();
   }, [tab]);
 
   const handleAddSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     const formEl = e.currentTarget;
     const requiredInputs = formEl.querySelectorAll("[required]");
     const invalid = new Set<string>();
@@ -133,22 +183,73 @@ export default function StudentManager() {
     
     setLoading(true);
     try {
-      const form = new FormData(e.currentTarget);
-      if (sameAddress) {
-        form.set("permanentAddress", currentAddr);
-      }
-      
+      const form = new FormData(formEl);
+      if (sameAddress) form.set("permanentAddress", currentAddr);
+
+      // Auto-compress photo and signature
+      const compressImage = async (file: File): Promise<File | Blob> => {
+        if (!file.type.startsWith("image/")) return file;
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target?.result as string;
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              const MAX_SIZE = 800;
+              let width = img.width; let height = img.height;
+              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
+              else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+              canvas.width = width; canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              ctx?.drawImage(img, 0, 0, width, height);
+              canvas.toBlob((blob) => {
+                if (blob) resolve(new File([blob], file.name, { type: "image/jpeg" }));
+                else resolve(file);
+              }, "image/jpeg", 0.7);
+            };
+          };
+        });
+      };
+
+      const photo = form.get("photo");
+      if (photo instanceof File && photo.size > 0) form.set("photo", await compressImage(photo));
+      const sig = form.get("studentSignature");
+      if (sig instanceof File && sig.size > 0) form.set("studentSignature", await compressImage(sig));
+
       const res = await fetch("/api/atc/students", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to add student");
-      setMsg({ type: "success", text: "Student admitted successfully! Reg. No: " + data.student.registrationNo });
+      
+      let data;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text.slice(0, 100) || "Server returned an invalid response");
+      }
+
+      if (!res.ok) {
+        const errText = JSON.stringify(data);
+        throw new Error(errText);
+      }
+      setLastRegNo(data.student.registrationNo);
+      setShowSuccessModal(true);
+      setMsg({ type: "success", text: "Student admitted successfully!" });
       (e.target as HTMLFormElement).reset();
       setSameAddress(false);
       setCurrentAddr("");
       setDisability("No");
       setTimeout(() => setTab("list"), 2000);
     } catch (err: any) {
-      setMsg({ type: "error", text: err.message });
+      console.error("Submission Error:", err);
+      let errorMsg = err.message;
+      try {
+         const errorData = JSON.parse(err.message);
+         if (errorData.message) errorMsg = errorData.message + (errorData.details ? " (" + errorData.details + ")" : "");
+      } catch { /* not json */ }
+      
+      setMsg({ type: "error", text: "Submission Failed: " + errorMsg });
     } finally {
       setLoading(false);
     }
@@ -415,15 +516,19 @@ export default function StudentManager() {
                         </td>
                         <td className="px-6 py-5">
                           <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 group-hover:bg-white transition-colors">
-                            {(!s.registrationNo || s.registrationNo.startsWith("PENDING-")) ? "PENDING" : s.registrationNo}
+                            {s.registrationNo || "PENDING"}
                           </span>
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
                             {s.photo ? (
-                              <img src={s.photo} alt={s.name} className="w-9 h-9 rounded-xl object-cover border border-slate-200" />
+                              s.photo.startsWith("data:application/pdf") ? (
+                                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100 shadow-sm"><FileText className="w-4 h-4 text-blue-600" /></div>
+                              ) : (
+                                <img src={s.photo} alt={s.name} className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm" />
+                              )
                             ) : (
-                              <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200"><User className="w-4 h-4 text-slate-400" /></div>
+                                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 shadow-sm"><User className="w-4 h-4 text-slate-400" /></div>
                             )}
                             <div>
                               <p className="font-bold text-slate-800 leading-none mb-1">{s.name}</p>
@@ -551,7 +656,35 @@ export default function StudentManager() {
         )}
 
         {tab === "add" && (
-          <form onSubmit={handleAddSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <form ref={formRef} onSubmit={handleAddSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* 0. Registration Lookup (Optional) */}
+            <div className="bg-blue-600/5 p-6 rounded-3xl border border-blue-100 flex flex-col md:flex-row items-end gap-4 shadow-sm relative overflow-hidden group">
+               <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
+               <div className="flex-1 w-full">
+                  <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                     <Search className="w-3 h-3" /> Registration Lookup (Existing Student)
+                     <span className="text-slate-400 font-bold ml-auto">OPTIONAL</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={lookupRegNo}
+                    onChange={(e) => setLookupRegNo(e.target.value)}
+                    onBlur={() => { if(lookupRegNo) handleLookup(); }}
+                    className="w-full px-5 py-3.5 bg-white border border-blue-100 rounded-2xl text-sm font-bold text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition placeholder:text-slate-300" 
+                    placeholder="Enter Reg. No. to auto-fill details (e.g. YCE/2024/...)" 
+                  />
+               </div>
+               <button 
+                 type="button" 
+                 onClick={handleLookup}
+                 disabled={isFetching || !lookupRegNo}
+                 className="h-[52px] px-8 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-3 whitespace-nowrap shadow-lg shadow-blue-100"
+               >
+                 {isFetching ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <RefreshCw className="w-4 h-4" />}
+                 {isFetching ? "Searching..." : "Fetch Details"}
+               </button>
+            </div>
+
             {/* 1. Personal Information */}
             <div className={sectionCls}>
               <h4 className="flex items-center gap-2 text-sm font-black text-slate-800 uppercase tracking-wide border-l-4 border-blue-500 pl-3">
@@ -759,7 +892,7 @@ export default function StudentManager() {
                     { label: "Graduation (jpg/pdf)", name: "graduationDoc", required: false },
                     { label: "Highest Qualification (jpg/pdf)", name: "highestQualDoc", required: false },
                     { label: "Aadhar Card PDF *", name: "aadharDoc", required: true },
-                    { label: "Additional Docs (pdf)", name: "otherDocs", required: false },
+                    { label: "Additional Docs / Admission Form (pdf)", name: "otherDocs", required: false },
                   ].map(doc => (
                     <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
                       <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-700" : "text-slate-400 group-hover:text-blue-500"}`}>
@@ -1212,7 +1345,6 @@ export default function StudentManager() {
                      student={{
                        ...viewIdCard,
                        registrationNo: viewIdCard.registrationNo || "PENDING",
-                       tpCode: (viewIdCard as any).tpCode || "PENDING",
                        dob: (viewIdCard as any).dob || "N/A"
                      }} 
                    />
@@ -1239,6 +1371,28 @@ export default function StudentManager() {
             }
           }
         `}</style>
+      {/* SUCCESS POPUP MODAL */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300 text-center p-10 relative">
+             <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
+             <div className="w-20 h-20 bg-green-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+             </div>
+             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Registration Success</h3>
+             <p className="text-slate-500 text-sm mb-6 leading-relaxed">Registration form submitted Successfully! <br /> Student Registration Number is: <b>{lastRegNo}</b></p>
+             <button 
+               onClick={() => {
+                 setShowSuccessModal(false);
+                 setTab("list");
+               }}
+               className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
+             >
+               Awesome, Continue
+             </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

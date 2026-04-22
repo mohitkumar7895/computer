@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { 
   GraduationCap, BookOpen, ScrollText, User, 
   Settings, LogOut, CheckCircle, Calendar, 
@@ -15,6 +16,7 @@ import StudentStudyMaterial from "@/components/student/StudentStudyMaterial";
 import StudentIdCard from "@/components/common/StudentIdCard";
 
 export default function StudentDashboardPage() {
+  usePageTitle("student");
   const router = useRouter();
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden">
+      <title>Student Panel | Yukti Computer Institute</title>
       {/* Sidebar Mobile Overlay */}
       {isSidebarOpen && (
         <div 

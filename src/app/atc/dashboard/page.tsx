@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Building2, LayoutDashboard, LogOut, CheckCircle,
   Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText,
@@ -34,6 +35,7 @@ interface AtcUser {
 }
 
 export default function AtcDashboardPage() {
+  usePageTitle("atc");
   const router = useRouter();
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,6 +173,7 @@ export default function AtcDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex relative">
+      <title>Institute Panel | Yukti Computer Institute</title>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 

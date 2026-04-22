@@ -9,6 +9,8 @@ interface Course {
   shortName: string;
   durationMonths: number;
   zone: string;
+  hasMarksheet: boolean;
+  hasCertificate: boolean;
   status: "active" | "inactive";
 }
 
@@ -24,6 +26,8 @@ export default function CourseManager() {
   const [duration, setDuration] = useState("");
   const [zone, setZone] = useState("Software Zone");
   const [customZone, setCustomZone] = useState("");
+  const [hasMarksheet, setHasMarksheet] = useState(true);
+  const [hasCertificate, setHasCertificate] = useState(true);
 
   const zones = ["Software Zone", "Hardware Zone", "Vocational Zone", "Others"];
 
@@ -50,11 +54,19 @@ export default function CourseManager() {
       const res = await fetch("/api/admin/courses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, shortName, durationMonths: Number(duration), zone: finalZone }),
+        body: JSON.stringify({ 
+          name, 
+          shortName, 
+          durationMonths: Number(duration), 
+          zone: finalZone,
+          hasMarksheet,
+          hasCertificate
+        }),
       });
       if (res.ok) {
         setIsAdding(false);
         setName(""); setShortName(""); setDuration(""); setZone("Software Zone"); setCustomZone("");
+        setHasMarksheet(true); setHasCertificate(true);
         void fetchCourses();
       }
     } catch { /* ignore */ }
@@ -75,6 +87,17 @@ export default function CourseManager() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
+      });
+      void fetchCourses();
+    } catch { /* ignore */ }
+  };
+
+  const handleToggleField = async (id: string, field: "hasMarksheet" | "hasCertificate", currentValue: boolean) => {
+    try {
+      await fetch(`/api/admin/courses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: !currentValue }),
       });
       void fetchCourses();
     } catch { /* ignore */ }
@@ -145,6 +168,28 @@ export default function CourseManager() {
                 </div>
               )}
             </div>
+
+            <div className="flex items-center gap-8 py-2">
+               <label className="flex items-center gap-3 cursor-pointer group">
+                  <div 
+                    onClick={() => setHasMarksheet(!hasMarksheet)}
+                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasMarksheet ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 bg-slate-50 text-transparent'}`}
+                  >
+                     <Check size={14} className="stroke-[3]" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-tight group-hover:text-blue-600 transition">Generate Marksheet</span>
+               </label>
+
+               <label className="flex items-center gap-3 cursor-pointer group">
+                  <div 
+                    onClick={() => setHasCertificate(!hasCertificate)}
+                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasCertificate ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-200 bg-slate-50 text-transparent'}`}
+                  >
+                     <Check size={14} className="stroke-[3]" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-tight group-hover:text-emerald-600 transition">Generate Certificate</span>
+               </label>
+            </div>
           </div>
           <button
             onClick={handleAddCourse}
@@ -164,6 +209,8 @@ export default function CourseManager() {
                 <th className="px-6 py-4">Short Name</th>
                 <th className="px-6 py-4">Duration</th>
                 <th className="px-6 py-4">Zone</th>
+                <th className="px-6 py-4 text-center">Marksheet</th>
+                <th className="px-6 py-4 text-center">Certificate</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
@@ -188,6 +235,24 @@ export default function CourseManager() {
                         <Layers className="w-3 h-3" />
                         {c.zone}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                       <button 
+                         onClick={() => handleToggleField(c._id, "hasMarksheet", c.hasMarksheet)}
+                         className={`p-1.5 rounded-lg transition-all ${c.hasMarksheet ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-100' : 'bg-slate-50 text-slate-300'}`}
+                         title={c.hasMarksheet ? "Marksheet Enabled" : "Marksheet Disabled"}
+                       >
+                         <Check className={`w-4 h-4 ${!c.hasMarksheet && 'opacity-30'}`} />
+                       </button>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                       <button 
+                         onClick={() => handleToggleField(c._id, "hasCertificate", c.hasCertificate)}
+                         className={`p-1.5 rounded-lg transition-all ${c.hasCertificate ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100' : 'bg-slate-50 text-slate-300'}`}
+                         title={c.hasCertificate ? "Certificate Enabled" : "Certificate Disabled"}
+                       >
+                         <Check className={`w-4 h-4 ${!c.hasCertificate && 'opacity-30'}`} />
+                       </button>
                     </td>
                     <td className="px-6 py-4">
                       <button 

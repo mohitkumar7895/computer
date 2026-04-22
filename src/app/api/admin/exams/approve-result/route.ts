@@ -5,27 +5,44 @@ import { AtcStudent } from "@/models/Student";
 import { Marksheet } from "@/models/Marksheet";
 import { Certificate } from "@/models/Certificate";
 import { AtcUser } from "@/models/AtcUser";
+import { Course } from "@/models/Course";
 
 export async function POST(request: Request) {
   try {
-    const { examId, status, marksheet, certificate } = await request.json(); // status: 'published' or 'appeared' (rejected)
+    const { examId, status } = await request.json(); 
 
     await connectDB();
 
     const exam = await StudentExam.findById(examId);
     if (!exam) return NextResponse.json({ message: "Exam not found" }, { status: 404 });
 
+    const student = await AtcStudent.findById(exam.studentId);
+    
+    // Fetch course settings
+    let courseSettings = { hasMarksheet: true, hasCertificate: true };
+    if (student?.course) {
+       const course = await Course.findOne({ 
+         $or: [
+           { _id: student.courseId },
+           { name: student.course }
+         ]
+       });
+       if (course) {
+          courseSettings.hasMarksheet = course.hasMarksheet;
+          courseSettings.hasCertificate = course.hasCertificate;
+       }
+    }
+
     if (status === "published") {
       // 1. Update Exam record
       exam.offlineExamStatus = "published";
       exam.status = "completed";
       exam.resultDeclared = true;
-      exam.marksheetReleased = marksheet !== false;
-      exam.certificateReleased = certificate !== false;
+      exam.marksheetReleased = courseSettings.hasMarksheet;
+      exam.certificateReleased = courseSettings.hasCertificate;
       await exam.save();
 
       // 2. Update Student Profile
-      const student = await AtcStudent.findById(exam.studentId).populate("atcId");
       if (student) {
         student.offlineExamStatus = "published";
         await student.save();
@@ -34,19 +51,19 @@ export async function POST(request: Request) {
       const atc = await AtcUser.findById(exam.atcId);
 
       // 3. Conditional Marksheet
-      if (marksheet !== false) {
+      if (courseSettings.hasMarksheet) {
         await Marksheet.findOneAndUpdate(
           { examId: exam._id },
           {
             studentId: exam.studentId,
             atcId: exam.atcId,
             examId: exam._id,
-            enrollmentNo: student.registrationNo || "N/A",
-            rollNo: student.classRollNo || "N/A",
-            courseName: student.course,
+            enrollmentNo: student?.registrationNo || "N/A",
+            rollNo: student?.classRollNo || "N/A",
+            courseName: student?.course,
             subjects: [
               {
-                subjectName: student.course,
+                subjectName: student?.course,
                 marksObtained: exam.totalScore || 0,
                 totalMarks: 100
               }
@@ -64,8 +81,8 @@ export async function POST(request: Request) {
       }
 
       // 4. Conditional Certificate
-      if (certificate !== false) {
-        const session = exam.session || student.session || "2024-25";
+      if (courseSettings.hasCertificate) {
+        const session = exam.session || student?.session || "2024-25";
         const count = await Certificate.countDocuments();
         const serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
 
@@ -75,11 +92,11 @@ export async function POST(request: Request) {
             studentId: exam.studentId,
             atcId: exam.atcId,
             examId: exam._id,
-            enrollmentNo: student.registrationNo || "N/A",
+            enrollmentNo: student?.registrationNo || "N/A",
             serialNo,
             issueDate: new Date(),
             session,
-            courseName: student.course,
+            courseName: student?.course,
             centerCode: atc?.centerCode || "N/A",
             centerName: atc?.centerName || "N/A",
             grade: exam.grade || "A",
