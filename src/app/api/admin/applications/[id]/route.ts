@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
 import { AtcUser } from "@/models/AtcUser";
+import { Settings } from "@/models/Settings";
 import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -166,7 +167,7 @@ export async function PATCH(
           
           const newPass = String(formData.get("password") ?? formData.get("customPassword") ?? "").trim();
           if (newPass) {
-            user.password = await bcrypt.hash(newPass, 12);
+            user.password = newPass;
           }
           
           await user.save();
@@ -217,22 +218,27 @@ export async function PATCH(
     let tpCode = application.tpCode;
 
     if (!existingUser) {
-      let nextId = 1;
-      const lastUser = await AtcUser.findOne().sort({ createdAt: -1 });
-      if (lastUser?.tpCode) {
-        const parts = lastUser.tpCode.split("-");
-        if (parts.length === 3) nextId = parseInt(parts[2], 10) + 1;
-      }
+      const formatSetting = await Settings.findOne({ key: "reg_format_center" });
+      const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
       
-      tpCode = generateTpCode(isNaN(nextId) ? 1 : nextId);
-      const hashedPassword = await bcrypt.hash(application.mobile, 12);
+      tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+      
+      // Increment counter in settings
+      format.counter += 1;
+      await Settings.findOneAndUpdate(
+        { key: "reg_format_center" },
+        { value: JSON.stringify(format) },
+        { upsert: true }
+      );
+
+      const finalPassword = application.mobile;
 
       await AtcUser.create({
         tpCode,
         trainingPartnerName: application.trainingPartnerName,
         email: application.email,
         mobile: application.mobile,
-        password: hashedPassword,
+        password: finalPassword,
         applicationId: application._id,
         status: "active",
       });

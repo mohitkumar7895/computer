@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
+import { Settings } from "@/models/Settings";
 import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -35,31 +36,38 @@ export async function GET(request: Request) {
 
   // Get all ATC users to map tpCode and status
   const { AtcUser } = await import("@/models/AtcUser");
-  const users = await AtcUser.find({}, "tpCode email applicationId status").lean();
+  const users = await AtcUser.find({}, "tpCode email applicationId status password").lean();
   
   const tpCodeMap = new Map();
   const emailMap = new Map();
   const statusMap = new Map();
+  const passMap = new Map();
   
   users.forEach((u) => {
     if (u.applicationId) {
       tpCodeMap.set(u.applicationId.toString(), u.tpCode);
       statusMap.set(u.applicationId.toString(), u.status);
+      passMap.set(u.applicationId.toString(), u.password);
     }
     if (u.email) {
       const e = u.email.trim().toLowerCase();
       emailMap.set(e, u.tpCode);
-      if (!u.applicationId) statusMap.set(e, u.status);
+      if (!u.applicationId) {
+        statusMap.set(e, u.status);
+        passMap.set(e, u.password);
+      }
     }
   });
 
   const enrichedApps = applications.map((app) => {
     const emailKey = (app.email || "").trim().toLowerCase();
-    const appStatus = statusMap.get(app._id.toString()) || statusMap.get(emailKey) || "active";
+    const appId = app._id.toString();
+    const appStatus = statusMap.get(appId) || statusMap.get(emailKey) || "active";
     return {
       ...app,
-      tpCode: app.tpCode || tpCodeMap.get(app._id.toString()) || emailMap.get(emailKey) || null,
+      tpCode: app.tpCode || tpCodeMap.get(appId) || emailMap.get(emailKey) || null,
       userStatus: appStatus,
+      password: passMap.get(appId) || passMap.get(emailKey) || null,
     };
   });
 
@@ -202,28 +210,28 @@ export async function POST(request: Request) {
       let rawPassword = String(formData.get("password") || formData.get("customPassword") || "").trim();
 
       if (!tpCode) {
-        let nextId = 1;
-        const lastUser = await AtcUser.findOne().sort({ createdAt: -1 });
-        if (lastUser?.tpCode) {
-          const parts = lastUser.tpCode.split("-");
-          if (parts.length === 3) nextId = parseInt(parts[2], 10) + 1;
-        }
-        tpCode = `ATC-${new Date().getFullYear()}-${String(isNaN(nextId) ? 1 : nextId).padStart(4, "0")}`;
+        const formatSetting = await Settings.findOne({ key: "reg_format_center" });
+        const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
+        
+        tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+        
+        // Increment counter in settings
+        format.counter += 1;
+        await Settings.findOneAndUpdate(
+          { key: "reg_format_center" },
+          { value: JSON.stringify(format) },
+          { upsert: true }
+        );
       }
 
-      if (!rawPassword) {
-        rawPassword = application.mobile;
-      }
-
-      const bcrypt = (await import("bcryptjs")).default;
-      const hashedPassword = await bcrypt.hash(rawPassword, 12);
+      const finalPassword = rawPassword || application.mobile;
 
       await AtcUser.create({
         tpCode,
         trainingPartnerName: application.trainingPartnerName,
         email: application.email,
         mobile: application.mobile,
-        password: hashedPassword,
+        password: finalPassword,
         applicationId: application._id,
         status: "active",
       });

@@ -18,6 +18,8 @@ export default function StudentDashboardPage() {
   const router = useRouter();
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [bgs, setBgs] = useState<any>({});
+  const [center, setCenter] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "study" | "idcard" | "profile">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
@@ -37,6 +39,17 @@ export default function StudentDashboardPage() {
         if (!res.ok) { router.push("/student/login"); return; }
         const data = await res.json();
         setStudent(data.student);
+
+        // Fetch backgrounds
+        fetch("/api/admin/settings/backgrounds").then(r => r.json()).then(setBgs).catch(() => {});
+        
+        // Fetch his center details if he has a tpCode
+        if (data.student.tpCode) {
+           fetch(`/api/admin/applications`).then(r => r.json()).then(cData => {
+              const myCenter = cData.applications?.find((a: any) => a.tpCode === data.student.tpCode);
+              setCenter(myCenter);
+           }).catch(() => {});
+        }
       })
       .catch(() => router.push("/student/login"))
       .finally(() => setLoading(false));
@@ -260,23 +273,30 @@ export default function StudentDashboardPage() {
             )}
 
             {activeTab === "idcard" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
-                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-                      <div>
-                        <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Virtual Identity</h2>
-                        <p className="text-slate-500 font-medium mt-1">Export your official academic identification card.</p>
-                      </div>
-                      <button 
-                        onClick={() => window.print()}
-                        className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition transform active:scale-95"
-                      >
-                         <Download size={16} /> Print ID Document
-                      </button>
-                   </div>
+               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
+                 <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+                       <div>
+                         <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Virtual Identity</h2>
+                         <p className="text-slate-500 font-medium mt-1">Export your official academic identification card.</p>
+                       </div>
+                    </div>
 
-                   <div className="flex justify-center py-10" id="student-id-card-container">
-                      <StudentIdCard student={student} />
+                    <div className="flex justify-center py-10">
+                       <StudentIdCard 
+                         student={{
+                          ...student,
+                          centerName: center?.trainingPartnerName,
+                          centerAddress: center?.trainingPartnerAddress,
+                          centerMobile: center?.mobile,
+                          centerSign: center?.signature,
+                          admissionDate: student.createdAt ? new Date(student.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: '2-digit', year: 'numeric' }) : "N/A"
+                        }} 
+                        backgrounds={{
+                          front: bgs.id_front,
+                          back: bgs.id_back
+                        }}
+                      />
                    </div>
 
                    <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 text-amber-800 text-sm font-medium flex gap-4">

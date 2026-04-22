@@ -178,6 +178,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       paymentMode: initialData.paymentMode ?? current.paymentMode,
       paidAmount: initialData.paidAmount ?? current.paidAmount,
       transactionNo: initialData.transactionNo ?? current.transactionNo,
+      password: initialData.password ?? current.password,
     }));
 
     setPhotoPreview(initialData.photo ?? null);
@@ -1025,23 +1026,16 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             </div>
 
             <div className="border-t border-slate-100 pt-4 mt-2">
-              <Label>Login Password {mode === "edit" ? "(Leave blank to keep current)" : "(Default is Mobile Number)"}</Label>
+              <Label>Portal Password {mode === "edit" ? "(Plain Text)" : "(Default is Mobile Number)"}</Label>
               <div className="relative">
                 <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
-                  type={showPass ? "text" : "password"} 
-                  className={inputCls + " pl-9 pr-12"} 
+                  type="text" 
+                  className={inputCls + " pl-9"} 
                   placeholder="Set custom password"
                   value={form.password} 
                   onChange={(e) => setField("password", e.target.value)} 
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0a0aa1] transition"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
             </div>
           </div>
@@ -1053,21 +1047,14 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       <SectionCard icon={ShieldCheck} title="Center Credentials" subtitle="Login information for the ATC portal" color="#6366f1">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
-            <Label>Portal Password (Optional)</Label>
+            <Label>Portal Password (Visible)</Label>
             <div className="relative">
               <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                type={showPass ? "text" : "password"}
-                className={`${inputCls} pl-9 pr-10`} 
+                type="text"
+                className={`${inputCls} pl-9`} 
                 placeholder="Set login password"
                 value={form.password} onChange={(e) => setField("password", e.target.value)} />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0a0aa1] transition"
-              >
-                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
             </div>
             <p className="text-[10px] text-slate-400 mt-1.5 font-medium uppercase tracking-wider">Password used by center for dashboard login</p>
           </div>

@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download, EyeOff
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download, EyeOff, Hash, Save, Printer
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
 import ExamSetManager from "@/components/admin/ExamSetManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
-import StudentIdCard from "@/components/common/StudentIdCard";
+import StudentIdCard, { StudentIdCardPrintStyles } from "@/components/common/StudentIdCard";
+import { toPng } from "html-to-image";
 import {
   DEFAULT_FEE_OPTIONS,
   FeeOption,
@@ -88,9 +89,23 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
+const FormValue = ({ label, value, highlight = false, full = false }: any) => (
+  <div className={`${full ? 'col-span-2' : ''} border-b border-slate-100 pb-1`}>
+      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+      <p className={`text-[11px] font-black uppercase ${highlight ? 'text-blue-700' : 'text-slate-900'}`}>{value || "---"}</p>
+  </div>
+);
+
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration";
+
+const PrintField = ({ label, value }: any) => (
+  <div>
+    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+    <p className="text-[11px] font-black text-slate-900 uppercase">{value || "---"}</p>
+  </div>
+);
 
 export default function AdminPanelPage() {
   const router = useRouter();
@@ -101,7 +116,12 @@ export default function AdminPanelPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [centerFilter, setCenterFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // New state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["settings"]);
+
+  const toggleMenu = (menu: string) => {
+    setExpandedMenus(prev => prev.includes(menu) ? prev.filter(m => m !== menu) : [...prev, menu]);
+  }; // New state
   const [editingCenter, setEditingCenter] = useState<Application | null>(null);
   const [editValues, setEditValues] = useState({
     trainingPartnerName: "",
@@ -161,6 +181,12 @@ export default function AdminPanelPage() {
   const [passSaving, setPassSaving] = useState(false);
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
+  const [showStudentPass, setShowStudentPass] = useState(false);
+
+  // ID Format States
+  const [centerFormat, setCenterFormat] = useState({ prefix: "ATC-", counter: 1, padding: 4 });
+  const [studentFormat, setStudentFormat] = useState({ prefix: "ATC-ST-", counter: 1, padding: 4 });
+  const [idFormatSaving, setIdFormatSaving] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
@@ -267,6 +293,15 @@ export default function AdminPanelPage() {
       const fRes = await fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`);
       const fData = (await fRes.json()) as { value: string | null };
       setFeePlans(parseFeeOptions(fData.value));
+
+      // Fetch ID Formats
+      const cfRes = await fetch("/api/admin/settings?key=reg_format_center");
+      const cfData = await cfRes.json();
+      if (cfData.value) setCenterFormat(JSON.parse(cfData.value));
+
+      const sfRes = await fetch("/api/admin/settings?key=reg_format_student");
+      const sfData = await sfRes.json();
+      if (sfData.value) setStudentFormat(JSON.parse(sfData.value));
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
@@ -748,6 +783,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     examRequests: "Exam Requests",
     materials: "Study Materials",
     settings: "Panel Settings",
+    registration: "Registration Settings",
     students: "Manage Students",
     resultReview: "Certificate Authorize",
   };
@@ -760,7 +796,8 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     centers: "View and manage status of approved ATC centers",
     examRequests: "Manage online/offline exam requests and results",
     materials: "Upload and manage course study resources",
-    settings: "System configurations and assets",
+    settings: "General Configurations",
+    registration: "ID Generation Logic",
     students: "Review and approve student registrations from all centers",
     resultReview: "Authorize ATC submitted results and generate marksheet/certificate instantly",
   };
@@ -800,31 +837,61 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
             </button>
           </div>
 
-          <nav className="flex-1 px-4 py-6 space-y-1">
-            {([
-              { id: "dashboard" as Tab, icon: Monitor, label: "Dashboard", badge: counts.pending },
-              { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
-              { id: "students" as Tab, icon: Users, label: "Manage Students" },
-              { id: "examRequests" as Tab, icon: Layers, label: "Exam Requests" },
-              { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
-              { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
-              { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
-              { id: "settings" as Tab, icon: Settings, label: "Settings" },
-              { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Certificate Authorize", badge: pendingResults.length },
-            ]).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => { setTab(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === item.id ? "bg-white/20 text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-                {item.badge ? (
-                  <span className="ml-auto bg-amber-400 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full">{item.badge}</span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
+            <nav className="flex-1 px-4 py-6 space-y-1">
+              {[
+                { id: "dashboard" as Tab, icon: Monitor, label: "Dashboard", badge: counts.pending },
+                { id: "centers" as Tab, icon: ShieldCheck, label: "Manage Centers" },
+                { id: "students" as Tab, icon: Users, label: "Manage Students" },
+                { id: "examRequests" as Tab, icon: Layers, label: "Exam Requests" },
+                { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
+                { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
+                { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
+                { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Certificate Authorize", badge: pendingResults.length },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setTab(item.id); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === item.id ? "bg-white/20 text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                  {item.badge ? (
+                    <span className="ml-auto bg-amber-400 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full">{item.badge}</span>
+                  ) : null}
+                </button>
+              ))}
+
+              {/* Collapsable Settings Menu */}
+              <div className="space-y-1">
+                <button
+                  onClick={() => toggleMenu("settings")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "settings" || tab === "registration" ? "text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
+                >
+                  <Settings className="w-4 h-4" />
+                  Settings
+                  <ChevronDown className={`ml-auto w-3.5 h-3.5 transition-transform ${expandedMenus.includes("settings") ? "rotate-180" : ""}`} />
+                </button>
+                
+                {expandedMenus.includes("settings") && (
+                  <div className="pl-6 space-y-1 animate-in slide-in-from-top duration-200">
+                     <button
+                       onClick={() => { setTab("settings"); setIsSidebarOpen(false); }}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "settings" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                     >
+                       <Monitor className="w-3.5 h-3.5" />
+                       General
+                     </button>
+                     <button
+                       onClick={() => { setTab("registration"); setIsSidebarOpen(false); }}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "registration" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                     >
+                       <Hash className="w-3.5 h-3.5" />
+                       Registration
+                     </button>
+                  </div>
+                )}
+              </div>
+            </nav>
 
           <div className="px-4 py-6 border-t border-white/10">
             <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition">
@@ -992,13 +1059,19 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         </div>
                      </div>
                      <div className="flex items-center gap-3">
-                        {applications.filter(a => selectedApps.includes(a._id)).some(a => a.status !== "approved" || !a.tpCode) && (
-                          <button onClick={() => handleBulkAction("centers", "approve")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
-                        )}
-                        {applications.filter(a => selectedApps.includes(a._id)).some(a => a.status !== "rejected") && (
-                          <button onClick={() => handleBulkAction("centers", "reject")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Reject Select</button>
-                        )}
-                        <button onClick={() => setSelectedApps([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
+                         {applications.filter(a => selectedApps.includes(a._id) && a.status === "pending").length > 0 && (
+                           <>
+                             <button onClick={() => handleBulkAction("centers", "approve")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                             <button onClick={() => handleBulkAction("centers", "reject")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Reject Select</button>
+                           </>
+                         )}
+                         {applications.filter(a => selectedApps.includes(a._id) && a.status === "approved").length > 0 && (
+                           <>
+                             <button onClick={() => handleBulkAction("centers", "enable")} className="px-5 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable Select</button>
+                             <button onClick={() => handleBulkAction("centers", "disable")} className="px-5 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable Select</button>
+                           </>
+                         )}
+                         <button onClick={() => setSelectedApps([])} className="px-5 py-2 rounded-xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition">Cancel</button>
                      </div>
                    </div>
                  )}
@@ -1612,6 +1685,130 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
               </div>
             )}
 
+            {/* ── REGISTRATION SETTINGS TAB ── */}
+            {tab === "registration" && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                {/* Registration ID Formats */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                      <Hash className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800 uppercase tracking-tight">Registration ID Formats</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Define how Center Codes and Student Roll Numbers are generated.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Center Format Card */}
+                    <div className="space-y-4 p-5 rounded-3xl border border-slate-100 bg-slate-50/50">
+                       <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Center ID Format</label>
+                          <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-[8px] font-black uppercase">Preview</span>
+                       </div>
+                       
+                       <div className="space-y-4">
+                          <div>
+                            <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Prefix (Text before number)</label>
+                            <input 
+                              type="text" 
+                              value={centerFormat.prefix} 
+                              onChange={(e) => setCenterFormat(prev => ({ ...prev, prefix: e.target.value }))}
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none"
+                              placeholder="e.g. ATC-"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Internal Counter (Current Value)</label>
+                            <input 
+                              type="number" 
+                              value={centerFormat.counter} 
+                              onChange={(e) => setCenterFormat(prev => ({ ...prev, counter: parseInt(e.target.value) || 1 }))}
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm bg-white/50 text-slate-400 cursor-not-allowed"
+                              disabled
+                            />
+                          </div>
+                          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">
+                             <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Generated Sample</p>
+                             <p className="text-xl font-black text-blue-700 tracking-tighter">
+                               {centerFormat.prefix}{String(centerFormat.counter).padStart(centerFormat.padding, "0")}
+                             </p>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* Student Format Card */}
+                    <div className="space-y-4 p-5 rounded-3xl border border-slate-100 bg-slate-50/50">
+                       <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Student ID Format</label>
+                          <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-700 text-[8px] font-black uppercase">Preview</span>
+                       </div>
+                       
+                       <div className="space-y-4">
+                          <div>
+                            <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Prefix (Text before number)</label>
+                            <input 
+                              type="text" 
+                              value={studentFormat.prefix} 
+                              onChange={(e) => setStudentFormat(prev => ({ ...prev, prefix: e.target.value }))}
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-purple-100 outline-none"
+                              placeholder="e.g. ATC-ST-26-"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Internal Counter (Current Value)</label>
+                            <input 
+                              type="number" 
+                              value={studentFormat.counter} 
+                              onChange={(e) => setStudentFormat(prev => ({ ...prev, counter: parseInt(e.target.value) || 1 }))}
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm bg-white/50 text-slate-400 cursor-not-allowed"
+                              disabled
+                            />
+                          </div>
+                          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">
+                             <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Generated Sample</p>
+                             <p className="text-xl font-black text-purple-700 tracking-tighter">
+                               {studentFormat.prefix}{String(studentFormat.counter).padStart(studentFormat.padding, "0")}
+                             </p>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <button
+                      onClick={async () => {
+                        setIdFormatSaving(true);
+                        try {
+                          await fetch("/api/admin/settings", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ key: "reg_format_center", value: JSON.stringify(centerFormat) }),
+                          });
+                          await fetch("/api/admin/settings", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ key: "reg_format_student", value: JSON.stringify(studentFormat) }),
+                          });
+                          showToast("success", "ID Formats updated successfully!");
+                        } catch {
+                          showToast("error", "Failed to save ID formats.");
+                        } finally {
+                          setIdFormatSaving(false);
+                        }
+                      }}
+                      disabled={idFormatSaving}
+                      className="px-8 py-3 rounded-xl bg-slate-800 text-white text-sm font-bold hover:bg-slate-900 transition disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {idFormatSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {idFormatSaving ? "Saving..." : "Save ID Formats"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── MANAGE STUDENTS TAB ── */}
             {tab === "students" && (
               <div className="space-y-4 animate-in fade-in duration-300">
@@ -1641,15 +1838,19 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         <span className="uppercase tracking-widest">Students Selected</span>
                       </div>
                       <div className="flex items-center gap-3">
-                         {students.filter(s => selectedStudents.includes(s._id)).some(s => (s.status !== "approved" && s.status !== "active") || !s.registrationNo) && (
-                           <button onClick={() => handleBulkAction("students", "approve")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                         {students.filter(s => selectedStudents.includes(s._id) && s.status === "pending").length > 0 && (
+                           <>
+                             <button onClick={() => handleBulkAction("students", "approve")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Approve Select</button>
+                             <button onClick={() => handleBulkAction("students", "reject")} className="px-4 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">Reject Select</button>
+                           </>
                          )}
-                         {students.filter(s => selectedStudents.includes(s._id)).some(s => s.status !== "rejected") && (
-                           <button onClick={() => handleBulkAction("students", "reject")} className="px-4 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">Reject Select</button>
+                         {students.filter(s => selectedStudents.includes(s._id) && s.status === "active").length > 0 && (
+                           <>
+                             <button onClick={() => handleBulkAction("students", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable Select</button>
+                             <button onClick={() => handleBulkAction("students", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable Select</button>
+                           </>
                          )}
-                        <button onClick={() => handleBulkAction("students", "enable")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20">Enable</button>
-                        <button onClick={() => handleBulkAction("students", "disable")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/20">Disable</button>
-                        <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
+                         <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
                       </div>
                     </div>
                   )}
@@ -1772,7 +1973,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                        <button 
                                           onClick={() => {
                                             const studentData = { ...s };
-                                            if (studentData.password && studentData.password.startsWith("$2b$")) {
+                                            if (false) {
                                               studentData.password = "";
                                             }
                                             setEditingStudent(s);
@@ -1803,16 +2004,31 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
         {editingStudent && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl animate-in zoom-in duration-300">
-              <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5">
+               <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5 bg-slate-50/50">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Edit Student Details</h3>
-                  <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-1">Reg No: {editingStudent.registrationNo}</p>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Student Command Center</h3>
+                  <p className="text-[10px] text-blue-600 uppercase tracking-widest font-black mt-1">Reg No: {editingStudent.registrationNo}</p>
                 </div>
-                <button type="button" onClick={() => setEditingStudent(null)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 transition">
-                  <XCircle className="w-6 h-6" />
-                </button>
+                <div className="flex gap-3">
+                   <button 
+                     type="button" 
+                     onClick={() => {
+                        window.print();
+                     }}
+                     className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-black transition no-print"
+                   >
+                     <Printer className="w-4 h-4" /> Print Profile
+                   </button>
+                   <button type="button" onClick={() => setEditingStudent(null)} className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 transition shadow-sm">
+                     <XCircle className="w-6 h-6" />
+                   </button>
+                </div>
               </div>
-              <div className="p-8 max-h-[70vh] overflow-y-auto">
+              <div className="p-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                {/* Printable Profile hidden here, moved to root for better print handling */}
+
+
+
                 <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={async (e) => {
                   e.preventDefault();
                   try {
@@ -1835,30 +2051,60 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                     { label: "Mother Name", key: "motherName" },
                     { label: "Email Address", key: "email" },
                     { label: "Mobile Number", key: "mobile" },
-                    { label: "Parents Mobile", key: "parentsMobile" },
+                    { label: "Parents/Emergency Mobile", key: "parentsMobile" },
                     { label: "Aadhar Number", key: "aadharNo" },
                     { label: "Course Name", key: "course" },
-                    { label: "Student Password", key: "password" },
+                    { label: "Date of Birth", key: "dob" },
+                    { label: "Gender", key: "gender" },
+                    { label: "Category", key: "category" },
+                    { label: "Religion", key: "religion" },
+                    { label: "Nationality", key: "nationality" },
+                    { label: "Session", key: "session" },
+                    { label: "Marital Status", key: "maritalStatus" },
+                    { label: "Course Type", key: "courseType" },
+                    { label: "Highest Qualification", key: "highestQualification" },
+                    { label: "Admission Fees", key: "admissionFees" },
+                    { label: "Admission Date", key: "admissionDate" },
+                    { label: "Referred By", key: "referredBy" },
                   ].map((field) => (
                     <div key={field.key}>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
                       <input 
-                        type={field.key === "password" ? "text" : "text"} 
+                        type="text" 
                         value={studentEditValues[field.key] || ""} 
                         onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))}
                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
-                        placeholder={field.key === "password" ? "Enter new password" : ""}
                       />
                     </div>
                   ))}
-                  <div className="md:col-span-2">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Address</label>
-                     <textarea 
-                        value={studentEditValues.currentAddress || ""}
-                        onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, currentAddress: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
-                        rows={2}
-                     />
+
+                  <div className="relative">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Student Password</label>
+                    <input 
+                      type="text" 
+                      value={studentEditValues.password || ""} 
+                      onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, password: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                      placeholder="Enter student password"
+                    />
+                  </div>
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Address</label>
+                        <textarea 
+                          value={studentEditValues.currentAddress || ""} 
+                          onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, currentAddress: e.target.value }))}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24"
+                        />
+                     </div>
+                     <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Permanent Address</label>
+                        <textarea 
+                          value={studentEditValues.permanentAddress || ""} 
+                          onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, permanentAddress: e.target.value }))}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24"
+                        />
+                     </div>
                   </div>
 
                   <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
@@ -1977,40 +2223,166 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
         )}
 
         {viewIdCard && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-             <div className="relative group">
-                <div className="absolute -top-12 right-0 flex gap-4">
-                   <button 
-                     onClick={() => window.print()}
-                     className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 backdrop-blur-md transition border border-white/20 flex items-center gap-2 px-4 shadow-lg"
-                   >
-                      <Download className="w-4 h-4" /> <span className="text-[10px] font-black uppercase tracking-widest">Print ID</span>
-                   </button>
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+             <div className="relative w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                {/* Header with Close */}
+                <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                   <div>
+                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Identity Preview</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reviewing ID Card for {viewIdCard.name}</p>
+                   </div>
                    <button 
                      onClick={() => setViewIdCard(null)} 
-                     className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 backdrop-blur-md transition border border-white/20 shadow-lg"
+                     className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 transition shadow-sm"
                    >
-                     <XCircle className="w-5 h-5" />
+                     <XCircle className="w-6 h-6" />
                    </button>
                 </div>
-                <div id="student-id-card-container" className="animate-in zoom-in-95 duration-300">
-                   <StudentIdCard 
-                     student={{
-                       ...viewIdCard,
-                       registrationNo: viewIdCard.registrationNo || "PENDING",
-                       tpCode: (viewIdCard as any).tpCode || "PENDING",
-                       dob: (viewIdCard as any).dob || "N/A"
-                     }} 
-                   />
+                
+                {/* Preview Area with Scaling for better fit */}
+                <div className="p-4 md:p-8 max-h-[80vh] overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50/30">
+                   <div className="origin-top transform scale-[0.7] sm:scale-[0.8] lg:scale-[0.9] xl:scale-100 transition-transform">
+                      <StudentIdCard 
+                        student={{
+                          ...viewIdCard,
+                          registrationNo: viewIdCard.registrationNo || "PENDING",
+                          tpCode: viewIdCard.tpCode || "PENDING",
+                          dob: viewIdCard.dob || "N/A",
+                          admissionDate: viewIdCard.createdAt ? new Date(viewIdCard.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: '2-digit', year: 'numeric' }) : "N/A",
+                          centerName: applications.find(a => a.tpCode === viewIdCard.tpCode)?.trainingPartnerName || "N/A",
+                          centerAddress: applications.find(a => a.tpCode === viewIdCard.tpCode)?.trainingPartnerAddress || "N/A",
+                          centerMobile: applications.find(a => a.tpCode === viewIdCard.tpCode)?.mobile || "N/A",
+                          centerSign: applications.find(a => a.tpCode === viewIdCard.tpCode)?.signature || "",
+                        }} 
+                        backgrounds={{
+                          front: bgs.id_front,
+                          back: bgs.id_back
+                        }}
+                      />
+                   </div>
                 </div>
              </div>
           </div>
         )}
 
+        {/* ── PRINTABLE PROFILE SECTION ── */}
+        {editingStudent && (
+          <div id="printable-student-profile" className="hidden print:block bg-white text-slate-900 p-0 m-0 w-[210mm] min-h-[297mm]">
+              <div className="p-10 flex flex-col min-h-[297mm]">
+                  {/* Header Section */}
+                  <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+                      <div className="flex items-start gap-4">
+                          <div className="w-16 h-16 bg-slate-900 flex items-center justify-center p-2.5 rounded-2xl">
+                              <div className="w-full h-full border border-white/20 rounded-lg flex items-center justify-center font-black text-white text-xl italic">YCE</div>
+                          </div>
+                          <div>
+                              <h1 className="text-2xl font-black uppercase tracking-tight leading-none text-slate-900">Student Academic Record</h1>
+                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1.5 italic">Yukti Computer Education • ISO Certified</p>
+                              <div className="flex items-center gap-3 mt-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                  <span>Admission Report</span>
+                                  <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
+                                  <span>Reg No: {editingStudent.registrationNo}</span>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="w-28 h-36 bg-slate-50 border-2 border-slate-900 p-0.5">
+                          {studentEditValues.photo ? (
+                              <img src={studentEditValues.photo} className="w-full h-full object-cover" />
+                          ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-[6px] font-black uppercase text-center p-2 border border-dashed border-slate-200">
+                                  Photo Not Provided
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                      {/* Left Column */}
+                      <div className="space-y-6">
+                          <section>
+                              <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 border-b border-slate-100 pb-1 flex items-center gap-2">
+                                  <div className="w-1 h-1 bg-blue-600 rounded-full"></div> Personal Information
+                              </h2>
+                              <div className="space-y-3 px-2">
+                                  <PrintField label="Full Name" value={studentEditValues.name} />
+                                  <PrintField label="Father's Name" value={studentEditValues.fatherName} />
+                                  <PrintField label="Mother's Name" value={studentEditValues.motherName} />
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <PrintField label="Date of Birth" value={studentEditValues.dob} />
+                                      <PrintField label="Gender" value={studentEditValues.gender} />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <PrintField label="Category" value={studentEditValues.category} />
+                                      <PrintField label="Religion" value={studentEditValues.religion} />
+                                  </div>
+                              </div>
+                          </section>
+
+                          <section>
+                              <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 border-b border-slate-100 pb-1 flex items-center gap-2">
+                                  <div className="w-1 h-1 bg-blue-600 rounded-full"></div> Contact Details
+                              </h2>
+                              <div className="space-y-3 px-2">
+                                  <PrintField label="Mobile Number" value={studentEditValues.mobile} />
+                                  <PrintField label="Emergency Contact" value={studentEditValues.parentsMobile} />
+                                  <PrintField label="Email Address" value={studentEditValues.email} />
+                              </div>
+                          </section>
+                      </div>
+
+                      {/* Right Column */}
+                      <div className="space-y-6">
+                          <section>
+                              <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 border-b border-slate-100 pb-1 flex items-center gap-2">
+                                  <div className="w-1 h-1 bg-blue-600 rounded-full"></div> Academic Details
+                              </h2>
+                              <div className="space-y-3 px-2">
+                                  <PrintField label="Course Enrolled" value={studentEditValues.course} />
+                                  <PrintField label="Center Code" value={editingStudent.tpCode} />
+                                  <PrintField label="Academic Session" value={studentEditValues.session} />
+                                  <PrintField label="Course Type" value={studentEditValues.courseType} />
+                                  <PrintField label="Admission Date" value={studentEditValues.admissionDate} />
+                                  <PrintField label="Admission Fees" value={studentEditValues.admissionFees} />
+                              </div>
+                          </section>
+
+                          <section>
+                              <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 border-b border-slate-100 pb-1 flex items-center gap-2">
+                                  <div className="w-1 h-1 bg-blue-600 rounded-full"></div> Residential Info
+                              </h2>
+                              <div className="space-y-3 px-2">
+                                  <PrintField label="Current Address" value={studentEditValues.currentAddress} />
+                                  <PrintField label="Permanent Address" value={studentEditValues.permanentAddress} />
+                              </div>
+                          </section>
+                      </div>
+                  </div>
+
+                  <div className="mt-auto pt-8">
+                      <div className="flex justify-between items-end border-t border-slate-100 pt-6 px-4">
+                          <div className="text-center">
+                              <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-1.5 mb-1 w-40 mx-auto">Candidate Sign</p>
+                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">{studentEditValues.name}</p>
+                          </div>
+                          <div className="text-center">
+                              <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-1.5 mb-1 w-40 mx-auto">Director Sign</p>
+                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Yukti Computer Education</p>
+                          </div>
+                      </div>
+                      <div className="mt-6 text-center">
+                          <p className="text-[7px] text-slate-300 font-bold uppercase tracking-[0.4em]">This is a computer generated academic dossier. Verified on {new Date().toLocaleDateString()}.</p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        )}
+
         <style jsx global>{`
           @media print {
-            @page { margin: 0; size: auto; }
+            @page { margin: 0; size: A4; }
             body * { visibility: hidden !important; }
+            
+            /* ID CARD PRINT */
             #student-id-card-container, #student-id-card-container * {
               visibility: visible !important;
             }
@@ -2023,6 +2395,24 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
               display: flex !important;
               justify-content: center !important;
             }
+
+            /* PROFILE PRINT - ensure it is the ONLY thing visible when printing profile */
+            #printable-student-profile, #printable-student-profile * { 
+                visibility: visible !important;
+            }
+            #printable-student-profile {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                z-index: 9999 !important;
+            }
+            .no-print { display: none !important; }
           }
         `}</style>
       </div>

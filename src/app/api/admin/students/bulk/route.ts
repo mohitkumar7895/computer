@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
+import { Settings } from "@/models/Settings";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -31,41 +32,48 @@ export async function POST(request: Request) {
     await connectDB();
 
     if (action === "approve") {
-      const students = await AtcStudent.find({ _id: { $in: ids } });
+      const students = await AtcStudent.find({ _id: { $in: ids }, status: "pending" });
+      if (students.length === 0) return NextResponse.json({ message: "No pending students selected." }, { status: 400 });
+
+      const formatSetting = await Settings.findOne({ key: "reg_format_student" });
+      let format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-ST-", counter: 1, padding: 4 };
+
       const results = [];
-      
       for (const student of students) {
         if (!student.registrationNo || student.registrationNo.startsWith("PENDING-")) {
-          // Generate Reg No: TPCODE-YYMM-COUNT-RANDO
-          const count = await AtcStudent.countDocuments({ tpCode: student.tpCode, registrationNo: { $ne: "" } });
-          const dateCode = new Date().toISOString().slice(2, 7).replace("-", ""); // YYMM
-          const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
-          const regNo = `${student.tpCode}-${dateCode}-${String(count + 1).padStart(3, "0")}-${randomSuffix}`;
-          
+          const regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
           student.registrationNo = regNo;
+          format.counter += 1;
         }
         student.status = "active";
         await student.save();
         results.push(student);
       }
 
-      return NextResponse.json({ message: `${ids.length} students approved successfully with Registration Numbers generated.` });
+      // Save updated counter
+      await Settings.findOneAndUpdate(
+        { key: "reg_format_student" },
+        { value: JSON.stringify(format) },
+        { upsert: true }
+      );
+
+      return NextResponse.json({ message: `${results.length} students approved successfully.` });
     }
     else if (action === "reject") {
-      await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { status: "rejected" } });
-      return NextResponse.json({ message: `${ids.length} students rejected successfully` });
+      const res = await AtcStudent.updateMany({ _id: { $in: ids }, status: "pending" }, { $set: { status: "rejected" } });
+      return NextResponse.json({ message: `${res.modifiedCount} students rejected successfully` });
     }
     else if (action === "delete") {
       await AtcStudent.deleteMany({ _id: { $in: ids } });
       return NextResponse.json({ message: `${ids.length} students deleted successfully` });
     } 
     else if (action === "disable") {
-      await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { userStatus: "disabled" } });
-      return NextResponse.json({ message: `${ids.length} students disabled successfully` });
+      const res = await AtcStudent.updateMany({ _id: { $in: ids }, status: "active" }, { $set: { userStatus: "disabled" } });
+      return NextResponse.json({ message: `${res.modifiedCount} students disabled successfully` });
     }
     else if (action === "enable") {
-      await AtcStudent.updateMany({ _id: { $in: ids } }, { $set: { userStatus: "active" } });
-      return NextResponse.json({ message: `${ids.length} students enabled successfully` });
+      const res = await AtcStudent.updateMany({ _id: { $in: ids }, status: "active" }, { $set: { userStatus: "active" } });
+      return NextResponse.json({ message: `${res.modifiedCount} students enabled successfully` });
     }
 
     return NextResponse.json({ message: "Invalid action" }, { status: 400 });

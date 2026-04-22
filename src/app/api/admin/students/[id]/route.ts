@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
+import { Settings } from "@/models/Settings";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -38,12 +39,19 @@ export async function PATCH(
 
     if (action === "approved" || action === "rejected") {
       if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-"))) {
-        // Generate Reg No: TPCODE-YYMM-RANDO
-        const count = await AtcStudent.countDocuments({ tpCode: student.tpCode, registrationNo: { $ne: "" } });
-        const dateCode = new Date().toISOString().slice(2,7).replace("-", ""); // YYMM
-        const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
-        const regNo = `${student.tpCode}-${dateCode}-${String(count + 1).padStart(3, "0")}-${randomSuffix}`;
+        const formatSetting = await Settings.findOne({ key: "reg_format_student" });
+        const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-ST-", counter: 1, padding: 4 };
+
+        const regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
         student.registrationNo = regNo;
+
+        // Increment counter in settings
+        format.counter += 1;
+        await Settings.findOneAndUpdate(
+          { key: "reg_format_student" },
+          { value: JSON.stringify(format) },
+          { upsert: true }
+        );
       }
       student.status = action === "approved" ? "active" : action;
     } 
