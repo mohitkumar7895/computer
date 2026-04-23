@@ -42,7 +42,16 @@ export async function PATCH(
         const formatSetting = await Settings.findOne({ key: "reg_format_student" });
         const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-ST-", counter: 1, padding: 4 };
 
-        const regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+        let regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+        
+        // Ensure uniqueness
+        let exists = await AtcStudent.findOne({ registrationNo: regNo });
+        while (exists) {
+          format.counter += 1;
+          regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+          exists = await AtcStudent.findOne({ registrationNo: regNo });
+        }
+
         student.registrationNo = regNo;
 
         // Increment counter in settings

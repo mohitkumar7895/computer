@@ -31,7 +31,36 @@ function generateTpCode(index: number): string {
   return `ATC-${year}-${String(index).padStart(4, "0")}`;
 }
 
-// PATCH /api/admin/applications/[id] — approve or reject
+// GET /api/admin/applications/[id] — fetch full application details
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const admin = await verifyAdmin(request);
+  if (!admin) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+
+  const { id } = await params;
+  await connectDB();
+
+  const application = await AtcApplication.findById(id).lean();
+  if (!application) {
+    return NextResponse.json({ message: "Application not found." }, { status: 404 });
+  }
+
+  // Find associated user for tpCode and userStatus
+  const user = await AtcUser.findOne({ applicationId: id }).lean();
+  
+  const enrichedApp = {
+    ...application,
+    tpCode: application.tpCode || user?.tpCode || null,
+    userStatus: user?.status || "active",
+    password: user?.password || null,
+  };
+
+  return NextResponse.json({ application: enrichedApp });
+}
+
+// PATCH /api/admin/applications/[id] — approve or reject or edit
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -60,13 +89,7 @@ export async function PATCH(
       action = body.action ?? null;
     }
 
-    if (formData) {
-      const existingAction = String(formData.get("action") ?? "").trim();
-      if (existingAction === "approve" || existingAction === "reject" || existingAction === "toggleStatus") {
-        action = existingAction as any;
-      }
-    }
-
+    // Handle Edit/Update via FormData (AdminAtcForm uses this)
     if (!action && formData) {
       const application = await AtcApplication.findById(id);
       if (!application) {
@@ -102,29 +125,38 @@ export async function PATCH(
       const zones = JSON.parse(String(formData.get("zones") ?? "[]"));
       const infraString = String(formData.get("infrastructure") ?? application.infrastructure ?? "{}");
       
-      const toBase64 = async (file: File | null) => {
+      // Helper to read and check size
+      const toBase64 = async (name: string, maxSizeKB: number) => {
+        const file = formData.get(name) as File | null;
         if (!file || file.size === 0) return "";
+        if (file.size > maxSizeKB * 1024) {
+          throw new Error(`${name} exceeds ${maxSizeKB}KB limit.`);
+        }
         const buffer = await file.arrayBuffer();
         return `data:${file.type};base64,${Buffer.from(buffer).toString("base64")}`;
       };
 
-      const photoFile = formData.get("photo") as File | null;
-      const ssFile = formData.get("paymentScreenshot") as File | null;
-      const docFile = formData.get("instituteDocument") as File | null;
-      const logoFile = formData.get("logo") as File | null;
-      const sigFile = formData.get("signature") as File | null;
-      const aadharFile = formData.get("aadharDoc") as File | null;
-      const marksheetFile = formData.get("marksheetDoc") as File | null;
-      const otherFile = formData.get("otherDocs") as File | null;
+      try {
+        const photoBase64 = await toBase64("photo", 100);
+        const ssBase64 = await toBase64("paymentScreenshot", 100);
+        const docBase64 = await toBase64("instituteDocument", 500);
+        const logoBase64 = await toBase64("logo", 100);
+        const sigBase64 = await toBase64("signature", 100);
+        const aadharBase64 = await toBase64("aadharDoc", 500);
+        const marksheetBase64 = await toBase64("marksheetDoc", 500);
+        const otherBase64 = await toBase64("otherDocs", 500);
 
-      const photoBase64 = photoFile ? await toBase64(photoFile) : String(formData.get("existingPhoto") ?? application.photo ?? "");
-      const ssBase64 = ssFile ? await toBase64(ssFile) : String(formData.get("existingPaymentScreenshot") ?? application.paymentScreenshot ?? "");
-      const docBase64 = docFile ? await toBase64(docFile) : String(formData.get("existingInstituteDocument") ?? application.instituteDocument ?? "");
-      const logoBase64 = logoFile ? await toBase64(logoFile) : String(formData.get("existingLogo") ?? application.logo ?? "");
-      const sigBase64 = sigFile ? await toBase64(sigFile) : String(formData.get("existingSignature") ?? application.signature ?? "");
-      const aadharBase64 = aadharFile ? await toBase64(aadharFile) : String(formData.get("existingAadharDoc") ?? application.aadharDoc ?? "");
-      const marksheetBase64 = marksheetFile ? await toBase64(marksheetFile) : String(formData.get("existingMarksheetDoc") ?? application.marksheetDoc ?? "");
-      const otherBase64 = otherFile ? await toBase64(otherFile) : String(formData.get("existingOtherDocs") ?? application.otherDocs ?? "");
+        application.photo = photoBase64 || application.photo;
+        application.logo = logoBase64 || application.logo;
+        application.signature = sigBase64 || application.signature;
+        application.aadharDoc = aadharBase64 || application.aadharDoc;
+        application.marksheetDoc = marksheetBase64 || application.marksheetDoc;
+        application.otherDocs = otherBase64 || application.otherDocs;
+        application.paymentScreenshot = ssBase64 || application.paymentScreenshot;
+        application.instituteDocument = docBase64 || application.instituteDocument;
+      } catch (e: any) {
+        return NextResponse.json({ message: e.message }, { status: 400 });
+      }
 
       application.processFee = updatedValues.processFee;
       application.trainingPartnerName = updatedValues.trainingPartnerName;
@@ -137,7 +169,7 @@ export async function PATCH(
       application.pin = updatedValues.pin;
       application.country = String(formData.get("country") ?? application.country ?? "INDIA");
       application.mobile = updatedValues.mobile;
-      application.email = updatedValues.email.toLowerCase();
+      application.email = updatedValues.email.toLowerCase().trim();
       application.statusOfInstitution = updatedValues.statusOfInstitution;
       application.yearOfEstablishment = updatedValues.yearOfEstablishment;
       application.chiefName = updatedValues.chiefName;
@@ -145,45 +177,36 @@ export async function PATCH(
       application.educationQualification = updatedValues.educationQualification;
       application.professionalExperience = updatedValues.professionalExperience;
       application.dob = updatedValues.dob;
-      application.photo = photoBase64 || application.photo;
-      application.logo = logoBase64 || application.logo;
-      application.signature = sigBase64 || application.signature;
-      application.aadharDoc = aadharBase64 || application.aadharDoc;
-      application.marksheetDoc = marksheetBase64 || application.marksheetDoc;
-      application.otherDocs = otherBase64 || application.otherDocs;
       application.paymentMode = updatedValues.paymentMode;
-      application.paymentScreenshot = ssBase64 || application.paymentScreenshot;
-      application.instituteDocument = docBase64 || application.instituteDocument;
       application.infrastructure = infraString;
+      application.paidAmount = String(formData.get("paidAmount") ?? application.paidAmount ?? "");
+      application.transactionNo = String(formData.get("transactionNo") ?? application.transactionNo ?? "");
 
       await application.save();
 
-      if (application.status === "approved") {
-        const user = await AtcUser.findOne({ applicationId: application._id });
-        if (user) {
-          user.trainingPartnerName = application.trainingPartnerName;
-          user.mobile = application.mobile;
-          user.email = application.email;
-          
-          const newPass = String(formData.get("password") ?? formData.get("customPassword") ?? "").trim();
-          if (newPass) {
-            user.password = newPass;
-          }
-          
-          await user.save();
+      // Sync with AtcUser
+      const user = await AtcUser.findOne({ applicationId: application._id });
+      if (user) {
+        user.trainingPartnerName = application.trainingPartnerName;
+        user.mobile = application.mobile;
+        user.email = application.email;
+        user.zones = application.zones;
+        
+        const newPass = String(formData.get("password") || formData.get("customPassword") || "").trim();
+        if (newPass) {
+          const bcrypt = await import("bcryptjs");
+          user.password = await bcrypt.hash(newPass, 10);
         }
+        
+        await user.save();
       }
 
       return NextResponse.json({ message: "Application updated successfully.", application });
     }
 
-    if (!action || !["approve", "reject", "toggleStatus"].includes(action)) {
-      return NextResponse.json({ message: "Invalid action." }, { status: 400 });
-    }
-
     if (action === "toggleStatus") {
       const user = await AtcUser.findOne({ applicationId: id });
-      if (!user) return NextResponse.json({ message: "Center login account not found. Only approved centers can be toggled." }, { status: 404 });
+      if (!user) return NextResponse.json({ message: "Center account not found." }, { status: 404 });
       user.status = user.status === "active" ? "disabled" : "active";
       await user.save();
       return NextResponse.json({ 
@@ -193,16 +216,7 @@ export async function PATCH(
     }
 
     const application = await AtcApplication.findById(id);
-    if (!application) {
-      return NextResponse.json({ message: "Application not found." }, { status: 404 });
-    }
-
-    if (application.status !== "pending") {
-      return NextResponse.json(
-        { message: `Application is already ${application.status}.` },
-        { status: 409 },
-      );
-    }
+    if (!application) return NextResponse.json({ message: "Application not found." }, { status: 404 });
 
     if (action === "reject") {
       application.status = "rejected";
@@ -210,56 +224,59 @@ export async function PATCH(
       return NextResponse.json({ message: "Application rejected." });
     }
 
-    // Approve — create AtcUser account
-    application.status = "approved";
+    if (action === "approve") {
+      if (application.status !== "pending") {
+        return NextResponse.json({ message: "Application is already processed." }, { status: 400 });
+      }
+      application.status = "approved";
 
-    // Check if AtcUser already exists for this email
-    const existingUser = await AtcUser.findOne({ email: application.email });
-    let tpCode = application.tpCode;
+      const existingUser = await AtcUser.findOne({ email: application.email });
+      let tpCode = application.tpCode;
 
-    if (!existingUser) {
-      const formatSetting = await Settings.findOne({ key: "reg_format_center" });
-      const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
-      
-      tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-      
-      // Increment counter in settings
-      format.counter += 1;
-      await Settings.findOneAndUpdate(
-        { key: "reg_format_center" },
-        { value: JSON.stringify(format) },
-        { upsert: true }
-      );
+      if (!existingUser) {
+        const formatSetting = await Settings.findOne({ key: "reg_format_center" });
+        const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
+        
+        tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+        
+        let exists = await AtcUser.findOne({ tpCode });
+        while (exists) {
+          format.counter += 1;
+          tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+          exists = await AtcUser.findOne({ tpCode });
+        }
 
-      const finalPassword = application.mobile;
+        format.counter += 1;
+        await Settings.findOneAndUpdate({ key: "reg_format_center" }, { value: JSON.stringify(format) }, { upsert: true });
 
-      await AtcUser.create({
-        tpCode,
-        trainingPartnerName: application.trainingPartnerName,
-        email: application.email,
-        mobile: application.mobile,
-        password: finalPassword,
-        applicationId: application._id,
-        status: "active",
-      });
-    } else {
-      tpCode = existingUser.tpCode;
+        const bcrypt = await import("bcryptjs");
+        const hashedPassword = await bcrypt.hash(application.mobile, 10);
+
+        await AtcUser.create({
+          tpCode,
+          trainingPartnerName: application.trainingPartnerName,
+          email: application.email,
+          mobile: application.mobile,
+          password: hashedPassword,
+          applicationId: application._id,
+          zones: application.zones,
+          status: "active",
+        });
+      } else {
+        tpCode = existingUser.tpCode;
+      }
+
+      application.tpCode = tpCode;
+      await application.save();
+
+      return NextResponse.json({ message: "Application approved.", tpCode, defaultPassword: application.mobile });
     }
 
-    application.tpCode = tpCode;
-    await application.save();
+    return NextResponse.json({ message: "Invalid action." }, { status: 400 });
 
-    return NextResponse.json({
-      message: "Application approved successfully.",
-      tpCode,
-      defaultPassword: application.mobile,
-    });
   } catch (error: any) {
-    console.error("[ATC Approval Error]", error);
-    return NextResponse.json(
-      { message: error?.message || "Internal server error during approval." },
-      { status: 500 }
-    );
+    console.error("[ATC PATCH Error]", error);
+    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
   }
 }
 

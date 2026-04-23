@@ -420,10 +420,20 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     setEditingApplication(application);
   };
 
-  const openApplicationForCreateEdit = (application: Application) => {
+  const openApplicationForCreateEdit = async (application: Application) => {
     setToastMsg(null);
-    setPrefillApplication(application);
-    setTab("create");
+    setActionLoading(application._id + "fetching");
+    try {
+      const res = await fetch(`/api/admin/applications/${application._id}`);
+      if (!res.ok) throw new Error("Failed to fetch full application details.");
+      const data = await res.json();
+      setPrefillApplication(data.application);
+      setTab("create");
+    } catch (err: any) {
+      showToast("error", err.message);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const closeApplicationEditor = () => {
@@ -1000,7 +1010,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                   onCancel={() => setPrefillApplication(null)}
                   onSuccess={() => {
                     setPrefillApplication(null);
-                    setTab("dashboard");
+                    setTab("centers");
                     void fetchApplications();
                   }}
                 />
@@ -1728,8 +1738,8 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               type="number" 
                               value={centerFormat.counter} 
                               onChange={(e) => setCenterFormat(prev => ({ ...prev, counter: parseInt(e.target.value) || 1 }))}
-                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm bg-white/50 text-slate-400 cursor-not-allowed"
-                              disabled
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none"
+                              placeholder="1"
                             />
                           </div>
                           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">
@@ -1765,8 +1775,8 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               type="number" 
                               value={studentFormat.counter} 
                               onChange={(e) => setStudentFormat(prev => ({ ...prev, counter: parseInt(e.target.value) || 1 }))}
-                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm bg-white/50 text-slate-400 cursor-not-allowed"
-                              disabled
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-purple-100 outline-none"
+                              placeholder="1"
                             />
                           </div>
                           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">

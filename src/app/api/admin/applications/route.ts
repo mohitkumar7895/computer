@@ -32,7 +32,17 @@ export async function GET(request: Request) {
   if (!admin) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
 
   await connectDB();
-  const applications = await AtcApplication.find().sort({ createdAt: -1 }).lean();
+  // Exclude heavy fields for the list view to improve performance
+  const applications = await AtcApplication.find({}, {
+    photo: 0,
+    signature: 0,
+    aadharDoc: 0,
+    marksheetDoc: 0,
+    otherDocs: 0,
+    paymentScreenshot: 0,
+    instituteDocument: 0,
+    infrastructure: 0
+  }).sort({ createdAt: -1 }).lean();
 
   // Get all ATC users to map tpCode and status
   const { AtcUser } = await import("@/models/AtcUser");
@@ -99,7 +109,7 @@ export async function POST(request: Request) {
 
     const mobile = String(formData.get("mobile") ?? "");
     const pin = String(formData.get("pin") ?? "");
-    const email = String(formData.get("email") ?? "");
+    const email = String(formData.get("email") ?? "").toLowerCase().trim();
 
     if (!/^\d{10}$/.test(mobile))
       return NextResponse.json({ message: "Mobile must be exactly 10 digits." }, { status: 400 });
@@ -108,61 +118,40 @@ export async function POST(request: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
 
+    await connectDB();
+    const { AtcUser } = await import("@/models/AtcUser");
+
+    // Check if user already exists
+    const existingUser = await AtcUser.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json({ message: "An ATC user with this email already exists." }, { status: 400 });
+    }
+
     // Handle files (convert to base64 for MongoDB storage)
-    let photoBase64 = "";
-    const photoFile = formData.get("photo") as File | null;
-    if (photoFile && photoFile.size > 0) {
-      const buffer = await photoFile.arrayBuffer();
-      photoBase64 = `data:${photoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
+    // Helper to read and check size
+    const processFile = async (name: string, maxSizeKB: number) => {
+      const file = formData.get(name) as File | null;
+      if (!file || file.size === 0) return "";
+      if (file.size > maxSizeKB * 1024) {
+        throw new Error(`${name} exceeds ${maxSizeKB}KB limit.`);
+      }
+      const buffer = await file.arrayBuffer();
+      return `data:${file.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    };
 
-    let logoBase64 = "";
-    const logoFile = formData.get("logo") as File | null;
-    if (logoFile && logoFile.size > 0) {
-      const buffer = await logoFile.arrayBuffer();
-      logoBase64 = `data:${logoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
+    let photoBase64 = "", logoBase64 = "", sigBase64 = "", aadharBase64 = "", marksheetBase64 = "", otherBase64 = "", ssBase64 = "", instDocBase64 = "";
 
-    let sigBase64 = "";
-    const sigFile = formData.get("signature") as File | null;
-    if (sigFile && sigFile.size > 0) {
-      const buffer = await sigFile.arrayBuffer();
-      sigBase64 = `data:${sigFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let aadharBase64 = "";
-    const aadharFile = formData.get("aadharDoc") as File | null;
-    if (aadharFile && aadharFile.size > 0) {
-      const buffer = await aadharFile.arrayBuffer();
-      aadharBase64 = `data:${aadharFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let marksheetBase64 = "";
-    const marksheetFile = formData.get("marksheetDoc") as File | null;
-    if (marksheetFile && marksheetFile.size > 0) {
-      const buffer = await marksheetFile.arrayBuffer();
-      marksheetBase64 = `data:${marksheetFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let otherBase64 = "";
-    const otherFile = formData.get("otherDocs") as File | null;
-    if (otherFile && otherFile.size > 0) {
-      const buffer = await otherFile.arrayBuffer();
-      otherBase64 = `data:${otherFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let ssBase64 = "";
-    const ssFile = formData.get("paymentScreenshot") as File | null;
-    if (ssFile && ssFile.size > 0) {
-      const buffer = await ssFile.arrayBuffer();
-      ssBase64 = `data:${ssFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let instDocBase64 = "";
-    const instDocFile = formData.get("instituteDocument") as File | null;
-    if (instDocFile && instDocFile.size > 0) {
-      const buffer = await instDocFile.arrayBuffer();
-      instDocBase64 = `data:${instDocFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    try {
+      photoBase64 = await processFile("photo", 100);
+      logoBase64 = await processFile("logo", 100);
+      sigBase64 = await processFile("signature", 100);
+      aadharBase64 = await processFile("aadharDoc", 500);
+      marksheetBase64 = await processFile("marksheetDoc", 500);
+      otherBase64 = await processFile("otherDocs", 500);
+      ssBase64 = await processFile("paymentScreenshot", 100);
+      instDocBase64 = await processFile("instituteDocument", 500);
+    } catch (e: any) {
+      return NextResponse.json({ message: e.message }, { status: 400 });
     }
 
     const data = {
@@ -195,6 +184,8 @@ export async function POST(request: Request) {
       paymentScreenshot: ssBase64,
       instituteDocument: instDocBase64,
       infrastructure: String(formData.get("infrastructure") ?? "{}"),
+      paidAmount: String(formData.get("paidAmount") ?? ""),
+      transactionNo: String(formData.get("transactionNo") ?? ""),
       status: "approved" as const,
       submittedByAdmin: true,
     };
@@ -202,54 +193,60 @@ export async function POST(request: Request) {
     const application = await AtcApplication.create(data);
 
     // Auto-generate ATC account
-    const { AtcUser } = await import("@/models/AtcUser");
-    const existingUser = await AtcUser.findOne({ email: application.email });
-    
-    if (!existingUser) {
-      let tpCode = String(formData.get("customTpCode") || "").trim();
-      let rawPassword = String(formData.get("password") || formData.get("customPassword") || "").trim();
+    let tpCode = String(formData.get("customTpCode") || "").trim();
+    let rawPassword = String(formData.get("password") || formData.get("customPassword") || "").trim();
 
-      if (!tpCode) {
-        const formatSetting = await Settings.findOne({ key: "reg_format_center" });
-        const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
-        
-        tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-        
-        // Increment counter in settings
+    if (!tpCode) {
+      const formatSetting = await Settings.findOne({ key: "reg_format_center" });
+      const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
+      
+      tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+      
+      // Ensure tpCode is unique
+      let exists = await AtcUser.findOne({ tpCode });
+      while (exists) {
         format.counter += 1;
-        await Settings.findOneAndUpdate(
-          { key: "reg_format_center" },
-          { value: JSON.stringify(format) },
-          { upsert: true }
-        );
+        tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+        exists = await AtcUser.findOne({ tpCode });
       }
 
-      const finalPassword = rawPassword || application.mobile;
-
-      await AtcUser.create({
-        tpCode,
-        trainingPartnerName: application.trainingPartnerName,
-        email: application.email,
-        mobile: application.mobile,
-        password: finalPassword,
-        applicationId: application._id,
-        status: "active",
-      });
-
-      // Save tpCode back to application
-      application.tpCode = tpCode;
-      await application.save();
-
-      return NextResponse.json({ 
-        message: "Application auto-approved.", 
-        tpCode, 
-        mobile: rawPassword 
-      }, { status: 201 });
+      // Increment counter in settings
+      format.counter += 1;
+      await Settings.findOneAndUpdate(
+        { key: "reg_format_center" },
+        { value: JSON.stringify(format) },
+        { upsert: true }
+      );
     }
 
-    return NextResponse.json({ message: "Application created successfully." }, { status: 201 });
-  } catch (error) {
+    const finalPassword = rawPassword || mobile;
+    const bcrypt = await import("bcryptjs");
+    const hashedPassword = await bcrypt.hash(finalPassword, 10);
+
+    await AtcUser.create({
+      tpCode,
+      trainingPartnerName: application.trainingPartnerName,
+      email: application.email,
+      mobile: application.mobile,
+      password: hashedPassword,
+      applicationId: application._id,
+      zones: data.zones,
+      status: "active",
+    });
+
+    // Save tpCode back to application
+    application.tpCode = tpCode;
+    await application.save();
+
+    return NextResponse.json({ 
+      message: "ATC Center added and approved successfully.", 
+      tpCode, 
+      mobile: finalPassword 
+    }, { status: 201 });
+
+  } catch (error: any) {
     console.error("[admin/applications POST]", error);
-    return NextResponse.json({ message: "Internal server error." }, { status: 500 });
+    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
   }
 }
+

@@ -350,6 +350,27 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return; 
     }
+
+    // Client-side file size validation
+    const fileChecks = [
+      { file: photo, name: "Photo", limit: 100 },
+      { file: logo, name: "Logo", limit: 100 },
+      { file: signature, name: "Signature", limit: 100 },
+      { file: aadharDoc, name: "Aadhar PDF", limit: 500 },
+      { file: marksheetDoc, name: "Marksheet PDF", limit: 500 },
+      { file: otherDocs, name: "Other Docs PDF", limit: 500 },
+      { file: screenshot, name: "Payment Screenshot", limit: 100 },
+      { file: instituteDocument, name: "Institute Document", limit: 500 },
+    ];
+
+    for (const check of fileChecks) {
+      if (check.file && check.file.size > check.limit * 1024) {
+        setMessage({ type: "error", text: `${check.name} is too large. Max limit is ${check.limit}KB.` });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = new FormData();
@@ -412,23 +433,36 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
       const response = await fetch(url, { method, body: payload });
       const data = (await response.json()) as { message: string, tpCode?: string, mobile?: string };
-      if (!response.ok) { setMessage({ type: "error", text: data.message }); return; }
+      
+      if (!response.ok) { 
+        setMessage({ type: "error", text: data.message || "Something went wrong" }); 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return; 
+      }
 
       const successText = mode === "edit"
         ? "✅ Application updated successfully."
         : data.tpCode
-          ? `✅ ATC Approved! Login ID: ${data.tpCode} | Pass: ${data.mobile}`
+          ? `✅ ATC Approved! ID: ${data.tpCode} | Pass: ${data.mobile}`
           : "ATC application created successfully!";
 
       setMessage({ type: "success", text: successText });
-      onReset();
-      onSuccess();
-    } catch {
+      
+      // Delay for success message visibility then call onSuccess
+      setTimeout(() => {
+        onReset();
+        onSuccess();
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
       setMessage({ type: "error", text: "Network error while submitting form." });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <form onSubmit={onSubmit} onReset={onReset} className="space-y-5">
