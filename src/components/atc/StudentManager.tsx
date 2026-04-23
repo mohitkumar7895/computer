@@ -16,6 +16,11 @@ interface Student {
   currentAddress?: string;
   permanentAddress?: string;
   highestQualification?: string;
+  parentsMobile?: string;
+  nationality?: string;
+  religion?: string;
+  maritalStatus?: string;
+  disabilityDetails?: string;
   aadharNo?: string;
   category?: string;
   disability?: boolean;
@@ -71,10 +76,10 @@ export default function StudentManager() {
   const [examReqForm, setExamReqForm] = useState({ examMode: "online", preferredDate: "", preferredCenter: "" });
   const [editForm, setEditForm] = useState({ 
     name: "", fatherName: "", motherName: "", dob: "", gender: "", 
-    mobile: "", email: "", course: "", courseType: "Regular", session: "",
+    mobile: "", parentsMobile: "", email: "", course: "", courseType: "Regular", session: "",
     admissionDate: "", currentAddress: "", permanentAddress: "", 
     highestQualification: "", qualificationDetail: "", aadharNo: "",
-    category: "", religion: "", maritalStatus: "", disability: "No",
+    category: "", nationality: "Indian", religion: "", maritalStatus: "", disability: false,
     disabilityDetails: "", referredBy: ""
   });
   const [updating, setUpdating] = useState(false);
@@ -636,6 +641,7 @@ export default function StudentManager() {
                                         dob: s.dob || "",
                                         gender: s.gender || "",
                                         mobile: s.mobile,
+                                        parentsMobile: s.parentsMobile || "",
                                         email: s.email || "",
                                         course: s.course,
                                         courseType: (s as any).courseType || "Regular",
@@ -647,10 +653,11 @@ export default function StudentManager() {
                                         qualificationDetail: (s as any).qualificationDetail || "",
                                         aadharNo: s.aadharNo || "",
                                         category: s.category || "General",
-                                        religion: (s as any).religion || "",
-                                        maritalStatus: (s as any).maritalStatus || "",
-                                        disability: s.disability ? "Yes" : "No",
-                                        disabilityDetails: (s as any).disabilityDetails || "",
+                                        nationality: s.nationality || "Indian",
+                                        religion: s.religion || "",
+                                        maritalStatus: s.maritalStatus || "",
+                                        disability: !!s.disability,
+                                        disabilityDetails: s.disabilityDetails || "",
                                         referredBy: s.referredBy || ""
                                       });
                                     }}
@@ -668,10 +675,11 @@ export default function StudentManager() {
                                          setEditForm({
                                            name: s.name,
                                            fatherName: s.fatherName,
-                                        motherName: s.motherName || "",
-                                        dob: s.dob || "",
-                                        gender: s.gender || "",
+                                           motherName: s.motherName || "",
+                                           dob: s.dob || "",
+                                           gender: s.gender || "",
                                            mobile: s.mobile,
+                                           parentsMobile: s.parentsMobile || "",
                                            email: s.email || "",
                                            course: s.course,
                                            courseType: (s as any).courseType || "Regular",
@@ -683,10 +691,11 @@ export default function StudentManager() {
                                            qualificationDetail: (s as any).qualificationDetail || "",
                                            aadharNo: s.aadharNo || "",
                                            category: s.category || "General",
-                                           religion: (s as any).religion || "",
-                                           maritalStatus: (s as any).maritalStatus || "",
-                                           disability: s.disability ? "Yes" : "No",
-                                           disabilityDetails: (s as any).disabilityDetails || "",
+                                           nationality: s.nationality || "Indian",
+                                           religion: s.religion || "",
+                                           maritalStatus: s.maritalStatus || "",
+                                           disability: !!s.disability,
+                                           disabilityDetails: s.disabilityDetails || "",
                                            referredBy: s.referredBy || ""
                                          });
                                        }}
@@ -1040,11 +1049,23 @@ export default function StudentManager() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase text-slate-400">Religion</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{(selectedStudent as any).religion || 'N/A'}</p>
+                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.religion || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase text-slate-400">Aadhar No</label>
                       <p className="text-[11px] font-black text-slate-800">{selectedStudent.aadharNo || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Nationality</label>
+                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.nationality || 'Indian'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Marital Status</label>
+                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.maritalStatus || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Disability</label>
+                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.disability ? `YES (${selectedStudent.disabilityDetails})` : 'NO'}</p>
                     </div>
                   </div>
 
@@ -1059,12 +1080,20 @@ export default function StudentManager() {
                       <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.session}</p>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Mobile No</label>
+                      <label className="text-[9px] font-black uppercase text-slate-400">Student Mobile</label>
                       <p className="text-[11px] font-black text-slate-800">{selectedStudent.mobile}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Parents Mobile</label>
+                      <p className="text-[11px] font-black text-slate-800">{selectedStudent.parentsMobile || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase text-slate-400">Admission Date</label>
                       <p className="text-[11px] font-black text-slate-800">{selectedStudent.admissionDate}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Qualification</label>
+                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.highestQualification || 'N/A'}</p>
                     </div>
                   </div>
 
@@ -1156,6 +1185,38 @@ export default function StudentManager() {
                        <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})} className={modalInputCls("edit_category")}>
                           <option>General</option><option>OBC</option><option>SC</option><option>ST</option>
                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className={basicLabelCls}>Parents Mobile</label>
+                       <input value={editForm.parentsMobile || ''} onChange={e => setEditForm({...editForm, parentsMobile: e.target.value})} className={modalInputCls("edit_parents_mobile")} maxLength={10} />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className={basicLabelCls}>Nationality</label>
+                       <input value={editForm.nationality || 'Indian'} onChange={e => setEditForm({...editForm, nationality: e.target.value})} className={modalInputCls("edit_nationality")} />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className={basicLabelCls}>Marital Status</label>
+                       <select value={editForm.maritalStatus || 'Single'} onChange={e => setEditForm({...editForm, maritalStatus: e.target.value})} className={modalInputCls("edit_marital")}>
+                          <option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option>
+                       </select>
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className={basicLabelCls}>Religion</label>
+                       <input value={editForm.religion || ''} onChange={e => setEditForm({...editForm, religion: e.target.value})} className={modalInputCls("edit_religion")} />
+                    </div>
+                    <div className="space-y-1.5 col-span-2 grid grid-cols-2 gap-4">
+                       <div className="space-y-1.5">
+                          <label className={basicLabelCls}>Disability?</label>
+                          <select value={editForm.disability ? "Yes" : "No"} onChange={e => setEditForm({...editForm, disability: e.target.value === "Yes"})} className={modalInputCls("edit_disability")}>
+                             <option value="No">No</option><option value="Yes">Yes</option>
+                          </select>
+                       </div>
+                       {editForm.disability && (
+                         <div className="space-y-1.5">
+                            <label className={basicLabelCls}>Disability Details</label>
+                            <input value={editForm.disabilityDetails || ''} onChange={e => setEditForm({...editForm, disabilityDetails: e.target.value})} className={modalInputCls("edit_disability_details")} />
+                         </div>
+                       )}
                     </div>
 
                     {/* Academic */}

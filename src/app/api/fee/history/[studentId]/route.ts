@@ -6,7 +6,7 @@ import { getAuthUser } from "@/utils/auth";
 
 export async function GET(
   request: Request,
-  { params }: { params: { studentId: string } }
+  { params }: { params: Promise<{ studentId: string }> }
 ) {
   const user = await getAuthUser();
   if (!user) {

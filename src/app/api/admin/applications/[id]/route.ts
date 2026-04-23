@@ -194,8 +194,7 @@ export async function PATCH(
         
         const newPass = String(formData.get("password") || formData.get("customPassword") || "").trim();
         if (newPass) {
-          const bcrypt = await import("bcryptjs");
-          user.password = await bcrypt.hash(newPass, 10);
+          user.password = newPass;
         }
         
         await user.save();
@@ -237,15 +236,12 @@ export async function PATCH(
         const { generateNextId } = await import("@/lib/idGenerator");
         tpCode = await generateNextId("reg_format_center", AtcUser, "tpCode");
 
-        const bcrypt = await import("bcryptjs");
-        const hashedPassword = await bcrypt.hash(application.mobile, 10);
-
         await AtcUser.create({
           tpCode,
           trainingPartnerName: application.trainingPartnerName,
           email: application.email,
           mobile: application.mobile,
-          password: hashedPassword,
+          password: application.mobile,
           applicationId: application._id,
           zones: application.zones,
           status: "active",
