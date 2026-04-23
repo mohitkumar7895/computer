@@ -64,9 +64,20 @@ export async function POST(request: Request) {
 
     let base64Copy = undefined;
     if (examCopyFile) {
-      if (examCopyFile.size > 8 * 1024 * 1024) { // 8MB limit
-         return NextResponse.json({ message: "PDF file is too large (max 8MB)" }, { status: 400 });
+      const isImage = examCopyFile.type.startsWith("image/");
+      const isPdf = examCopyFile.type === "application/pdf";
+      const sizeKb = examCopyFile.size / 1024;
+
+      if (isImage && sizeKb > 100) {
+        return NextResponse.json({ message: "Image copy is too large (max 100KB)" }, { status: 400 });
       }
+      if (isPdf && sizeKb > 500) {
+        return NextResponse.json({ message: "PDF copy is too large (max 500KB)" }, { status: 400 });
+      }
+      if (!isImage && !isPdf && sizeKb > 500) {
+        return NextResponse.json({ message: "File copy is too large (max 500KB)" }, { status: 400 });
+      }
+
       const buffer = await examCopyFile.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
       base64Copy = `data:${examCopyFile.type || "application/pdf"};base64,${base64}`;

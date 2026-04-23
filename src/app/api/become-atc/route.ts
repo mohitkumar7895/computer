@@ -50,60 +50,29 @@ export async function POST(request: Request) {
     }
 
     // Handle files (convert to base64 for MongoDB storage)
-    let photoBase64 = "";
-    const photoFile = formData.get("photo") as File | null;
-    if (photoFile && photoFile.size > 0) {
-      const buffer = await photoFile.arrayBuffer();
-      photoBase64 = `data:${photoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
+    const fileFields = ["photo", "logo", "signature", "aadharDoc", "marksheetDoc", "otherDocs", "paymentScreenshot", "instituteDocument"];
+    const base64Files: any = {};
 
-    let logoBase64 = "";
-    const logoFile = formData.get("logo") as File | null;
-    if (logoFile && logoFile.size > 0) {
-      const buffer = await logoFile.arrayBuffer();
-      logoBase64 = `data:${logoFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
+    for (const field of fileFields) {
+      const file = formData.get(field) as File | null;
+      if (file && file.size > 0) {
+        const isImage = file.type.startsWith("image/");
+        const isPdf = file.type === "application/pdf";
+        const sizeKb = file.size / 1024;
 
-    let sigBase64 = "";
-    const sigFile = formData.get("signature") as File | null;
-    if (sigFile && sigFile.size > 0) {
-      const buffer = await sigFile.arrayBuffer();
-      sigBase64 = `data:${sigFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
+        if (isImage && sizeKb > 100) {
+          return NextResponse.json({ message: `${field}: Image must be under 100KB.` }, { status: 400 });
+        }
+        if (isPdf && sizeKb > 500) {
+          return NextResponse.json({ message: `${field}: PDF must be under 500KB.` }, { status: 400 });
+        }
+        if (!isImage && !isPdf && sizeKb > 500) {
+          return NextResponse.json({ message: `${field}: File must be under 500KB.` }, { status: 400 });
+        }
 
-    let aadharBase64 = "";
-    const aadharFile = formData.get("aadharDoc") as File | null;
-    if (aadharFile && aadharFile.size > 0) {
-      const buffer = await aadharFile.arrayBuffer();
-      aadharBase64 = `data:${aadharFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let marksheetBase64 = "";
-    const marksheetFile = formData.get("marksheetDoc") as File | null;
-    if (marksheetFile && marksheetFile.size > 0) {
-      const buffer = await marksheetFile.arrayBuffer();
-      marksheetBase64 = `data:${marksheetFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let otherBase64 = "";
-    const otherFile = formData.get("otherDocs") as File | null;
-    if (otherFile && otherFile.size > 0) {
-      const buffer = await otherFile.arrayBuffer();
-      otherBase64 = `data:${otherFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let ssBase64 = "";
-    const ssFile = formData.get("paymentScreenshot") as File | null;
-    if (ssFile && ssFile.size > 0) {
-      const buffer = await ssFile.arrayBuffer();
-      ssBase64 = `data:${ssFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
-    }
-
-    let instDocBase64 = "";
-    const instDocFile = formData.get("instituteDocument") as File | null;
-    if (instDocFile && instDocFile.size > 0) {
-      const buffer = await instDocFile.arrayBuffer();
-      instDocBase64 = `data:${instDocFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+        const buffer = await file.arrayBuffer();
+        base64Files[field] = `data:${file.type};base64,${Buffer.from(buffer).toString("base64")}`;
+      }
     }
 
     const application = await AtcApplication.create({
@@ -126,15 +95,15 @@ export async function POST(request: Request) {
       educationQualification: String(formData.get("educationQualification") ?? ""),
       professionalExperience: String(formData.get("professionalExperience") ?? ""),
       dob: String(formData.get("dob") ?? ""),
-      photo: photoBase64,
-      logo: logoBase64,
-      signature: sigBase64,
-      aadharDoc: aadharBase64,
-      marksheetDoc: marksheetBase64,
-      otherDocs: otherBase64,
+      photo: base64Files.photo || "",
+      logo: base64Files.logo || "",
+      signature: base64Files.signature || "",
+      aadharDoc: base64Files.aadharDoc || "",
+      marksheetDoc: base64Files.marksheetDoc || "",
+      otherDocs: base64Files.otherDocs || "",
       paymentMode: String(formData.get("paymentMode") ?? ""),
-      paymentScreenshot: ssBase64,
-      instituteDocument: instDocBase64,
+      paymentScreenshot: base64Files.paymentScreenshot || "",
+      instituteDocument: base64Files.instituteDocument || "",
       infrastructure: String(formData.get("infrastructure") ?? "{}"),
       paidAmount: String(formData.get("paidAmount") ?? ""),
       transactionNo: String(formData.get("transactionNo") ?? ""),

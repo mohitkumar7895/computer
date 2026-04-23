@@ -8,11 +8,28 @@ import {
   Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText,
   Lock, Eye, EyeOff, ShieldAlert, Clock
 } from "lucide-react";
-import StudentManager from "@/components/atc/StudentManager";
-import ExamRequestManager from "@/components/admin/ExamRequestManager";
-import ExamSetManager from "@/components/admin/ExamSetManager";
-import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
-import CertificateRequestManager from "@/components/atc/CertificateRequestManager";
+import dynamic from "next/dynamic";
+
+const StudentManager = dynamic(() => import("@/components/atc/StudentManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Student Manager...</div>,
+  ssr: false 
+});
+const ExamRequestManager = dynamic(() => import("@/components/admin/ExamRequestManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Exam Manager...</div>,
+  ssr: false 
+});
+const ExamSetManager = dynamic(() => import("@/components/admin/ExamSetManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Exam Sets...</div>,
+  ssr: false 
+});
+const StudyMaterialManager = dynamic(() => import("@/components/admin/StudyMaterialManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Materials...</div>,
+  ssr: false 
+});
+const CertificateRequestManager = dynamic(() => import("@/components/atc/CertificateRequestManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Certificates...</div>,
+  ssr: false 
+});
 
 interface AtcUser {
   id: string;
@@ -53,27 +70,45 @@ export default function AtcDashboardPage() {
   const [passMsg, setPassMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
+    // Try to load from cache for "instant" feel
+    const cached = localStorage.getItem("atc_dashboard_cache");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.user) setUser(parsed.user);
+        if (parsed.stats) setStats(parsed.stats);
+        setLoading(false); // Stop showing spinner if we have cached data
+      } catch (e) {
+        console.error("Cache parse error", e);
+      }
+    }
+
     fetch("/api/atc/me")
       .then(async (res) => {
+        if (res.status === 401) {
+          localStorage.removeItem("atc_dashboard_cache");
+          router.push("/atc/login");
+          return;
+        }
         const data = await res.json();
-        setUser(data.user);
+        if (data.user) {
+          setUser(data.user);
+          if (data.stats) setStats(data.stats);
+          // Update cache with error handling
+          try {
+            localStorage.setItem("atc_dashboard_cache", JSON.stringify({ user: data.user, stats: data.stats }));
+          } catch (e) {
+            console.warn("Storage quota exceeded, clearing cache", e);
+            localStorage.removeItem("atc_dashboard_cache");
+          }
+        } else {
+          router.push("/atc/login");
+        }
       })
       .catch((err) => {
         console.error("Dashboard mount error:", err);
-        // Force a dummy user on absolute network failure
-        setUser({
-          id: "mock_id",
-          tpCode: "MOCK",
-          trainingPartnerName: "Local Center"
-        } as AtcUser);
       })
       .finally(() => setLoading(false));
-
-    // Fetch Stats
-    fetch("/api/atc/stats")
-      .then(res => res.json())
-      .then(data => setStats(data))
-      .catch(err => console.error("Stats fetch error:", err));
   }, [router]);
 
   useEffect(() => {

@@ -10,52 +10,76 @@ import { AtcApplication } from "@/models/AtcApplication";
 
 export async function GET() {
   try {
-    await connectDB();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("atc_token")?.value ?? "";
     
-    // Explicitly initialize AtcApplication to prevent import from being optimized away
-    await import("@/models/AtcApplication");
-    
-    const fallback = await AtcUser.findOne().populate("applicationId").lean() as any;
-    
-    if (fallback) {
-      return NextResponse.json({ 
-        authorized: true,
-        user: { 
-          id: fallback._id.toString(), 
-          tpCode: fallback.tpCode, 
-          trainingPartnerName: fallback.trainingPartnerName,
-          mobile: fallback.mobile,
-          email: fallback.email,
-          application: fallback.applicationId
-        } 
-      }, { status: 200 }); // Always 200 OK
+    if (!token) {
+      return NextResponse.json({ authorized: false, message: "No session found" }, { status: 401 });
     }
 
-    // Last resort mock data to never fail
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
+    if (decoded.role !== "atc") {
+       return NextResponse.json({ authorized: false, message: "Invalid role" }, { status: 401 });
+    }
+
+    await connectDB();
+    
+    // Explicitly initialize AtcApplication
+    await import("@/models/AtcApplication");
+    
+    const user = await AtcUser.findById(decoded.id)
+      .populate({
+        path: "applicationId",
+        select: "-photo -logo -signature -aadharDoc -marksheetDoc -otherDocs -paymentScreenshot -instituteDocument"
+      })
+      .lean() as any;
+    
+    if (!user) {
+      return NextResponse.json({ authorized: false, message: "User not found" }, { status: 404 });
+    }
+
+    // Fetch Stats in parallel to save time
+    const { AtcStudent } = await import("@/models/Student");
+    const statsResult = await AtcStudent.aggregate([
+      { $match: { atcId: user._id } },
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          pendingReview: [{ $match: { status: "pending" } }, { $count: "count" }],
+          active: [
+            { $match: { $or: [{ status: "active" }, { status: "approved" }], userStatus: { $ne: "disabled" } } },
+            { $count: "count" }
+          ],
+          rejected: [{ $match: { status: "rejected" } }, { $count: "count" }],
+          blocked: [{ $match: { userStatus: "disabled" } }, { $count: "count" }]
+        }
+      }
+    ]);
+
+    const stats = statsResult[0];
+
     return NextResponse.json({ 
       authorized: true,
       user: { 
-        id: "dummy_id", 
-        tpCode: "TP001", 
-        trainingPartnerName: "Institute",
-        mobile: "9999999999",
-        email: "test@example.com",
-      } 
+        id: user._id.toString(), 
+        tpCode: user.tpCode, 
+        trainingPartnerName: user.trainingPartnerName,
+        mobile: user.mobile,
+        email: user.email,
+        application: user.applicationId
+      },
+      stats: {
+        total: stats.total[0]?.count || 0,
+        pendingReview: stats.pendingReview[0]?.count || 0,
+        active: stats.active[0]?.count || 0,
+        rejected: stats.rejected[0]?.count || 0,
+        blocked: stats.blocked[0]?.count || 0,
+      }
     }, { status: 200 });
+
   } catch (err: any) {
-    console.error("API /atc/me catch block error:", err);
-    // If DB fails or any other crash occurs, NEVER return a non-JSON empty response
-    // Return the hardcoded mock user in all failure cases.
-    return NextResponse.json({ 
-      authorized: true,
-      user: { 
-        id: "dummy_error_id", 
-        tpCode: "ERROR-BYPASS", 
-        trainingPartnerName: "Bypass Institute",
-        mobile: "0000000000",
-        email: "error@example.com",
-      } 
-    }, { status: 200 });
+    console.error("API /atc/me error:", err);
+    return NextResponse.json({ authorized: false, message: "Session expired" }, { status: 401 });
   }
 }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
 import { cookies } from "next/headers";
@@ -23,21 +24,43 @@ export async function GET() {
 
   await connectDB();
 
-  const total = await AtcStudent.countDocuments({ atcId: user.id });
-  const pendingReview = await AtcStudent.countDocuments({ atcId: user.id, status: "pending" });
-  const active = await AtcStudent.countDocuments({
-    atcId: user.id,
-    $or: [{ status: "active" }, { status: "approved" }],
-    userStatus: { $ne: "disabled" },
-  });
-  const rejected = await AtcStudent.countDocuments({ atcId: user.id, status: "rejected" });
-  const blocked = await AtcStudent.countDocuments({ atcId: user.id, userStatus: "disabled" });
+  const stats = await AtcStudent.aggregate([
+    { $match: { atcId: new mongoose.Types.ObjectId(user.id) } },
+    {
+      $facet: {
+        total: [{ $count: "count" }],
+        pendingReview: [
+          { $match: { status: "pending" } },
+          { $count: "count" }
+        ],
+        active: [
+          {
+            $match: {
+              $or: [{ status: "active" }, { status: "approved" }],
+              userStatus: { $ne: "disabled" }
+            }
+          },
+          { $count: "count" }
+        ],
+        rejected: [
+          { $match: { status: "rejected" } },
+          { $count: "count" }
+        ],
+        blocked: [
+          { $match: { userStatus: "disabled" } },
+          { $count: "count" }
+        ]
+      }
+    }
+  ]);
+
+  const result = stats[0];
 
   return NextResponse.json({
-    total,
-    pendingReview,
-    active,
-    rejected,
-    blocked,
+    total: result.total[0]?.count || 0,
+    pendingReview: result.pendingReview[0]?.count || 0,
+    active: result.active[0]?.count || 0,
+    rejected: result.rejected[0]?.count || 0,
+    blocked: result.blocked[0]?.count || 0,
   });
 }

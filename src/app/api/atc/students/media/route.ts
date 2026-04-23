@@ -30,6 +30,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
+    // File Size Validation
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    const fileSizeKb = file.size / 1024;
+
+    if (isImage && fileSizeKb > 100) {
+      return NextResponse.json({ message: `${fieldName}: Image size exceeds 100KB limit.` }, { status: 400 });
+    }
+    if (isPdf && fileSizeKb > 500) {
+      return NextResponse.json({ message: `${fieldName}: PDF size exceeds 500KB limit.` }, { status: 400 });
+    }
+    if (!isImage && !isPdf && fileSizeKb > 500) {
+      // Default fallback for other files
+      return NextResponse.json({ message: `${fieldName}: File size exceeds 500KB limit.` }, { status: 400 });
+    }
+
     await connectDB();
 
     const toBase64 = async (f: File) => {

@@ -26,10 +26,10 @@ export async function GET(request: Request) {
     await connectDB();
     const students = await AtcStudent.find().sort({ createdAt: -1 }).lean();
     
-    // Merge media
+    // Merge media (only photo to reduce payload)
     const { StudentMedia } = await import("@/models/StudentMedia");
     const studentsWithMedia = await Promise.all(students.map(async (s: any) => {
-      const media = await StudentMedia.find({ studentId: s._id }).lean();
+      const media = await StudentMedia.find({ studentId: s._id, fieldName: "photo" }).select("fieldName content").lean();
       const mediaMap: any = {};
       media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
       return { ...s, ...mediaMap };

@@ -220,6 +220,22 @@ export default function StudentManager() {
       for (const field of docFields) {
         const file = form.get(field);
         if (file instanceof File && file.size > 0) {
+          // File Size Validation
+          const isImage = file.type.startsWith("image/");
+          const isPdf = file.type === "application/pdf";
+          const sizeKb = file.size / 1024;
+
+          if (isImage && sizeKb > 100) {
+            setMsg({ type: "error", text: `${field}: Image size must be under 100KB. Currently ${Math.round(sizeKb)}KB.` });
+            setLoading(false);
+            return;
+          }
+          if (isPdf && sizeKb > 500) {
+            setMsg({ type: "error", text: `${field}: PDF size must be under 500KB. Currently ${Math.round(sizeKb)}KB.` });
+            setLoading(false);
+            return;
+          }
+
           const processedFile = await compressImage(file);
           filesToUpload.push({ field, file: processedFile });
           form.delete(field); // Remove from main request

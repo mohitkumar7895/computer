@@ -109,4 +109,10 @@ const StudentSchema = new Schema<IStudent>(
   { timestamps: true }
 );
 
+// Add Indexes for Performance
+StudentSchema.index({ atcId: 1, status: 1 });
+StudentSchema.index({ atcId: 1, userStatus: 1 });
+StudentSchema.index({ atcId: 1, createdAt: -1 });
+StudentSchema.index({ registrationNo: 1 });
+
 export const AtcStudent = models.AtcStudent || model<IStudent>("AtcStudent", StudentSchema);

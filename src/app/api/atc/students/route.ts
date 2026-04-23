@@ -23,12 +23,16 @@ export async function GET() {
 
   await connectDB();
   try {
-    const students = await AtcStudent.find({ atcId: user.id }).sort({ createdAt: -1 }).lean();
+    const students = await AtcStudent.find({ atcId: user.id })
+      .select("registrationNo name fatherName mobile course admissionDate createdAt examMode offlineExamStatus status photo")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
     
-    // Fetch and merge media
+    // Fetch and merge media (only photo to reduce payload)
     const { StudentMedia } = await import("@/models/StudentMedia");
     const studentsWithMedia = await Promise.all(students.map(async (s: any) => {
-      const media = await StudentMedia.find({ studentId: s._id }).lean();
+      const media = await StudentMedia.find({ studentId: s._id, fieldName: "photo" }).select("fieldName content").lean();
       const mediaMap: any = {};
       media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
       return { ...s, ...mediaMap };
