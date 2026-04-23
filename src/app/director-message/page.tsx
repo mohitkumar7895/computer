@@ -1,7 +1,9 @@
 import Image from "next/image";
 import InternalPageLayout from "@/components/InternalPageLayout";
+import { getBrandName } from "@/lib/settings";
 
-export default function DirectorMessagePage() {
+export default async function DirectorMessagePage() {
+  const brandName = await getBrandName();
   return (
     <InternalPageLayout
       title="Director Message"
@@ -39,7 +41,7 @@ export default function DirectorMessagePage() {
           <div className="space-y-3 text-sm leading-8 sm:text-base sm:leading-9">
             <p>Dear Students, Parents, and Prospective Learners,</p>
             <p>
-              Welcome to Yukti Computer Institute. It is with great pride and enthusiasm
+              Welcome to {brandName}. It is with great pride and enthusiasm
               that I extend a warm greeting to each of you. As the Director of this
               esteemed institute, I am honored to lead a team that is deeply committed
               to nurturing talent and shaping the future of technology.
@@ -47,8 +49,7 @@ export default function DirectorMessagePage() {
             <p>
               In an era where technology is not just a part of our lives but a driving
               force behind global progress, it is essential to equip ourselves with the
-              skills and knowledge to navigate and excel in this dynamic field. At Yukti
-              Computer Institute, our goal is to provide an exceptional learning
+              skills and knowledge to navigate and excel in this dynamic field. At {brandName}, our goal is to provide an exceptional learning
               experience that empowers individuals to thrive in the ever-evolving world of IT.
             </p>
             <p>
@@ -59,7 +60,7 @@ export default function DirectorMessagePage() {
               in emerging technologies.
             </p>
             <p>
-              Thank you for choosing Yukti Computer Institute. We look forward to being
+              Thank you for choosing {brandName}. We look forward to being
               a part of your success story and helping you build a confident future.
             </p>
           </div>

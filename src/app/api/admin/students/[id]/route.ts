@@ -39,28 +39,9 @@ export async function PATCH(
 
     if (action === "approved" || action === "rejected") {
       if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-"))) {
-        const formatSetting = await Settings.findOne({ key: "reg_format_student" });
-        const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-ST-", counter: 1, padding: 4 };
-
-        let regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-        
-        // Ensure uniqueness
-        let exists = await AtcStudent.findOne({ registrationNo: regNo });
-        while (exists) {
-          format.counter += 1;
-          regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-          exists = await AtcStudent.findOne({ registrationNo: regNo });
-        }
-
+        const { generateNextId } = await import("@/lib/idGenerator");
+        const regNo = await generateNextId("reg_format_student", AtcStudent, "registrationNo");
         student.registrationNo = regNo;
-
-        // Increment counter in settings
-        format.counter += 1;
-        await Settings.findOneAndUpdate(
-          { key: "reg_format_student" },
-          { value: JSON.stringify(format) },
-          { upsert: true }
-        );
       }
       student.status = action === "approved" ? "active" : action;
     } 

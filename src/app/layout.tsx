@@ -8,11 +8,17 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Yukti Institute | Professional Training Courses",
-  description:
-    "Modern training institute website built with Next.js, TypeScript, and Tailwind CSS.",
-};
+import { getBrandName } from "@/lib/settings";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brandName = await getBrandName();
+  return {
+    title: `${brandName} | Professional Training Courses`,
+    description: `Official portal for ${brandName}, providing modern computer education and professional training.`,
+  };
+}
+
+import { BrandProvider } from "@/context/BrandContext";
 
 export default function RootLayout({
   children,
@@ -22,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        {children}
+        <BrandProvider>
+          {children}
+        </BrandProvider>
         <ScrollToTopButton />
       </body>
     </html>

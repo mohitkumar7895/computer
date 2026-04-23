@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
+
     await Settings.findOneAndUpdate(
       { key: body.key },
       { value: body.value },

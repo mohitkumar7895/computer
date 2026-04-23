@@ -197,26 +197,8 @@ export async function POST(request: Request) {
     let rawPassword = String(formData.get("password") || formData.get("customPassword") || "").trim();
 
     if (!tpCode) {
-      const formatSetting = await Settings.findOne({ key: "reg_format_center" });
-      const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
-      
-      tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-      
-      // Ensure tpCode is unique
-      let exists = await AtcUser.findOne({ tpCode });
-      while (exists) {
-        format.counter += 1;
-        tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-        exists = await AtcUser.findOne({ tpCode });
-      }
-
-      // Increment counter in settings
-      format.counter += 1;
-      await Settings.findOneAndUpdate(
-        { key: "reg_format_center" },
-        { value: JSON.stringify(format) },
-        { upsert: true }
-      );
+      const { generateNextId } = await import("@/lib/idGenerator");
+      tpCode = await generateNextId("reg_format_center", AtcUser, "tpCode");
     }
 
     const finalPassword = rawPassword || mobile;

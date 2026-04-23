@@ -1,6 +1,8 @@
 import InternalPageLayout from "@/components/InternalPageLayout";
+import { getBrandName } from "@/lib/settings";
 
-export default function OurVisionPage() {
+export default async function OurVisionPage() {
+  const brandName = await getBrandName();
   return (
     <InternalPageLayout
       title="Vision"
@@ -15,7 +17,7 @@ export default function OurVisionPage() {
           <h2 className="text-2xl font-extrabold text-slate-900">Vision</h2>
           <div className="text-sm leading-8 sm:text-base sm:leading-9">
             <p>
-              At Yukti Computer Institute, we envision a world where technology is
+              At {brandName}, we envision a world where technology is
               accessible to everyone, and our students are at the forefront of
               innovation. We aim to bridge the gap between theoretical knowledge and
               practical application.

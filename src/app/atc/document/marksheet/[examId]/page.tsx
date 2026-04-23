@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GraduationCap, FileText, CheckCircle, ShieldCheck, User, QrCode } from "lucide-react";
 
+import { useBrand } from "@/context/BrandContext";
+
 export default function AtcMarksheetPage() {
   const { examId } = useParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const { brandName: rawBrandName } = useBrand();
+  const brandName = rawBrandName.toUpperCase();
 
   useEffect(() => {
     fetch(`/api/atc/documents/marksheet?examId=${examId}`)
@@ -44,7 +48,7 @@ export default function AtcMarksheetPage() {
                  <FileText size={28} />
               </div>
               <div className="leading-tight">
-                 <h1 className="text-2xl font-black text-slate-900 uppercase">YUKTI COMPUTER EDUCATION</h1>
+                 <h1 className="text-2xl font-black text-slate-900 uppercase">{brandName}</h1>
                  <p className="text-[8px] font-black text-slate-400 tracking-[0.3em] uppercase">An ISO 9001:2015 Certified Institution</p>
                  <div className="mt-2 inline-block px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase rounded">Statement of Marks</div>
               </div>

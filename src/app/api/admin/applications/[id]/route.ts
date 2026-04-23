@@ -234,20 +234,8 @@ export async function PATCH(
       let tpCode = application.tpCode;
 
       if (!existingUser) {
-        const formatSetting = await Settings.findOne({ key: "reg_format_center" });
-        const format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-", counter: 1, padding: 4 };
-        
-        tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-        
-        let exists = await AtcUser.findOne({ tpCode });
-        while (exists) {
-          format.counter += 1;
-          tpCode = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
-          exists = await AtcUser.findOne({ tpCode });
-        }
-
-        format.counter += 1;
-        await Settings.findOneAndUpdate({ key: "reg_format_center" }, { value: JSON.stringify(format) }, { upsert: true });
+        const { generateNextId } = await import("@/lib/idGenerator");
+        tpCode = await generateNextId("reg_format_center", AtcUser, "tpCode");
 
         const bcrypt = await import("bcryptjs");
         const hashedPassword = await bcrypt.hash(application.mobile, 10);

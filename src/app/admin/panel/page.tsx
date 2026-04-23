@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download, EyeOff, Hash, Save, Printer
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download, EyeOff, Hash, Save, Printer,
+  Layout, Type
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
@@ -189,6 +190,8 @@ export default function AdminPanelPage() {
   const [centerFormat, setCenterFormat] = useState({ prefix: "ATC-", counter: 1, padding: 4 });
   const [studentFormat, setStudentFormat] = useState({ prefix: "ATC-ST-", counter: 1, padding: 4 });
   const [idFormatSaving, setIdFormatSaving] = useState(false);
+  const [brandName, setBrandName] = useState("Brand Name");
+  const [brandSaving, setBrandSaving] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
@@ -296,7 +299,6 @@ export default function AdminPanelPage() {
       const fData = (await fRes.json()) as { value: string | null };
       setFeePlans(parseFeeOptions(fData.value));
 
-      // Fetch ID Formats
       const cfRes = await fetch("/api/admin/settings?key=reg_format_center");
       const cfData = await cfRes.json();
       if (cfData.value) setCenterFormat(JSON.parse(cfData.value));
@@ -304,6 +306,10 @@ export default function AdminPanelPage() {
       const sfRes = await fetch("/api/admin/settings?key=reg_format_student");
       const sfData = await sfRes.json();
       if (sfData.value) setStudentFormat(JSON.parse(sfData.value));
+
+      const bRes = await fetch("/api/admin/settings?key=brand_name");
+      const bData = (await bRes.json()) as { value: string | null };
+      if (bData.value) setBrandName(bData.value);
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
@@ -351,6 +357,24 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
       showToast("error", "Action failed.");
     } finally {
       setStudentActionId(null);
+    }
+  };
+
+  const handleBrandSave = async () => {
+    if (!brandName.trim()) return showToast("error", "Brand name cannot be empty.");
+    setBrandSaving(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "brand_name", value: brandName.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      showToast("success", "Brand name updated globally!");
+    } catch {
+      showToast("error", "Failed to save brand name.");
+    } finally {
+      setBrandSaving(false);
     }
   };
 
@@ -816,7 +840,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <title>Admin Panel | Yukti Computer Institute</title>
+      <title>Admin Panel | {brandName}</title>
       {/* Toast */}
       {toastMsg && (
         <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 sm:max-w-md px-5 py-4 rounded-2xl shadow-2xl text-sm font-semibold transition-all ${toastMsg.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
@@ -1357,6 +1381,50 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
             {/* ── SETTINGS TAB ── */}
             {tab === "settings" && (
               <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Global Brand Identity */}
+                <div className="md:col-span-2 bg-white rounded-[2rem] border border-slate-100 shadow-xl p-8 space-y-6">
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                      <Layout className="w-7 h-7 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Global Brand Identity</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-1">Set the primary name for your institution. This reflects on certificates, ID cards, and all portal titles.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Institution Brand Name</label>
+                       <div className="relative group">
+                          <input 
+                            type="text" 
+                            value={brandName}
+                            onChange={(e) => setBrandName(e.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
+                            placeholder="e.g. Yukti Computer Education"
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
+                            <Type className="w-5 h-5 text-slate-900" />
+                          </div>
+                       </div>
+                    </div>
+
+                    <button 
+                      onClick={handleBrandSave}
+                      disabled={brandSaving}
+                      className="group relative flex items-center justify-center gap-3 py-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {brandSaving ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 group-hover:scale-125 transition" />
+                      )}
+                      {brandSaving ? "Updating Brand..." : "Save Brand Settings"}
+                    </button>
+                  </div>
+                </div>
 
                 {/* QR Code Setting */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
@@ -1731,6 +1799,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none"
                               placeholder="e.g. ATC-"
                             />
+                            <p className="text-[8px] text-slate-400 mt-1 italic">Tip: Use <strong>{`{YEAR}`}</strong> in prefix for automatic current year.</p>
                           </div>
                           <div>
                             <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Internal Counter (Current Value)</label>
@@ -1745,7 +1814,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">
                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Generated Sample</p>
                              <p className="text-xl font-black text-blue-700 tracking-tighter">
-                               {centerFormat.prefix}{String(centerFormat.counter).padStart(centerFormat.padding, "0")}
+                               {centerFormat.prefix.replace("{YEAR}", new Date().getFullYear().toString())}{String(centerFormat.counter).padStart(centerFormat.padding, "0")}
                              </p>
                           </div>
                        </div>
@@ -1768,6 +1837,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-purple-100 outline-none"
                               placeholder="e.g. ATC-ST-26-"
                             />
+                            <p className="text-[8px] text-slate-400 mt-1 italic">Tip: Use <strong>{`{YEAR}`}</strong> in prefix for automatic current year.</p>
                           </div>
                           <div>
                             <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Internal Counter (Current Value)</label>
@@ -1782,7 +1852,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">
                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Generated Sample</p>
                              <p className="text-xl font-black text-purple-700 tracking-tighter">
-                               {studentFormat.prefix}{String(studentFormat.counter).padStart(studentFormat.padding, "0")}
+                               {studentFormat.prefix.replace("{YEAR}", new Date().getFullYear().toString())}{String(studentFormat.counter).padStart(studentFormat.padding, "0")}
                              </p>
                           </div>
                        </div>
@@ -2236,7 +2306,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                           </div>
                           <div>
                               <h1 className="text-2xl font-black uppercase tracking-tight leading-none text-slate-900">Student Academic Record</h1>
-                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1.5 italic">Yukti Computer Education • ISO Certified</p>
+                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1.5 italic">{brandName} • ISO Certified</p>
                               <div className="flex items-center gap-3 mt-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                   <span>Admission Report</span>
                                   <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
@@ -2325,7 +2395,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                           </div>
                           <div className="text-center">
                               <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-1.5 mb-1 w-40 mx-auto">Director Sign</p>
-                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Yukti Computer Education</p>
+                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">{brandName}</p>
                           </div>
                       </div>
                       <div className="mt-6 text-center">

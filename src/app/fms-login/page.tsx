@@ -1,13 +1,15 @@
 import { Lock, User } from "lucide-react";
 import Link from "next/link";
+import { getBrandName } from "@/lib/settings";
 
-export default function FmsLoginPage() {
+export default async function FmsLoginPage() {
+  const brandName = await getBrandName();
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#2f3746] px-4">
       <section className="w-full max-w-84 overflow-hidden bg-[#f2f2f2] shadow-[0_1px_2px_rgba(0,0,0,0.2)] sm:max-w-96">
         <div className="bg-[#4ab7d8] px-5 py-4">
           <h1 className="text-center text-2xl font-bold leading-tight text-white sm:text-[2.1rem]">
-            Yukti Computer InstituteLogin
+            {brandName} Login
           </h1>
         </div>
 

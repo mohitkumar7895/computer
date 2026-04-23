@@ -8,7 +8,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { useBrand } from "@/context/BrandContext";
+
 export default function StudentZonePage() {
+  const { brandName } = useBrand();
   const [regNo, setRegNo] = useState("");
   const [searchResult, setSearchResult] = useState<any>(null);
   const [searching, setSearching] = useState(false);
@@ -84,7 +87,7 @@ export default function StudentZonePage() {
     },
     {
       title: "Registered Students",
-      desc: "Directory and search for currently enrolled students in Yukti Computer Education.",
+      desc: `Directory and search for currently enrolled students in ${brandName}.`,
       icon: GraduationCap,
       link: "#search",
       color: "bg-teal-500",

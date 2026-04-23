@@ -41,7 +41,21 @@ export async function POST(request: Request) {
       const results = [];
       for (const student of students) {
         if (!student.registrationNo || student.registrationNo.startsWith("PENDING-")) {
-          const regNo = `${format.prefix}${String(format.counter).padStart(format.padding, "0")}`;
+          let prefix = format.prefix;
+          if (prefix.includes("{YEAR}")) {
+            prefix = prefix.replace("{YEAR}", new Date().getFullYear().toString());
+          }
+          
+          let regNo = `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
+          
+          // Ensure uniqueness
+          let exists = await AtcStudent.findOne({ registrationNo: regNo });
+          while (exists) {
+            format.counter += 1;
+            regNo = `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
+            exists = await AtcStudent.findOne({ registrationNo: regNo });
+          }
+
           student.registrationNo = regNo;
           format.counter += 1;
         }
@@ -50,7 +64,7 @@ export async function POST(request: Request) {
         results.push(student);
       }
 
-      // Save updated counter
+      // Save updated counter once
       await Settings.findOneAndUpdate(
         { key: "reg_format_student" },
         { value: JSON.stringify(format) },

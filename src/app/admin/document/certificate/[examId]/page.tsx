@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GraduationCap, Award, MapPin, Calendar, ShieldCheck, User } from "lucide-react";
 
+import { useBrand } from "@/context/BrandContext";
+
 export default function AdminCertificatePage() {
   const { examId } = useParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const { brandName: rawBrandName } = useBrand();
+  const brandName = rawBrandName.toUpperCase();
 
   useEffect(() => {
     fetch(`/api/admin/documents/certificate?examId=${examId}`)
@@ -45,7 +49,7 @@ export default function AdminCertificatePage() {
            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4 transform rotate-6 border-4 border-white">
               <GraduationCap className="text-white w-8 h-8" />
            </div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-1">YUKTI COMPUTER EDUCATION</h1>
+           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-1">{brandName}</h1>
            <p className="text-[10px] font-black text-blue-600 tracking-[0.4em] uppercase mb-10 border-t border-slate-100 pt-2 w-1/2">Autonomous Organization Registered Under Gov of India</p>
            
            <div className="relative mb-12">
@@ -145,7 +149,7 @@ export default function AdminCertificatePage() {
 
         {/* Diagonal Watermark */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-[35deg]">
-           <p className="text-[120px] font-black uppercase text-slate-900 tracking-[0.1em]">YUKTI EDUCATION</p>
+           <p className="text-[120px] font-black uppercase text-slate-900 tracking-[0.1em]">{brandName}</p>
         </div>
       </div>
 

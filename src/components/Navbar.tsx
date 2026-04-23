@@ -6,7 +6,10 @@ import { ChevronDown, Clock3, Download, LogIn, Mail, Menu, Phone, Wallet, X } fr
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { NAV_LINKS } from "@/utils/constants";
 
+import { useBrand } from "@/context/BrandContext";
+
 export default function Navbar() {
+  const { brandName } = useBrand();
   const [activeSection, setActiveSection] = useState("#home");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
@@ -137,7 +140,7 @@ export default function Navbar() {
           <Link href="/" onClick={handleNavClick("/")} className="shrink-0">
             <Image
               src="/ygroup-logo.svg"
-              alt="Y Group's"
+              alt={brandName}
               width={260}
               height={110}
               className="h-auto w-28 xs:w-34 sm:w-42.5 lg:w-47.5"

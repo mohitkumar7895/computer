@@ -15,8 +15,10 @@ import {
   FaYoutube,
 } from "react-icons/fa";
 import { FOOTER_LINKS, SITE_INFO, SOCIAL_LINKS } from "@/utils/constants";
+import { useBrand } from "@/context/BrandContext";
 
 export default function Footer() {
+  const { brandName } = useBrand();
   const socialIcons = [FaFacebookF, FaTwitter, FaYoutube, FaGooglePlusG];
   const bannerControls = useAnimationControls();
   const prefersReducedMotion = useReducedMotion();
@@ -88,7 +90,7 @@ export default function Footer() {
           >
             <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
             <p>
-            Welcome to <span className="font-extrabold text-[#666666]">Yukti Computer Institute</span>
+             Welcome to <span className="font-extrabold text-[#666666]">{brandName}</span>
             </p>
             <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
           </motion.div>
@@ -135,7 +137,7 @@ export default function Footer() {
             <div className="flex items-start gap-5">
               <FaMapMarkerAlt className="mt-1 h-5 w-5 shrink-0 text-[#0f0fbf]" />
               <div className="space-y-2 text-sm leading-6 sm:text-sm sm:leading-7">
-                <p className="font-extrabold text-white">Yukti Computer Institute:</p>
+                 <p className="font-extrabold text-white">{brandName}:</p>
                 <p>{SITE_INFO.address}</p>
               </div>
             </div>
@@ -166,7 +168,7 @@ export default function Footer() {
 
           <div className="mt-6 overflow-hidden border border-white/20 bg-white shadow-lg">
             <iframe
-              title="Yukti Computer Institute Map"
+               title={`${brandName} Map`}
               src={SITE_INFO.mapEmbedUrl}
               className="h-62.5 w-full"
               loading="lazy"
@@ -196,7 +198,7 @@ export default function Footer() {
 
       <div className="bg-[#08089d] px-6 py-5 text-white">
         <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-2 text-center text-xs font-medium md:flex-row md:text-left sm:text-sm">
-          <p>YUKTI COMPUTER INSTITUTE  © 2022</p>
+           <p>{brandName.toUpperCase()}  © {new Date().getFullYear()}</p>
           <p>
             Designed by <span className="font-bold">{SITE_INFO.designer}</span>
           </p>

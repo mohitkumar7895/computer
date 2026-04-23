@@ -15,7 +15,10 @@ import ExamManager from "@/components/student/ExamManager";
 import StudentStudyMaterial from "@/components/student/StudentStudyMaterial";
 import StudentIdCard from "@/components/common/StudentIdCard";
 
+import { useBrand } from "@/context/BrandContext";
+
 export default function StudentDashboardPage() {
+  const { brandName } = useBrand();
   usePageTitle("student");
   const router = useRouter();
   const [student, setStudent] = useState<any>(null);
@@ -113,7 +116,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden">
-      <title>Student Panel | Yukti Computer Institute</title>
+      <title>Student Panel | {brandName}</title>
       {/* Sidebar Mobile Overlay */}
       {isSidebarOpen && (
         <div 
@@ -138,7 +141,7 @@ export default function StudentDashboardPage() {
               <GraduationCap className="text-blue-400 w-7 h-7" />
             </div>
             <div>
-              <p className="font-black text-lg leading-tight tracking-tight uppercase">Yukti Portal</p>
+              <p className="font-black text-lg leading-tight tracking-tight uppercase">{brandName.split(' ')[0]} Portal</p>
               <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-0.5">Student Access</p>
             </div>
           </div>

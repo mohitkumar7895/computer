@@ -1,6 +1,8 @@
 import InternalPageLayout from "@/components/InternalPageLayout";
+import { getBrandName } from "@/lib/settings";
 
-export default function AboutInstitutePage() {
+export default async function AboutInstitutePage() {
+  const brandName = await getBrandName();
   return (
     <InternalPageLayout
       title="About Us"
@@ -9,7 +11,7 @@ export default function AboutInstitutePage() {
       <div className="mx-auto w-full max-w-6xl">
         <div className="max-w-3xl space-y-4 text-sm leading-8 text-slate-500 sm:text-base sm:leading-9">
           <p>
-            Welcome to Yukti Computer Institute, where technology meets excellence.
+            Welcome to {brandName}, where technology meets excellence.
             Established in 2020, we are a leading computer training institute in Boisar
             Palghar dedicated to empowering individuals with the knowledge and skills
             needed to thrive in the digital age.

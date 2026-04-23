@@ -51,7 +51,10 @@ interface AtcUser {
   };
 }
 
+import { useBrand } from "@/context/BrandContext";
+
 export default function AtcDashboardPage() {
+  const { brandName } = useBrand();
   usePageTitle("atc");
   const router = useRouter();
   const [user, setUser] = useState<AtcUser | null>(null);
@@ -215,7 +218,7 @@ export default function AtcDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex relative">
-      <title>Institute Panel | Yukti Computer Institute</title>
+      <title>Institute Panel | {brandName}</title>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 

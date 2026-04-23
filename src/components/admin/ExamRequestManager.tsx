@@ -495,12 +495,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                  </button>
                                )}
                                <button
-                                 onClick={() => setAtcTab("history")}
-                                 className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
-                               >
-                                 Track in History
-                               </button>
-                               <button
                                  onClick={() => { setRequestExamStudent(s); setExamReqForm({ ...examReqForm, examMode: s.preferredMode || 'online' }); }}
                                  disabled={hasTodayRequest}
                                  className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition shadow-lg shadow-slate-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
