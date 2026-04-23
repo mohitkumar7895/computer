@@ -141,7 +141,7 @@ export default function StudentIdCard({ student, backgrounds = {} }: StudentIdCa
               <div className="mt-6 space-y-8">
                   <div>
                     <h3 className="text-[9px] font-black uppercase tracking-[0.2em] mb-2" style={{ color: '#0a0aa1' }}>ASSIGNED TRAINING CENTER</h3>
-                    <div className="p-5 rounded-3xl border" style={{ backgroundColor: '#ffffff', borderColor: '#f1f5f9', shadow: 'sm' }}>
+                    <div className="p-5 rounded-3xl border" style={{ backgroundColor: '#ffffff', borderColor: '#f1f5f9', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
                         <p className="text-[13px] font-black uppercase leading-tight mb-3" style={{ color: '#0a0a2e' }}>{student.centerName || "Not Assigned"}</p>
                         <p className="text-[11px] font-bold leading-relaxed italic line-clamp-3 text-slate-500">{student.centerAddress || "Center address details not found in records."}</p>
                     </div>
