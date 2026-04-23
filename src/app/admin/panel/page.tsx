@@ -24,6 +24,12 @@ import {
   INDIAN_STATES,
   DISTRICTS_BY_STATE,
 } from "@/utils/atcSettings";
+import dynamic from "next/dynamic";
+
+const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
+  ssr: false 
+});
 
 interface Application {
   _id: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -73,6 +79,9 @@ interface Student {
   otherDocs?: string;
   password?: string;
   userStatus?: "active" | "disabled";
+  totalFee?: number;
+  paidAmount?: number;
+  duesAmount?: number;
 }
 
 
@@ -100,7 +109,7 @@ const FormValue = ({ label, value, highlight = false, full = false }: any) => (
 
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees";
 
 const PrintField = ({ label, value }: any) => (
   <div>
@@ -822,6 +831,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     registration: "Registration Settings",
     students: "Manage Students",
     resultReview: "Certificate Authorize",
+    fees: "Fee Management",
   };
 
   const tabDesc: Record<Tab, string> = {
@@ -836,6 +846,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     registration: "ID Generation Logic",
     students: "Review and approve student registrations from all centers",
     resultReview: "Authorize ATC submitted results and generate marksheet/certificate instantly",
+    fees: "Collect or return fees, view transaction history, and generate receipts for students",
   };
 
   return (
@@ -882,6 +893,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                 { id: "examRequests" as Tab, icon: Layers, label: "Exam Requests" },
                 { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
                 { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
+                { id: "fees" as Tab, icon: CreditCard, label: "Fee Management" },
                 { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
                 { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Certificate Authorize", badge: pendingResults.length },
               ].map((item) => (
@@ -1022,6 +1034,8 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                 </div>
               </div>
             )}
+
+            {tab === "fees" && <FeeManager role="admin" />}
 
             {/* ── CREATE TAB ── */}
             {tab === "create" && (
@@ -1957,15 +1971,16 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         <th className="px-6 py-4">STUDENT IDENTITY</th>
                         <th className="px-6 py-4">CENTER</th>
                         <th className="px-6 py-4">COURSE</th>
+                        <th className="px-6 py-4">FEE SUMMARY</th>
                         <th className="px-6 py-4 text-center">STATUS</th>
                         <th className="px-6 py-4 text-right">ACTION</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {studentLoading ? (
-                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">Loading students...</td></tr>
+                        <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">Loading students...</td></tr>
                       ) : filteredStudents.length === 0 ? (
-                        <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">No {studentFilter !== "all" ? studentFilter : ""} students found.</td></tr>
+                        <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No {studentFilter !== "all" ? studentFilter : ""} students found.</td></tr>
                       ) : (
                         filteredStudents.map((s) => (
                           <Fragment key={s._id}>
@@ -2006,6 +2021,13 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                  <div className="flex flex-col">
                                     <span className="text-[11px] font-black uppercase text-emerald-700">{s.course}</span>
                                     <span className="text-[9px] font-bold text-slate-400 capitalize">{s.session}</span>
+                                 </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                 <div className="flex flex-col gap-0.5">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Admission: <span className="text-slate-700 font-black">₹{s.totalFee || s.admissionFees || 0}</span></p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Total Paid: <span className="text-emerald-600 font-black">₹{s.paidAmount || 0}</span></p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Remaining Dues: <span className={`${((s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)) > 0 ? "text-red-600" : "text-emerald-700"} font-black`}>₹{(s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)}</span></p>
                                  </div>
                               </td>
                               <td className="px-6 py-4 text-center">

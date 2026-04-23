@@ -28,14 +28,27 @@ export async function GET(request: Request) {
     
     // Merge media (only photo to reduce payload)
     const { StudentMedia } = await import("@/models/StudentMedia");
-    const studentsWithMedia = await Promise.all(students.map(async (s: any) => {
+    // Fetch transactions and merge balances for each student
+    const { FeeTransaction } = await import("@/models/FeeTransaction");
+    const studentsWithRealBalances = await Promise.all(students.map(async (s: any) => {
       const media = await StudentMedia.find({ studentId: s._id, fieldName: "photo" }).select("fieldName content").lean();
       const mediaMap: any = {};
       media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
-      return { ...s, ...mediaMap };
+      
+      const txs = await FeeTransaction.find({ studentId: s._id }).lean();
+      const totalPaid = txs.reduce((acc: number, t: any) => acc + (t.type === 'collect' ? t.amount : -t.amount), 0);
+      const totalAdmission = s.totalFee || Number(s.admissionFees) || 0;
+
+      return { 
+        ...s, 
+        ...mediaMap,
+        totalFee: totalAdmission,
+        paidAmount: totalPaid,
+        duesAmount: totalAdmission - totalPaid
+      };
     }));
 
-    return NextResponse.json({ students: studentsWithMedia });
+    return NextResponse.json({ students: studentsWithRealBalances });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }

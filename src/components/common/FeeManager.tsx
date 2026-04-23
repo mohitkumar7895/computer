@@ -1,0 +1,603 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Search, Filter, History, CreditCard, Printer, X, Download, Plus, Minus, FileText, CheckCircle, AlertCircle } from "lucide-react";
+
+interface Student {
+  _id: string;
+  registrationNo: string;
+  name: string;
+  fatherName: string;
+  mobile: string;
+  course: string;
+  status: string;
+  totalFee: number;
+  paidAmount: number;
+  duesAmount: number;
+  admissionFees?: string;
+  centerCode?: string;
+  dob?: string;
+}
+
+interface Transaction {
+  _id: string;
+  date: string;
+  receiptNo: string;
+  paidFor: string;
+  paymentMode: string;
+  amount: number;
+  type: "collect" | "return";
+}
+
+export default function FeeManager({ role }: { role: "admin" | "atc" }) {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showCollectForm, setShowCollectForm] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    type: "collect",
+    registrationNo: "",
+    name: "",
+    course: "",
+    totalFee: 0,
+    paidAmount: 0,
+    duesAmount: 0,
+    date: new Date().toISOString().split("T")[0],
+    receiptNo: "",
+    paidFor: "Course Fee",
+    paymentMode: "Cash",
+    amount: 0
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const query = new URLSearchParams();
+      if (search) query.append("regNo", search);
+      if (courseFilter) query.append("course", courseFilter);
+      if (statusFilter) query.append("status", statusFilter);
+      
+      const res = await fetch(`/api/fee/students?${query.toString()}`);
+      const data = await res.json();
+      setStudents(data.students || []);
+    } catch (err) {
+      console.error("Failed to fetch students", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, [search, courseFilter, statusFilter]);
+
+  const fetchHistory = async (student: Student) => {
+    setSelectedStudent(student);
+    try {
+      const res = await fetch(`/api/fee/history/${student._id}`);
+      const data = await res.json();
+      setTransactions(data.transactions || []);
+      setShowDetails(true);
+    } catch (err) {
+      console.error("Failed to fetch history", err);
+    }
+  };
+
+  const handleLookup = async (regNo: string) => {
+    if (!regNo) return;
+    try {
+      const res = await fetch(`/api/fee/lookup?regNo=${regNo}`);
+      const data = await res.json();
+      if (res.ok && data.student) {
+        setFormData(prev => ({
+          ...prev,
+          name: data.student.name,
+          course: data.student.course,
+          totalFee: data.student.totalFee,
+          paidAmount: data.student.paidAmount,
+          duesAmount: data.student.duesAmount,
+          registrationNo: regNo
+        }));
+        // Auto-generate receipt number if empty
+        if (!formData.receiptNo) {
+          setFormData(prev => ({ ...prev, receiptNo: `REC-${Date.now().toString().slice(-6)}` }));
+        }
+      }
+    } catch (err) {
+      console.error("Lookup failed", err);
+    }
+  };
+
+  const handleCollectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setMsg(null);
+
+    const student = students.find(s => s.registrationNo === formData.registrationNo);
+    if (!student) {
+      setMsg({ type: "error", text: "Student not found" });
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const endpoint = formData.type === "collect" ? "/api/fee/collect" : "/api/fee/return";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: student._id,
+          date: formData.date,
+          receiptNo: formData.receiptNo,
+          paidFor: formData.paidFor,
+          paymentMode: formData.paymentMode,
+          amount: formData.amount
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMsg({ type: "success", text: data.message });
+        fetchStudents();
+        setTimeout(() => {
+          setShowCollectForm(false);
+          setMsg(null);
+          setFormData({
+            type: "collect",
+            registrationNo: "",
+            name: "",
+            course: "",
+            totalFee: 0,
+            paidAmount: 0,
+            duesAmount: 0,
+            date: new Date().toISOString().split("T")[0],
+            receiptNo: "",
+            paidFor: "Course Fee",
+            paymentMode: "Cash",
+            amount: 0
+          });
+        }, 1500);
+      } else {
+        setMsg({ type: "error", text: data.message });
+      }
+    } catch (err) {
+      setMsg({ type: "error", text: "Network error" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const printReceipt = (transaction: Transaction, student: Student) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Fee Receipt - ${transaction.receiptNo}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .receipt-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+            .value { font-size: 16px; margin-top: 4px; }
+            .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            .table th, .table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            .table th { background: #f9f9f9; }
+            .footer { margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .signature { border-top: 1px solid #333; width: 200px; text-align: center; padding-top: 10px; font-size: 14px; }
+            .total-row { font-weight: bold; font-size: 18px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="receipt-title">FEE RECEIPT</div>
+            <div>Yukti Computer Education</div>
+          </div>
+          <div class="grid">
+            <div>
+              <div class="label">Receipt No</div>
+              <div class="value">${transaction.receiptNo}</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="label">Date</div>
+              <div class="value">${new Date(transaction.date).toLocaleDateString()}</div>
+            </div>
+            <div>
+              <div class="label">Student Name</div>
+              <div class="value">${student.name}</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="label">Registration No</div>
+              <div class="value">${student.registrationNo}</div>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Payment Mode</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${transaction.paidFor} (${transaction.type === 'collect' ? 'Received' : 'Returned'})</td>
+                <td>${transaction.paymentMode}</td>
+                <td style="text-align: right;">₹${transaction.amount}</td>
+              </tr>
+              <tr class="total-row">
+                <td colspan="2" style="text-align: right;">Total Paid</td>
+                <td style="text-align: right;">₹${transaction.amount}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top: 30px; font-size: 14px;">
+            <p><strong>Remaining Dues:</strong> ₹${student.duesAmount}</p>
+          </div>
+          <div class="footer">
+            <div>
+              <p style="font-size: 10px; color: #999;">This is a computer generated receipt.</p>
+            </div>
+            <div class="signature">Authorized Signatory</div>
+          </div>
+          <script>window.print(); window.onafterprint = () => window.close();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative group">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-green-600" />
+            <input 
+              type="text" 
+              placeholder="Search Reg No..." 
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-50 transition w-64"
+            />
+          </div>
+          <select 
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:bg-white focus:border-green-500 transition"
+          >
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+        <button 
+          onClick={() => setShowCollectForm(true)}
+          className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-2xl text-sm font-bold hover:bg-green-700 transition shadow-lg shadow-green-100"
+        >
+          <CreditCard className="w-4 h-4" /> Collect Fee
+        </button>
+      </div>
+
+      {/* Student List */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50/50 border-b border-slate-100">
+              <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                <th className="px-6 py-4">Reg No</th>
+                <th className="px-6 py-4">Student Details</th>
+                <th className="px-6 py-4">Course</th>
+                <th className="px-6 py-4">Financial Summary</th>
+                <th className="px-6 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                       <div className="w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin"></div>
+                       <p className="text-xs font-bold text-slate-400 uppercase">Loading Records...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : students.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                       <FileText className="w-10 h-10 text-slate-200" />
+                       <p className="text-sm font-bold text-slate-400 uppercase">No Students Found</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : students.map((s) => (
+                <tr key={s._id} className="hover:bg-slate-50/50 transition">
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 border border-slate-200">
+                      {s.registrationNo}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="font-bold text-slate-800 leading-tight">{s.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">S/o {s.fatherName}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="font-bold text-slate-600">{s.course}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-0.5">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Admission: <span className="text-slate-700">₹{s.totalFee || s.admissionFees || 0}</span></p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Total Paid: <span className="text-emerald-600">₹{s.paidAmount || 0}</span></p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Remaining Dues: <span className={`${((s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)) > 0 ? "text-red-600" : "text-emerald-700"}`}>₹{(s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)}</span></p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => fetchHistory(s)}
+                      className="p-2 hover:bg-green-50 rounded-xl transition text-green-600"
+                      title="View History"
+                    >
+                      <History className="w-5 h-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Collect Fee Modal */}
+      {showCollectForm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCollectForm(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 bg-gradient-to-br from-green-600 to-emerald-700 text-white flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">Collect Fee</h2>
+                <p className="text-green-100 text-xs font-bold uppercase tracking-widest mt-1">Transaction Portal</p>
+              </div>
+              <button onClick={() => setShowCollectForm(false)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCollectSubmit} className="p-8 space-y-6">
+              {msg && (
+                <div className={`p-4 rounded-2xl text-sm font-bold border ${msg.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"}`}>
+                   {msg.text}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Transaction Type</label>
+                  <select 
+                    value={formData.type}
+                    onChange={e => setFormData({...formData, type: e.target.value})}
+                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
+                  >
+                    <option value="collect">Collect Fee</option>
+                    <option value="return">Return Fee</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registration No</label>
+                  <input 
+                    type="text"
+                    required
+                    value={formData.registrationNo}
+                    onChange={e => setFormData({...formData, registrationNo: e.target.value})}
+                    onBlur={() => handleLookup(formData.registrationNo)}
+                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
+                    placeholder="Search Reg No..."
+                  />
+                </div>
+
+                <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Student Name</p>
+                    <p className="text-xs font-black text-slate-700 truncate">{formData.name || "---"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Course</p>
+                    <p className="text-xs font-black text-slate-700 truncate">{formData.course || "---"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Paid Amount</p>
+                    <p className="text-xs font-black text-emerald-600">₹{formData.paidAmount}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Current Dues</p>
+                    <p className="text-xs font-black text-red-600">₹{formData.duesAmount}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payment Date</label>
+                  <input 
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={e => setFormData({...formData, date: e.target.value})}
+                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Receipt Number</label>
+                  <input 
+                    type="text"
+                    required
+                    value={formData.receiptNo}
+                    onChange={e => setFormData({...formData, receiptNo: e.target.value})}
+                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Paid For</label>
+                  <input 
+                    type="text"
+                    required
+                    value={formData.paidFor}
+                    onChange={e => setFormData({...formData, paidFor: e.target.value})}
+                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
+                    placeholder="e.g. Admission / Exam Fee"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payment Mode</label>
+                  <select 
+                    value={formData.paymentMode}
+                    onChange={e => setFormData({...formData, paymentMode: e.target.value})}
+                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
+                  >
+                    <option>Cash</option>
+                    <option>Online</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Amount to {formData.type === 'collect' ? 'Receive' : 'Return'} (₹)</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={formData.amount}
+                    onChange={e => setFormData({...formData, amount: Number(e.target.value)})}
+                    className="w-full px-6 py-4 bg-green-50/50 border border-green-100 rounded-2xl text-lg font-black text-green-700 outline-none focus:bg-white focus:border-green-600 transition"
+                    placeholder="Enter Amount"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button 
+                  disabled={submitting}
+                  className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold uppercase tracking-widest hover:bg-green-700 transition shadow-xl shadow-green-100 flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <CheckCircle className="w-5 h-5" />}
+                  {submitting ? "Processing..." : `Confirm ${formData.type === 'collect' ? 'Collection' : 'Return'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showDetails && selectedStudent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowDetails(false)} />
+          <div className="relative w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-green-600 text-white flex items-center justify-center">
+                   <History className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{selectedStudent.name}</h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{selectedStudent.registrationNo} • {selectedStudent.course}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDetails(false)} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-8">
+               {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  {(() => {
+                    const totalPaid = transactions.reduce((acc, t) => acc + (t.type === 'collect' ? t.amount : -t.amount), 0);
+                    const totalAdmission = selectedStudent.totalFee || Number(selectedStudent.admissionFees) || 0;
+                    const remainingDues = totalAdmission - totalPaid;
+                    
+                    return (
+                      <>
+                        <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100">
+                           <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Admission Fee</p>
+                           <p className="text-2xl font-black text-blue-800">₹{totalAdmission}</p>
+                        </div>
+                        <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-100">
+                           <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">Total Paid</p>
+                           <p className="text-2xl font-black text-emerald-800">₹{totalPaid}</p>
+                        </div>
+                        <div className="p-5 rounded-2xl bg-red-50 border border-red-100">
+                           <p className="text-[10px] font-black text-red-600 uppercase mb-1">Remaining Dues</p>
+                           <p className="text-2xl font-black text-red-800">₹{remainingDues}</p>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Payment History</h4>
+               <div className="max-h-[400px] overflow-y-auto rounded-2xl border border-slate-100">
+                  <table className="w-full text-sm text-left">
+                     <thead className="bg-slate-50 sticky top-0">
+                        <tr className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">
+                           <th className="px-6 py-3">Date</th>
+                           <th className="px-6 py-3">Receipt No</th>
+                           <th className="px-6 py-3">Paid For</th>
+                           <th className="px-6 py-3">Mode</th>
+                           <th className="px-6 py-3">Type</th>
+                           <th className="px-6 py-3">Amount</th>
+                           <th className="px-6 py-3 text-right">Receipt</th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-50">
+                        {transactions.length === 0 ? (
+                           <tr>
+                              <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-bold uppercase text-[10px]">No transactions recorded</td>
+                           </tr>
+                        ) : transactions.map((t) => (
+                           <tr key={t._id} className="hover:bg-slate-50/50">
+                              <td className="px-6 py-4 text-xs font-bold text-slate-600">{new Date(t.date).toLocaleDateString()}</td>
+                              <td className="px-6 py-4 font-black text-slate-700">{t.receiptNo}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-500">{t.paidFor}</td>
+                              <td className="px-6 py-4">
+                                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-black uppercase text-slate-600">{t.paymentMode}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                 <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase ${t.type === 'collect' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    {t.type === 'collect' ? <Plus className="w-2 h-2" /> : <Minus className="w-2 h-2" />}
+                                    {t.type}
+                                 </span>
+                              </td>
+                              <td className={`px-6 py-4 font-black ${t.type === 'collect' ? 'text-slate-800' : 'text-red-600'}`}>₹{t.amount}</td>
+                              <td className="px-6 py-4 text-right">
+                                 <button 
+                                    onClick={() => printReceipt(t, selectedStudent)}
+                                    className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-400 hover:text-green-600"
+                                 >
+                                    <Printer className="w-4 h-4" />
+                                 </button>
+                              </td>
+                           </tr>
+                        ))}
+                     </tbody>
+                  </table>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

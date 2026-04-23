@@ -6,7 +6,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Building2, LayoutDashboard, LogOut, CheckCircle,
   Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText,
-  Lock, Eye, EyeOff, ShieldAlert, Clock
+  Lock, Eye, EyeOff, ShieldAlert, Clock, CreditCard
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -28,6 +28,10 @@ const StudyMaterialManager = dynamic(() => import("@/components/admin/StudyMater
 });
 const CertificateRequestManager = dynamic(() => import("@/components/atc/CertificateRequestManager"), { 
   loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Certificates...</div>,
+  ssr: false 
+});
+const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
+  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
   ssr: false 
 });
 
@@ -60,7 +64,7 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets" | "materials" | "certificates">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
   const [stats, setStats] = useState({ total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0 });
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -275,6 +279,12 @@ export default function AtcDashboardPage() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "materials" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <FileText className="w-4 h-4" /> Study Materials
+          </button>
+          <button
+            onClick={() => { setTab("fees"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "fees" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+          >
+            <CreditCard className="w-4 h-4" /> Fee Management
           </button>
           <button
             onClick={() => { setTab("examSets"); setIsSidebarOpen(false); }}
@@ -647,6 +657,10 @@ export default function AtcDashboardPage() {
 
           {tab === "materials" && (
             <StudyMaterialManager role="atc" />
+          )}
+
+          {tab === "fees" && (
+            <FeeManager role="atc" />
           )}
         </div>
       </main>

@@ -34,6 +34,10 @@ interface Student {
   session?: string;
   aadharDoc?: string;
   studentSignature?: string;
+  totalFee?: number;
+  paidAmount?: number;
+  duesAmount?: number;
+  admissionFees?: string;
   marksheet10th?: string;
 }
 
@@ -532,7 +536,9 @@ export default function StudentManager() {
                       <th className="px-6 py-4">Reg No / ID</th>
                       <th className="px-6 py-4">Student Identity</th>
                       <th className="px-6 py-4">Opted Course</th>
-                      <th className="px-6 py-4">Exam Mode</th>
+                      <th className="px-6 py-4">Admission Fee</th>
+                      <th className="px-6 py-4">Paid</th>
+                      <th className="px-6 py-4 text-center">Dues</th>
                       <th className="px-6 py-4 text-center">Status</th>
                       <th className="px-6 py-4 text-right">Action</th>
                     </tr>
@@ -540,7 +546,7 @@ export default function StudentManager() {
                   <tbody className="divide-y divide-slate-100">
                     {filteredStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-20 text-center bg-white/50">
+                        <td colSpan={9} className="px-6 py-20 text-center bg-white/50">
                            <div className="flex flex-col items-center justify-center gap-2">
                               <Users className="w-10 h-10 text-slate-200" />
                               <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">No Records Found</p>
@@ -584,27 +590,28 @@ export default function StudentManager() {
                           </div>
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-emerald-700">{s.course}</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">{s.admissionDate ? new Date(s.admissionDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-bold text-emerald-700 leading-tight">{s.course}</span>
+                            <div className="flex items-center gap-2">
+                               <span className="text-[10px] text-slate-400 font-bold uppercase">{s.admissionDate ? new Date(s.admissionDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                               <span className={`px-1.5 py-0.5 rounded bg-slate-100 text-[8px] font-black uppercase tracking-tighter border border-slate-200 ${s.examMode === 'offline' ? 'text-orange-600 border-orange-100' : 'text-blue-600 border-blue-100'}`}>
+                                  {s.examMode || 'online'}
+                               </span>
+                            </div>
                           </div>
                         </td>
-                         <td className="px-6 py-5">
-                           <div className="flex flex-col gap-1">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter w-fit shadow-sm ${
-                                s.examMode === 'online' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-orange-50 text-orange-700 border border-orange-100'
-                              }`}>
-                                 {s.examMode || 'online'}
-                              </span>
-                              {s.examMode === 'offline' && s.offlineExamStatus !== 'not_appeared' && (
-                                <span className={`text-[8px] font-black uppercase text-center w-fit px-1.5 py-0.5 rounded ${
-                                  s.offlineExamStatus === 'published' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
-                                }`}>
-                                   {s.offlineExamStatus}
-                                </span>
-                              )}
-                           </div>
-                         </td>
+                        <td className="px-6 py-5">
+                          <span className="font-black text-slate-700">₹{s.totalFee || s.admissionFees || 0}</span>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className="font-black text-emerald-600">₹{s.paidAmount || 0}</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className={`font-black ${((s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)) > 0 ? "text-red-600" : "text-emerald-700"}`}>
+                            ₹{(s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)}
+                          </span>
+                        </td>
+
                         <td className="px-6 py-5 text-center">
                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm ${
                              (s.status === "approved" || s.status === "active") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : 
@@ -830,13 +837,13 @@ export default function StudentManager() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelCls("admissionFees")}>Admission Fees *</label>
+                  <label className={labelCls("totalFee")}>Admission Fee (₹) *</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                    <input required name="admissionFees" className={inputCls("admissionFees") + " pl-8 text-green-700 font-bold"} placeholder="Amount" />
+                    <input required type="number" name="admissionFees" className={inputCls("totalFee") + " pl-8 font-bold"} placeholder="Admission Fee" />
                   </div>
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className={labelCls("admissionDate")}>Admission Date *</label>
                   <input required type="date" name="admissionDate" className={inputCls("admissionDate")} defaultValue={new Date().toISOString().split('T')[0]} />
                 </div>

@@ -51,6 +51,10 @@ export interface IStudent {
   offlineExamCopy?: string; // PDF URL
   examMode?: string;
 
+  totalFee: number;
+  paidAmount: number;
+  duesAmount: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,7 +108,12 @@ const StudentSchema = new Schema<IStudent>(
     offlineExamMarks: { type: String, default: "" },
     offlineExamResult: { type: String, enum: ["Pass", "Fail", "Waiting"], default: "Waiting" },
     offlineExamCopy: { type: String, default: "" },
-    examMode: { type: String, default: "online" }
+    examMode: { type: String, default: "online" },
+
+    // Fee Management
+    totalFee: { type: Number, default: 0 },
+    paidAmount: { type: Number, default: 0 },
+    duesAmount: { type: Number, default: 0 }
   },
   { timestamps: true }
 );

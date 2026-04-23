@@ -14,6 +14,7 @@ import {
 import ExamManager from "@/components/student/ExamManager";
 import StudentStudyMaterial from "@/components/student/StudentStudyMaterial";
 import StudentIdCard from "@/components/common/StudentIdCard";
+import StudentFeeView from "@/components/student/StudentFeeView";
 
 import { useBrand } from "@/context/BrandContext";
 
@@ -25,7 +26,7 @@ export default function StudentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [bgs, setBgs] = useState<any>({});
   const [center, setCenter] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "study" | "idcard" | "profile">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "study" | "idcard" | "profile" | "fees">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
   const [passSaving, setPassSaving] = useState(false);
@@ -152,6 +153,7 @@ export default function StudentDashboardPage() {
             <NavItem tab="exams" icon={Award} label="My Exams" />
             <NavItem tab="study" icon={BookOpen} label="Study Center" />
             <NavItem tab="idcard" icon={CreditCard} label="Identity Card" />
+            <NavItem tab="fees" icon={ReceiptText} label="Fee Details" />
             <NavItem tab="profile" icon={User} label="Academic Profile" />
           </nav>
 
@@ -445,7 +447,7 @@ export default function StudentDashboardPage() {
                                  onChange={e => setPassData(p => ({ ...p, confirm: e.target.value }))}
                                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-red-100 transition" 
                                  placeholder="Repeat password" 
-                              />
+                               />
                            </div>
                            <div className="md:col-span-3">
                               <button 
@@ -461,6 +463,10 @@ export default function StudentDashboardPage() {
                      </div>
                   </div>
                </div>
+            )}
+
+            {activeTab === "fees" && (
+              <StudentFeeView student={student} />
             )}
           </div>
         </main>

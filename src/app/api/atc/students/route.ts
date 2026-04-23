@@ -24,21 +24,34 @@ export async function GET() {
   await connectDB();
   try {
     const students = await AtcStudent.find({ atcId: user.id })
-      .select("registrationNo name fatherName mobile course admissionDate createdAt examMode offlineExamStatus status photo")
+      .select("registrationNo name fatherName mobile course admissionDate createdAt examMode offlineExamStatus status photo totalFee paidAmount duesAmount admissionFees")
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
     
     // Fetch and merge media (only photo to reduce payload)
     const { StudentMedia } = await import("@/models/StudentMedia");
-    const studentsWithMedia = await Promise.all(students.map(async (s: any) => {
+    // Fetch transactions and merge balances for each student
+    const { FeeTransaction } = await import("@/models/FeeTransaction");
+    const studentsWithRealBalances = await Promise.all(students.map(async (s: any) => {
       const media = await StudentMedia.find({ studentId: s._id, fieldName: "photo" }).select("fieldName content").lean();
       const mediaMap: any = {};
       media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
-      return { ...s, ...mediaMap };
+      
+      const txs = await FeeTransaction.find({ studentId: s._id }).lean();
+      const totalPaid = txs.reduce((acc: number, t: any) => acc + (t.type === 'collect' ? t.amount : -t.amount), 0);
+      const totalAdmission = s.totalFee || Number(s.admissionFees) || 0;
+
+      return { 
+        ...s, 
+        ...mediaMap,
+        totalFee: totalAdmission,
+        paidAmount: totalPaid,
+        duesAmount: totalAdmission - totalPaid
+      };
     }));
 
-    return NextResponse.json({ students: studentsWithMedia });
+    return NextResponse.json({ students: studentsWithRealBalances });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
@@ -115,7 +128,10 @@ export async function POST(request: Request) {
       religion: String(formData.get("religion") || "").trim(),
       disability: formData.get("disability") === "Yes",
       disabilityDetails: String(formData.get("disabilityDetails") || "").trim(),
-      admissionFees: String(formData.get("admissionFees")).trim(),
+      admissionFees: String(formData.get("admissionFees") || "0"),
+      totalFee: Number(formData.get("admissionFees") || 0),
+      paidAmount: 0,
+      duesAmount: Number(formData.get("admissionFees") || 0),
       admissionDate: String(formData.get("admissionDate")).trim(),
       highestQualification: String(formData.get("highestQualification")).trim(),
       photo,

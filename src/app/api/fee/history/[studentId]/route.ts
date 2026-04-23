@@ -1,0 +1,38 @@
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import { FeeTransaction } from "@/models/FeeTransaction";
+import { AtcStudent } from "@/models/Student";
+import { getAuthUser } from "@/utils/auth";
+
+export async function GET(
+  request: Request,
+  { params }: { params: { studentId: string } }
+) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  const { studentId } = await params;
+
+  // Students can only view their own history
+  if (user.role === "student" && user.id !== studentId) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  await connectDB();
+
+  try {
+    const transactions = await FeeTransaction.find({ studentId })
+      .sort({ date: -1 })
+      .lean();
+
+    const student = await AtcStudent.findById(studentId)
+      .select("name registrationNo course totalFee paidAmount duesAmount")
+      .lean();
+
+    return NextResponse.json({ transactions, student });
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}

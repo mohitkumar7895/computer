@@ -25,7 +25,13 @@ export async function GET() {
     const media = await StudentMedia.find({ studentId: student._id }).lean();
     const mediaMap: any = {};
     media.forEach((m: any) => { mediaMap[m.fieldName] = m.content; });
-    const studentWithMedia = { ...student, ...mediaMap };
+    const studentWithMedia = { 
+      ...student, 
+      ...mediaMap,
+      totalFee: student.totalFee || 0,
+      paidAmount: student.paidAmount || 0,
+      duesAmount: student.duesAmount || 0
+    };
 
     return NextResponse.json({ student: studentWithMedia });
   } catch (error) {
