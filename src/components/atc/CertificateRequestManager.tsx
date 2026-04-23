@@ -99,17 +99,18 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     setLoading(true);
     try {
       const url = role === "admin" ? "/api/admin/exams/all" : "/api/atc/exams/all";
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setRequests(data.requests || []);
       }
       
       if (role === "atc") {
-        const studentRes = await fetch("/api/atc/students");
+        const studentRes = await fetch("/api/atc/students", { cache: "no-store" });
         if (studentRes.ok) {
           const sData = await studentRes.json();
-          setAvailableStudents(sData.students || []);
+          const validStudents = (sData.students || []).filter((s: any) => s.status === "approved" || s.status === "active");
+          setAvailableStudents(validStudents);
         }
       }
     } catch (err) {

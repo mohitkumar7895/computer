@@ -213,11 +213,20 @@ export default function StudentManager() {
         });
       };
 
-      const photo = form.get("photo");
-      if (photo instanceof File && photo.size > 0) form.set("photo", await compressImage(photo));
-      const sig = form.get("studentSignature");
-      if (sig instanceof File && sig.size > 0) form.set("studentSignature", await compressImage(sig));
+      // Extract all media files to upload separately to avoid Vercel 4.5MB limit
+      const docFields = ["photo", "studentSignature", "marksheet10th", "marksheet12th", "graduationDoc", "highestQualDoc", "aadharDoc", "otherDocs"];
+      const filesToUpload: { field: string, file: File | Blob }[] = [];
+      
+      for (const field of docFields) {
+        const file = form.get(field);
+        if (file instanceof File && file.size > 0) {
+          const processedFile = await compressImage(file);
+          filesToUpload.push({ field, file: processedFile });
+          form.delete(field); // Remove from main request
+        }
+      }
 
+      setMsg({ type: "success", text: "Creating student record..." });
       const res = await fetch("/api/atc/students", { method: "POST", body: form });
       
       let data;
@@ -233,6 +242,25 @@ export default function StudentManager() {
         const errText = JSON.stringify(data);
         throw new Error(errText);
       }
+
+      const studentId = data.student._id;
+
+      // Upload files sequentially
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const { field, file } = filesToUpload[i];
+        setMsg({ type: "success", text: `Uploading document ${i + 1} of ${filesToUpload.length}...` });
+        
+        const mediaForm = new FormData();
+        mediaForm.append("studentId", studentId);
+        mediaForm.append("fieldName", field);
+        mediaForm.append("file", file);
+
+        const mediaRes = await fetch("/api/atc/students/media", { method: "POST", body: mediaForm });
+        if (!mediaRes.ok) {
+           console.warn(`Failed to upload ${field}`);
+        }
+      }
+
       setLastRegNo(data.student.registrationNo);
       setShowSuccessModal(true);
       setMsg({ type: "success", text: "Student admitted successfully!" });
@@ -284,9 +312,12 @@ export default function StudentManager() {
         setMsg({ type: "success", text: "Student updated successfully" });
         setSelectedStudent(null);
         void fetchStudents();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        setMsg({ type: "error", text: errorData.message || "Update failed. Please try again." });
       }
     } catch {
-      setMsg({ type: "error", text: "Update failed" });
+      setMsg({ type: "error", text: "Update failed due to network error" });
     } finally {
       setUpdating(false);
     }
@@ -602,7 +633,7 @@ export default function StudentManager() {
                                     }}
                                     className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
                                   >
-                                    View Details
+                                    Edit Record
                                   </button>
                                 </div>
                              ) : (
@@ -638,7 +669,8 @@ export default function StudentManager() {
                                        }}
                                        className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-2"
                                      >
-                                       View Details                                     </button>
+                                       View Details
+                                     </button>
 
                                    </div>
                                  </div>

@@ -204,11 +204,17 @@ export async function PUT(request: Request) {
     const student = await AtcStudent.findOne({ _id: studentId, atcId: user.id });
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
+    // Handle data type conversions
+    if (updateData.disability === "Yes" || updateData.disability === "No") {
+      updateData.disability = updateData.disability === "Yes";
+    }
+
     Object.assign(student, updateData);
     await student.save();
 
     return NextResponse.json({ message: "Student updated successfully", student });
   } catch (error: any) {
+    console.error("[PUT ERROR]", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
