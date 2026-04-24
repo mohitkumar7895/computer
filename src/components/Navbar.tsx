@@ -4,12 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, Clock3, Download, LogIn, Mail, Menu, Phone, Wallet, X } from "lucide-react";
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
-import { NAV_LINKS } from "@/utils/constants";
+import { NAV_LINKS, SITE_INFO } from "@/utils/constants";
 
 import { useBrand } from "@/context/BrandContext";
 
 export default function Navbar() {
-  const { brandName } = useBrand();
+  const { brandName, brandMobile, brandEmail, brandLogo } = useBrand();
   const [activeSection, setActiveSection] = useState("#home");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
@@ -138,14 +138,22 @@ export default function Navbar() {
       <div className="bg-white">
         <div className="mx-auto flex w-full max-w-330 flex-wrap items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" onClick={handleNavClick("/")} className="shrink-0">
-            <Image
-              src="/ygroup-logo.svg"
-              alt={brandName}
-              width={260}
-              height={110}
-              className="h-auto w-28 xs:w-34 sm:w-42.5 lg:w-47.5"
-              priority
-            />
+            {brandLogo ? (
+              <img
+                src={brandLogo}
+                alt={brandName}
+                className="h-auto w-12 xs:w-16 sm:w-20 lg:w-24 object-contain max-h-[80px]"
+              />
+            ) : (
+              <Image
+                src="/ygroup-logo.svg"
+                alt={brandName}
+                width={260}
+                height={110}
+                className="h-auto w-28 xs:w-34 sm:w-42.5 lg:w-47.5"
+                priority
+              />
+            )}
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">
@@ -155,7 +163,7 @@ export default function Navbar() {
               </span>
               <div>
                 <p className="text-xs font-semibold text-slate-900">Email Us</p>
-                <p className="text-sm leading-none text-slate-800 lg:text-base">info@yukticomputer.com</p>
+                <p className="text-sm leading-none text-slate-800 lg:text-base">{brandEmail || SITE_INFO.email}</p>
               </div>
             </div>
             <div className="inline-flex items-center gap-3 text-sm text-slate-700">
@@ -164,7 +172,7 @@ export default function Navbar() {
               </span>
               <div>
                 <p className="text-xs font-semibold text-slate-900">Call Us</p>
-                <p className="text-sm leading-none text-slate-800 lg:text-base">(+91) 9272638590</p>
+                <p className="text-sm leading-none text-slate-800 lg:text-base">{brandMobile || SITE_INFO.phone}</p>
               </div>
             </div>
             <Link

@@ -4,8 +4,11 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import InternalPageLayout from "@/components/InternalPageLayout";
+import { useBrand } from "@/context/BrandContext";
+import { User, Building2 } from "lucide-react";
 
 export default function AtcLoginPage() {
+  const { brandName, brandLogo } = useBrand();
   const router = useRouter();
   const [form, setForm] = useState({ tpCode: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -43,8 +46,15 @@ export default function AtcLoginPage() {
       <div className="mx-auto w-full max-w-lg">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden p-6 sm:p-10">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">ATC Login</h2>
-            <p className="text-xs text-slate-500 mt-2">Access your Authorized Training Center dashboard</p>
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 mb-4 shadow-sm overflow-hidden mx-auto">
+              {brandLogo ? (
+                 <img src={brandLogo} alt={brandName} className="w-full h-full object-contain p-2" />
+              ) : (
+                 <Building2 className="w-10 h-10 text-slate-300" />
+              )}
+            </div>
+            <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">{brandName}</h2>
+            <p className="text-xs text-slate-500 mt-2 font-bold uppercase tracking-widest">ATC Access Portal</p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">

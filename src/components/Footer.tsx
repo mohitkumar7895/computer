@@ -18,7 +18,7 @@ import { FOOTER_LINKS, SITE_INFO, SOCIAL_LINKS } from "@/utils/constants";
 import { useBrand } from "@/context/BrandContext";
 
 export default function Footer() {
-  const { brandName } = useBrand();
+  const { brandName, brandMobile, brandUrl, brandLogo, brandEmail, brandAddress } = useBrand();
   const socialIcons = [FaFacebookF, FaTwitter, FaYoutube, FaGooglePlusG];
   const bannerControls = useAnimationControls();
   const prefersReducedMotion = useReducedMotion();
@@ -101,10 +101,16 @@ export default function Footer() {
         <div className="flex items-start justify-center md:justify-start">
           <div className="inline-flex flex-col items-center text-center md:items-start md:text-left">
             <div className="leading-none">
-              <span className="font-serif text-4xl text-[#d08a2f] sm:text-5xl">Y</span>
-              <span className="ml-2 text-2xl font-black tracking-wide text-white sm:text-3xl">Group&apos;s</span>
+              {brandLogo ? (
+                <img src={brandLogo} alt={brandName} className="h-16 w-auto object-contain mb-2" />
+              ) : (
+                <>
+                  <span className="font-serif text-4xl text-[#d08a2f] sm:text-5xl">{brandName.charAt(0)}</span>
+                  <span className="ml-2 text-2xl font-black tracking-wide text-white sm:text-3xl">Group&apos;s</span>
+                </>
+              )}
             </div>
-            <p className="mt-3 text-sm text-slate-200">Save money. Live better.</p>
+            <p className="mt-3 text-sm text-slate-200">{brandUrl || "Save money. Live better."}</p>
           </div>
         </div>
 
@@ -138,7 +144,7 @@ export default function Footer() {
               <FaMapMarkerAlt className="mt-1 h-5 w-5 shrink-0 text-[#0f0fbf]" />
               <div className="space-y-2 text-sm leading-6 sm:text-sm sm:leading-7">
                  <p className="font-extrabold text-white">{brandName}:</p>
-                <p>{SITE_INFO.address}</p>
+                <p>{brandAddress || SITE_INFO.address}</p>
               </div>
             </div>
 
@@ -146,7 +152,7 @@ export default function Footer() {
               <FaPhoneAlt className="mt-1 h-4 w-4 shrink-0 text-[#0f0fbf]" />
               <div className="space-y-2 text-sm leading-6 sm:text-sm sm:leading-7">
                 <p className="font-extrabold text-white">Phone Number:</p>
-                <p>({SITE_INFO.phone.replace("+91 ", "+91) ")}</p>
+                <p>{brandMobile || SITE_INFO.phone}</p>
               </div>
             </div>
 

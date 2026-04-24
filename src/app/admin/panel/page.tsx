@@ -6,7 +6,7 @@ import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
   Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download, EyeOff, Hash, Save, Printer,
-  Layout, Type
+  Layout, Type, Mail
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
@@ -109,7 +109,7 @@ const FormValue = ({ label, value, highlight = false, full = false }: any) => (
 
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds";
 
 const PrintField = ({ label, value }: any) => (
   <div>
@@ -200,6 +200,11 @@ export default function AdminPanelPage() {
   const [studentFormat, setStudentFormat] = useState({ prefix: "ATC-ST-", counter: 1, padding: 4 });
   const [idFormatSaving, setIdFormatSaving] = useState(false);
   const [brandName, setBrandName] = useState("Brand Name");
+  const [brandMobile, setBrandMobile] = useState("");
+  const [brandEmail, setBrandEmail] = useState("");
+  const [brandAddress, setBrandAddress] = useState("");
+  const [brandUrl, setBrandUrl] = useState("");
+  const [brandLogo, setBrandLogo] = useState("");
   const [brandSaving, setBrandSaving] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
@@ -319,6 +324,26 @@ export default function AdminPanelPage() {
       const bRes = await fetch("/api/admin/settings?key=brand_name");
       const bData = (await bRes.json()) as { value: string | null };
       if (bData.value) setBrandName(bData.value);
+
+      const bmRes = await fetch("/api/admin/settings?key=brand_mobile");
+      const bmData = (await bmRes.json()) as { value: string | null };
+      if (bmData.value) setBrandMobile(bmData.value);
+
+      const beRes = await fetch("/api/admin/settings?key=brand_email");
+      const beData = (await beRes.json()) as { value: string | null };
+      if (beData.value) setBrandEmail(beData.value);
+
+      const baRes = await fetch("/api/admin/settings?key=brand_address");
+      const baData = (await baRes.json()) as { value: string | null };
+      if (baData.value) setBrandAddress(baData.value);
+
+      const buRes = await fetch("/api/admin/settings?key=brand_url");
+      const buData = (await buRes.json()) as { value: string | null };
+      if (buData.value) setBrandUrl(buData.value);
+
+      const blRes = await fetch("/api/admin/settings?key=brand_logo");
+      const blData = (await blRes.json()) as { value: string | null };
+      if (blData.value) setBrandLogo(blData.value);
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
@@ -373,18 +398,64 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     if (!brandName.trim()) return showToast("error", "Brand name cannot be empty.");
     setBrandSaving(true);
     try {
-      const res = await fetch("/api/admin/settings", {
+      // Save Name
+      await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "brand_name", value: brandName.trim() }),
       });
-      if (!res.ok) throw new Error();
-      showToast("success", "Brand name updated globally!");
+      // Save Mobile
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "brand_mobile", value: brandMobile.trim() }),
+      });
+      // Save URL
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "brand_url", value: brandUrl.trim() }),
+      });
+      // Save Email
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "brand_email", value: brandEmail.trim() }),
+      });
+      // Save Address
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "brand_address", value: brandAddress.trim() }),
+      });
+      
+      showToast("success", "Global Brand settings updated!");
     } catch {
-      showToast("error", "Failed to save brand name.");
+      showToast("error", "Failed to save brand settings.");
     } finally {
       setBrandSaving(false);
     }
+  };
+
+  const handleBrandLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      setBrandLogo(base64);
+      try {
+        await fetch("/api/admin/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "brand_logo", value: base64 }),
+        });
+        showToast("success", "Brand Logo updated globally!");
+      } catch {
+        showToast("error", "Failed to save logo.");
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleResetPassword = async (id: string) => {
@@ -832,6 +903,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     students: "Manage Students",
     resultReview: "Certificate Authorize",
     fees: "Fee Management",
+    backgrounds: "Background Templates",
   };
 
   const tabDesc: Record<Tab, string> = {
@@ -847,6 +919,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     students: "Review and approve student registrations from all centers",
     resultReview: "Authorize ATC submitted results and generate marksheet/certificate instantly",
     fees: "Collect or return fees, view transaction history, and generate receipts for students",
+    backgrounds: "Upload backgrounds for ID Cards, Certificates, and Marksheets",
   };
 
   return (
@@ -936,6 +1009,13 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                      >
                        <Hash className="w-3.5 h-3.5" />
                        Registration
+                     </button>
+                     <button
+                       onClick={() => { setTab("backgrounds"); setIsSidebarOpen(false); }}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "backgrounds" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                     >
+                       <Layers className="w-3.5 h-3.5" />
+                       Add Background
                      </button>
                   </div>
                 )}
@@ -1404,39 +1484,129 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Global Brand Identity</h3>
-                      <p className="text-xs text-slate-500 font-medium mt-1">Set the primary name for your institution. This reflects on certificates, ID cards, and all portal titles.</p>
+                      <p className="text-xs text-slate-500 font-medium mt-1">Set the primary branding for your institution. This reflects on certificates, ID cards, and all portal titles.</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Institution Brand Name</label>
-                       <div className="relative group">
-                          <input 
-                            type="text" 
-                            value={brandName}
-                            onChange={(e) => setBrandName(e.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
-                            placeholder="e.g. Yukti Computer Education"
-                          />
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
-                            <Type className="w-5 h-5 text-slate-900" />
-                          </div>
-                       </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Institution Brand Name</label>
+                         <div className="relative group">
+                            <input 
+                              type="text" 
+                              value={brandName}
+                              onChange={(e) => setBrandName(e.target.value)}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
+                              placeholder="e.g. Yukti Computer Education"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
+                              <Type className="w-5 h-5 text-slate-900" />
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Contact Mobile Number</label>
+                         <div className="relative group">
+                            <input 
+                              type="text" 
+                              value={brandMobile}
+                              onChange={(e) => setBrandMobile(e.target.value)}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
+                              placeholder="e.g. +91 9876543210"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
+                              <Building2 className="w-5 h-5 text-slate-900" />
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Official Email Address</label>
+                         <div className="relative group">
+                            <input 
+                              type="email" 
+                              value={brandEmail}
+                              onChange={(e) => setBrandEmail(e.target.value)}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
+                              placeholder="e.g. info@institution.com"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
+                              <Mail className="w-5 h-5 text-slate-900" />
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Physical Address</label>
+                         <div className="relative group">
+                            <textarea 
+                              value={brandAddress}
+                              onChange={(e) => setBrandAddress(e.target.value)}
+                              rows={2}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300 resize-none"
+                              placeholder="e.g. 123, Main Street, City, State"
+                            />
+                            <div className="absolute right-4 top-4 opacity-20 group-hover:opacity-40 transition">
+                              <MapPin className="w-5 h-5 text-slate-900" />
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Website URL</label>
+                         <div className="relative group">
+                            <input 
+                              type="text" 
+                              value={brandUrl}
+                              onChange={(e) => setBrandUrl(e.target.value)}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
+                              placeholder="e.g. www.yukti.in"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
+                              <Monitor className="w-5 h-5 text-slate-900" />
+                            </div>
+                         </div>
+                      </div>
+
+                      <button 
+                        onClick={handleBrandSave}
+                        disabled={brandSaving}
+                        className="w-full group relative flex items-center justify-center gap-3 py-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {brandSaving ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 group-hover:scale-125 transition" />
+                        )}
+                        {brandSaving ? "Updating Identity..." : "Save Identity Settings"}
+                      </button>
                     </div>
 
-                    <button 
-                      onClick={handleBrandSave}
-                      disabled={brandSaving}
-                      className="group relative flex items-center justify-center gap-3 py-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                      {brandSaving ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4 group-hover:scale-125 transition" />
-                      )}
-                      {brandSaving ? "Updating Brand..." : "Save Brand Settings"}
-                    </button>
+                    <div className="space-y-4">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 block">Institution Logo (PNG/SVG)</label>
+                        <div className="relative aspect-square max-w-[240px] mx-auto bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group hover:border-indigo-300 transition">
+                            {brandLogo ? (
+                                <div className="relative w-full h-full p-8">
+                                    <img src={brandLogo} alt="Logo" className="w-full h-full object-contain" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                        <label className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition">
+                                            Change Logo
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleBrandLogoUpload} />
+                                        </label>
+                                    </div>
+                                </div>
+                            ) : (
+                                <label className="flex flex-col items-center gap-3 cursor-pointer p-10 text-center">
+                                    <Upload className="w-10 h-10 text-slate-300" />
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upload Global Logo</p>
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleBrandLogoUpload} />
+                                </label>
+                            )}
+                        </div>
+                        <p className="text-[10px] text-center text-slate-400 font-medium uppercase tracking-tight">Recommended: Square logo with transparent background</p>
+                    </div>
                   </div>
                 </div>
 
@@ -1506,62 +1676,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                   </div>
                 </div>
 
-                {/* Background Templates Setting */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-8 md:col-span-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800">Background Templates (A4 Size)</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Upload high-quality A4 size background images for ID Cards, Certificates, and Marksheets.</p>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                    {[
-                      { id: "id_front", label: "ID Front" },
-                      { id: "id_back", label: "ID Back" },
-                      { id: "certificate", label: "Certificate" },
-                      { id: "marksheet", label: "Marksheet" },
-                      { id: "admit_card", label: "Admit Card" },
-                    ].map((item) => (
-                      <div key={item.id} className="space-y-3">
-                        <div className="relative aspect-[3.5/2] bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden group shadow-sm">
-                          {(bgs as any)[item.id] ? (
-                            <>
-                              <img src={(bgs as any)[item.id]} alt={item.label} className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                                <button onClick={() => handleBgRemove(item.id)} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                              <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter leading-tight">{item.label}</p>
-                            </div>
-                          )}
-                          {bgSaving === item.id && (
-                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                              <RefreshCw className="w-6 h-6 text-purple-600 animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                        <label className="block">
-                          <span className="sr-only">Upload {item.label}</span>
-                          <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={(e) => handleBgUpload(e, item.id)}
-                            className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition cursor-pointer"
-                          />
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Affiliation Fee Plans */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
@@ -1902,6 +2017,73 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                       {idFormatSaving ? "Saving..." : "Save ID Formats"}
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── BACKGROUND TEMPLATES TAB ── */}
+            {tab === "backgrounds" && (
+              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 space-y-8 animate-in fade-in duration-500">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center border border-purple-100">
+                    <Layers className="w-7 h-7 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Background Templates (A4 Size)</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Upload high-quality A4 size background images for documents</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                  {[
+                    { id: "id_front", label: "ID Front" },
+                    { id: "id_back", label: "ID Back" },
+                    { id: "certificate", label: "Certificate" },
+                    { id: "marksheet", label: "Marksheet" },
+                    { id: "admit_card", label: "Admit Card" },
+                  ].map((item) => (
+                    <div key={item.id} className="space-y-3">
+                      <div className="relative aspect-[3.5/2] bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden group shadow-sm transition hover:border-purple-200">
+                        {(bgs as any)[item.id] ? (
+                          <>
+                            <img src={(bgs as any)[item.id]} alt={item.label} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                              <button onClick={() => handleBgRemove(item.id)} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                            <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter leading-tight">{item.label}</p>
+                          </div>
+                        )}
+                        {bgSaving === item.id && (
+                          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                            <RefreshCw className="w-6 h-6 text-purple-600 animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      <label className="block">
+                        <span className="sr-only">Upload {item.label}</span>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => handleBgUpload(e, item.id)}
+                          className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition cursor-pointer"
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-6 flex items-start gap-4">
+                   <AlertTriangle className="w-5 h-5 text-purple-600 shrink-0" />
+                   <div className="text-xs font-bold text-purple-800 uppercase tracking-wider space-y-1">
+                      <p>Important: Upload only high-resolution JPG or PNG files.</p>
+                      <p className="opacity-70">These backgrounds will be used for automated document generation for all centers.</p>
+                   </div>
                 </div>
               </div>
             )}
