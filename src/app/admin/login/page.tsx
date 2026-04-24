@@ -4,8 +4,10 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ShieldCheck, LogIn } from "lucide-react";
+import { useBrand } from "@/context/BrandContext";
 
 export default function AdminLoginPage() {
+  const { brandName, brandLogo } = useBrand();
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -40,11 +42,15 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg">
-            <ShieldCheck className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
+            {brandLogo ? (
+               <img src={brandLogo} alt={brandName} className="w-full h-full object-contain p-2" />
+            ) : (
+               <ShieldCheck className="w-10 h-10 text-white" />
+            )}
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Admin Login</h1>
-          <p className="text-blue-200 mt-1 text-sm">Sign in to access the ATC management panel</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{brandName}</h1>
+          <p className="text-blue-200 mt-1 text-sm uppercase tracking-widest font-black">Admin Control Panel</p>
         </div>
 
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 shadow-2xl">
