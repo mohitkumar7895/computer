@@ -2025,7 +2025,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                               </td>
                               <td className="px-6 py-4">
                                  <div className="flex flex-col gap-0.5">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Admission: <span className="text-slate-700 font-black">₹{s.totalFee || s.admissionFees || 0}</span></p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Total Fee: <span className="text-slate-700 font-black">₹{s.totalFee || s.admissionFees || 0}</span></p>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Total Paid: <span className="text-emerald-600 font-black">₹{s.paidAmount || 0}</span></p>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Remaining Dues: <span className={`${((s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)) > 0 ? "text-red-600" : "text-emerald-700"} font-black`}>₹{(s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)}</span></p>
                                  </div>
@@ -2168,7 +2168,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                     { label: "Marital Status", key: "maritalStatus" },
                     { label: "Course Type", key: "courseType" },
                     { label: "Highest Qualification", key: "highestQualification" },
-                    { label: "Admission Fees", key: "admissionFees" },
+                    { label: "Total Fee", key: "admissionFees" },
                     { label: "Admission Date", key: "admissionDate" },
                     { label: "Referred By", key: "referredBy" },
                   ].map((field) => (
@@ -2393,7 +2393,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                   <PrintField label="Academic Session" value={studentEditValues.session} />
                                   <PrintField label="Course Type" value={studentEditValues.courseType} />
                                   <PrintField label="Admission Date" value={studentEditValues.admissionDate} />
-                                  <PrintField label="Admission Fees" value={studentEditValues.admissionFees} />
+                                  <PrintField label="Total Fee" value={studentEditValues.admissionFees} />
                               </div>
                           </section>
 

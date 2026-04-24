@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     await connectDB();
 
     if (action === "approve") {
-      const students = await AtcStudent.find({ _id: { $in: ids }, status: "pending" });
+      const students = await AtcStudent.find({ _id: { $in: ids }, status: { $in: ["pending", "pending_admin", "approved"] } });
       if (students.length === 0) return NextResponse.json({ message: "No pending students selected." }, { status: 400 });
 
       const formatSetting = await Settings.findOne({ key: "reg_format_student" });
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
       const results = [];
       for (const student of students) {
-        if (!student.registrationNo || student.registrationNo.startsWith("PENDING-")) {
+        if (!student.registrationNo || student.registrationNo.startsWith("PENDING-") || student.registrationNo.startsWith("DIRECT-")) {
           let prefix = format.prefix;
           if (prefix.includes("{YEAR}")) {
             prefix = prefix.replace("{YEAR}", new Date().getFullYear().toString());
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: `${results.length} students approved successfully.` });
     }
     else if (action === "reject") {
-      const res = await AtcStudent.updateMany({ _id: { $in: ids }, status: "pending" }, { $set: { status: "rejected" } });
+      const res = await AtcStudent.updateMany({ _id: { $in: ids }, status: { $in: ["pending", "pending_admin", "approved"] } }, { $set: { status: "rejected" } });
       return NextResponse.json({ message: `${res.modifiedCount} students rejected successfully` });
     }
     else if (action === "delete") {

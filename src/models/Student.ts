@@ -17,7 +17,7 @@ export interface IStudent {
   permanentAddress: string;
   course: string; // or Schema.Types.ObjectId if referencing Course
   courseId?: mongoose.Types.ObjectId;
-  courseType?: "Regular" | "ODL" | "OL";
+  courseType?: "Regular" | "ODL";
   session: string;
   classRollNo?: string;
   nationality: string;
@@ -41,7 +41,7 @@ export interface IStudent {
   referredBy?: string;
   admissionDate: string;
   password?: string; // hashed
-  status: "pending" | "approved" | "rejected" | "active";
+  status: "pending" | "approved" | "rejected" | "active" | "pending_atc" | "pending_admin";
   userStatus: "active" | "disabled";
   
   // Offline Exam Tracking
@@ -54,6 +54,8 @@ export interface IStudent {
   totalFee: number;
   paidAmount: number;
   duesAmount: number;
+
+  isDirectAdmission?: boolean;
 
   createdAt: Date;
   updatedAt: Date;
@@ -76,7 +78,7 @@ const StudentSchema = new Schema<IStudent>(
     permanentAddress: { type: String, required: true },
     course: { type: String, required: true },
     courseId: { type: Schema.Types.ObjectId, ref: "Course" },
-    courseType: { type: String, enum: ["Regular", "ODL", "OL", "ODL (Open Distance Learning)", "OL (Online Learning)"], default: "Regular" },
+    courseType: { type: String, enum: ["Regular", "ODL", "ODL (Open Distance Learning)"], default: "Regular" },
     session: { type: String, required: true },
     classRollNo: { type: String },
     nationality: { type: String, default: "Indian" },
@@ -100,8 +102,8 @@ const StudentSchema = new Schema<IStudent>(
     highestQualDoc: { type: String },
     referredBy: { type: String },
     password: { type: String },
-    status: { type: String, enum: ["pending", "approved", "rejected", "active"], default: "pending" },
-    userStatus: { type: String, enum: ["active", "disabled"], default: "active" },
+    status: { type: String, default: "pending" },
+    userStatus: { type: String, default: "active" },
 
     // Offline Exam Tracking
     offlineExamStatus: { type: String, enum: ["not_appeared", "appeared", "review_pending", "published"], default: "not_appeared" },
@@ -113,7 +115,10 @@ const StudentSchema = new Schema<IStudent>(
     // Fee Management
     totalFee: { type: Number, default: 0 },
     paidAmount: { type: Number, default: 0 },
-    duesAmount: { type: Number, default: 0 }
+    duesAmount: { type: Number, default: 0 },
+
+    // Direct Admission
+    isDirectAdmission: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
@@ -124,4 +129,9 @@ StudentSchema.index({ atcId: 1, userStatus: 1 });
 StudentSchema.index({ atcId: 1, createdAt: -1 });
 StudentSchema.index({ registrationNo: 1 });
 
-export const AtcStudent = models.AtcStudent || model<IStudent>("AtcStudent", StudentSchema);
+// Force re-registration of the model to handle schema updates in development
+if (models.AtcStudent) {
+  delete (models as any).AtcStudent;
+}
+
+export const AtcStudent = model<IStudent>("AtcStudent", StudentSchema);

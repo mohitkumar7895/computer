@@ -24,7 +24,12 @@ export async function GET(request: Request) {
     if (!admin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     await connectDB();
-    const students = await AtcStudent.find().sort({ createdAt: -1 }).lean();
+    const students = await AtcStudent.find({
+      $or: [
+        { isDirectAdmission: { $ne: true } }, // Regular students
+        { isDirectAdmission: true, status: { $in: ["pending_admin", "approved", "active", "rejected"] } } // Only if reviewed by ATC
+      ]
+    }).sort({ createdAt: -1 }).lean();
     
     // Merge media (only photo to reduce payload)
     const { StudentMedia } = await import("@/models/StudentMedia");

@@ -18,7 +18,10 @@ export async function GET(request: Request) {
   try {
     const query: any = {};
     if (user.role === "atc") {
-      query.atcId = user.id;
+      if (!user.tpCode) {
+        return NextResponse.json({ message: "Invalid session: TP Code missing. Please re-login." }, { status: 403 });
+      }
+      query.tpCode = user.tpCode;
     }
     if (regNo) {
       query.registrationNo = { $regex: regNo, $options: "i" };

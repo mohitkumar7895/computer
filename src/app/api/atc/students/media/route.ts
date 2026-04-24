@@ -15,6 +15,27 @@ async function getAtcUser() {
     return null;
   }
 }
+export async function GET(request: Request) {
+  const user = await getAtcUser();
+  if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const studentId = searchParams.get("studentId");
+  if (!studentId) return NextResponse.json({ message: "Student ID required" }, { status: 400 });
+
+  await connectDB();
+  try {
+    const { StudentMedia } = await import("@/models/StudentMedia");
+    const mediaItems = await StudentMedia.find({ studentId });
+    const media: Record<string, string> = {};
+    mediaItems.forEach(item => {
+      media[item.fieldName] = item.content;
+    });
+    return NextResponse.json({ media });
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   const user = await getAtcUser();

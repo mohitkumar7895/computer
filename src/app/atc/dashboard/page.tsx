@@ -6,7 +6,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Building2, LayoutDashboard, LogOut, CheckCircle,
   Phone, Mail, User, Calendar, Menu, XCircle, Users, Monitor, BookOpen, FileText,
-  Lock, Eye, EyeOff, ShieldAlert, Clock, CreditCard
+  Lock, Eye, EyeOff, ShieldAlert, Clock, CreditCard, UserPlus
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -64,8 +64,8 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
-  const [stats, setStats] = useState({ total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0 });
+  const [tab, setTab] = useState<"dashboard" | "students" | "directAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
+  const [stats, setStats] = useState({ total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0 });
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -256,6 +256,17 @@ export default function AtcDashboardPage() {
             <LayoutDashboard className="w-4 h-4" /> Dashboard
           </button>
           <button
+            onClick={() => { setTab("directAdmission"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "directAdmission" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+          >
+            <UserPlus className="w-4 h-4" /> Admission Request
+            {stats.directPending > 0 && (
+              <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
+                {stats.directPending}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => { setTab("students"); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "students" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
@@ -324,7 +335,17 @@ export default function AtcDashboardPage() {
             </div>
           </div>
           <div className="hidden lg:block">
-            <h1 className="text-xl font-bold text-slate-800">{tab === "dashboard" ? "Dashboard" : tab === "students" ? "Student Management" : "My Profile"}</h1>
+            <h1 className="text-xl font-bold text-slate-800">
+              {tab === "dashboard" ? "Dashboard" : 
+               tab === "students" ? "Student Management" : 
+               tab === "directAdmission" ? "Admission Requests" : 
+               tab === "exams" ? "Exam Requests" :
+               tab === "certificates" ? "Certificate Requests" :
+               tab === "examSets" ? "My Exam Sets" :
+               tab === "materials" ? "Study Materials" :
+               tab === "fees" ? "Fee Management" :
+               "My Profile"}
+            </h1>
             <p className="text-xs text-slate-500 mt-0.5">{currentDate}</p>
           </div>
           <div className="lg:hidden">
@@ -641,6 +662,10 @@ export default function AtcDashboardPage() {
 
           {tab === "students" && (
             <StudentManager />
+          )}
+
+          {tab === "directAdmission" && (
+            <StudentManager isDirectAdmission={true} />
           )}
 
           {tab === "exams" && (

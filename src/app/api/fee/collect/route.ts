@@ -22,8 +22,9 @@ export async function POST(request: Request) {
     }
 
     // ATC can only collect for their own students
-    if (user.role === "atc" && student.atcId.toString() !== user.id) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (user.role === "atc") {
+      const isOwner = student.atcId?.toString() === user.id || student.tpCode === user.tpCode;
+      if (!isOwner) return NextResponse.json({ message: "Forbidden: You can only manage fees for your own students." }, { status: 403 });
     }
 
     // Handle legacy students where totalFee might be 0

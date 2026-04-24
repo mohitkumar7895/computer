@@ -117,7 +117,7 @@ export default function StudentFeeView({ student }: { student: any }) {
           <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
             <CreditCard size={24} />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Admission Fee</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Fee</p>
           <p className="text-3xl font-black text-slate-800 tracking-tight">₹{student.totalFee || student.admissionFees || 0}</p>
         </div>
 

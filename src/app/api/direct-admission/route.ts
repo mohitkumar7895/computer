@@ -1,44 +1,141 @@
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import { AtcStudent } from "@/models/Student";
+import { AtcUser } from "@/models/AtcUser";
+
+export const dynamic = 'force-dynamic';
+
+const toBase64 = async (file: any) => {
+  try {
+    if (!file || typeof file === "string") return file || "";
+    if (!file.size || file.size === 0) return "";
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return `data:${file.type || "application/octet-stream"};base64,${buffer.toString("base64")}`;
+  } catch (e: any) {
+    console.error("toBase64 conversion fail:", e.message);
+    return "";
+  }
+};
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
+  try {
+    const formData = await request.formData();
 
-  const requiredFields = [
-    "fullName",
-    "fatherName",
-    "motherName",
-    "mobile",
-    "email",
-    "address",
-    "course",
-    "city",
-    "state",
-    "pin",
-    "dob",
-    "gender",
-    "admissionDate",
-  ];
+    const requiredFields = [
+      "name",
+      "fatherName",
+      "motherName",
+      "dob",
+      "gender",
+      "mobile",
+      "email",
+      "currentAddress",
+      "course",
+      "session",
+      "highestQualification",
+      "centerCode"
+    ];
 
-  for (const field of requiredFields) {
-    const value = String(formData.get(field) ?? "").trim();
-    if (!value) {
-      return NextResponse.json({ message: `Missing required field: ${field}` }, { status: 400 });
+    for (const field of requiredFields) {
+      const value = String(formData.get(field) ?? "").trim();
+      if (!value) {
+        return NextResponse.json({ message: `Missing required field: ${field}` }, { status: 400 });
+      }
     }
-  }
 
-  const mobile = String(formData.get("mobile") ?? "");
-  const pin = String(formData.get("pin") ?? "");
-  const email = String(formData.get("email") ?? "");
+    const mobile = String(formData.get("mobile") ?? "");
+    const email = String(formData.get("email") ?? "");
+    const centerCode = String(formData.get("centerCode") ?? "");
 
-  if (!/^\d{10}$/.test(mobile)) {
-    return NextResponse.json({ message: "Mobile must be exactly 10 digits." }, { status: 400 });
-  }
-  if (!/^\d{6}$/.test(pin)) {
-    return NextResponse.json({ message: "PIN must be exactly 6 digits." }, { status: 400 });
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
-  }
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json({ message: "Mobile must be exactly 10 digits." }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
+    }
 
-  return NextResponse.json({ message: "Direct admission form submitted successfully." });
+    await connectDB();
+
+    // Find ATC center
+    const atc = await AtcUser.findOne({ tpCode: centerCode });
+    if (!atc) {
+      return NextResponse.json({ message: "Invalid Study Center code selected." }, { status: 404 });
+    }
+
+    // Process files
+    const photo = await toBase64(formData.get("photo"));
+    const aadharDoc = await toBase64(formData.get("aadharDoc"));
+    const qualificationDoc = await toBase64(formData.get("qualificationDoc"));
+
+    const studentData: any = {
+      atcId: atc._id,
+      tpCode: atc.tpCode,
+      name: String(formData.get("name")).trim(),
+      fatherName: String(formData.get("fatherName")).trim(),
+      motherName: String(formData.get("motherName")).trim(),
+      dob: String(formData.get("dob")),
+      gender: String(formData.get("gender")),
+      mobile: mobile,
+      email: email.toLowerCase(),
+      currentAddress: String(formData.get("currentAddress")).trim(),
+      permanentAddress: String(formData.get("permanentAddress") || formData.get("currentAddress")).trim(),
+      course: String(formData.get("course")).trim(),
+      session: String(formData.get("session")).trim(),
+      highestQualification: String(formData.get("highestQualification")).trim(),
+      category: String(formData.get("category") || "General"),
+      nationality: String(formData.get("nationality") || "Indian"),
+      religion: String(formData.get("religion") || ""),
+      maritalStatus: String(formData.get("maritalStatus") || ""),
+      disability: formData.get("disability") === "Yes",
+      disabilityDetails: String(formData.get("disabilityDetails") || ""),
+      examMode: String(formData.get("examMode") || "online"),
+      admissionDate: String(formData.get("admissionDate") || new Date().toISOString().split('T')[0]),
+      registrationNo: `DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      password: mobile, // default password
+      status: "pending_atc",
+      isDirectAdmission: true,
+      admissionFees: "0", // Will be set by ATC during approval
+      totalFee: 0,
+      paidAmount: 0,
+      duesAmount: 0
+    };
+
+    // Save student (temporary clear heavy fields to stay within limit)
+    const photoContent = photo;
+    const aadharContent = aadharDoc;
+    const qualContent = qualificationDoc;
+
+    studentData.photo = "";
+    studentData.aadharDoc = "";
+    studentData.qualificationDoc = "";
+
+    const student = await AtcStudent.create(studentData);
+
+    // Save media separately
+    const { StudentMedia } = await import("@/models/StudentMedia");
+    const mediaToSave = [
+      { name: "photo", content: photoContent },
+      { name: "aadharDoc", content: aadharContent },
+      { name: "qualificationDoc", content: qualContent }
+    ];
+
+    for (const m of mediaToSave) {
+      if (m.content && String(m.content).startsWith("data:")) {
+        await StudentMedia.findOneAndUpdate(
+          { studentId: student._id, fieldName: m.name },
+          { content: m.content },
+          { upsert: true }
+        );
+      }
+    }
+
+    return NextResponse.json({ 
+      message: "Direct admission application submitted successfully! Your Study Center will review your details soon.",
+      success: true
+    });
+  } catch (error: any) {
+    console.error("Direct Admission Error:", error);
+    return NextResponse.json({ message: error.message || "Internal Server Error" }, { status: 500 });
+  }
 }

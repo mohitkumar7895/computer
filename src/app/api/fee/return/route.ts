@@ -21,8 +21,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Student not found" }, { status: 404 });
     }
 
-    if (user.role === "atc" && student.atcId.toString() !== user.id) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    // ATC can only return for their own students
+    if (user.role === "atc") {
+      const isOwner = student.atcId?.toString() === user.id || student.tpCode === user.tpCode;
+      if (!isOwner) return NextResponse.json({ message: "Forbidden: You can only manage fees for your own students." }, { status: 403 });
     }
 
     // Handle legacy students

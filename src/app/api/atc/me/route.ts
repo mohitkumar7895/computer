@@ -7,6 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET as string;
 import { connectDB } from "@/lib/mongodb";
 import { AtcUser } from "@/models/AtcUser";
 import { AtcApplication } from "@/models/AtcApplication";
+import { AtcStudent } from "@/models/Student";
 
 export async function GET() {
   try {
@@ -39,15 +40,27 @@ export async function GET() {
     }
 
     // Fetch Stats in parallel to save time
-    const { AtcStudent } = await import("@/models/Student");
     const statsResult = await AtcStudent.aggregate([
-      { $match: { atcId: user._id } },
+      { $match: { tpCode: user.tpCode } },
       {
         $facet: {
           total: [{ $count: "count" }],
-          pendingReview: [{ $match: { status: "pending" } }, { $count: "count" }],
+          pendingReview: [
+            { $match: { status: "pending", isDirectAdmission: { $ne: true } } }, 
+            { $count: "count" }
+          ],
+          directPending: [
+            { $match: { isDirectAdmission: true, status: { $in: ["pending_atc", "pending_admin"] } } }, 
+            { $count: "count" }
+          ],
           active: [
-            { $match: { $or: [{ status: "active" }, { status: "approved" }], userStatus: { $ne: "disabled" } } },
+            { $match: { 
+              $or: [
+                { status: "active" }, 
+                { status: "approved" }
+              ],
+              userStatus: { $ne: "disabled" }
+            }},
             { $count: "count" }
           ],
           rejected: [{ $match: { status: "rejected" } }, { $count: "count" }],
@@ -71,6 +84,7 @@ export async function GET() {
       stats: {
         total: stats.total[0]?.count || 0,
         pendingReview: stats.pendingReview[0]?.count || 0,
+        directPending: stats.directPending[0]?.count || 0,
         active: stats.active[0]?.count || 0,
         rejected: stats.rejected[0]?.count || 0,
         blocked: stats.blocked[0]?.count || 0,

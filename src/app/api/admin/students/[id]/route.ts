@@ -38,7 +38,7 @@ export async function PATCH(
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
     if (action === "approved" || action === "rejected") {
-      if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-"))) {
+      if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-") || student.registrationNo.startsWith("DIRECT-"))) {
         const { generateNextId } = await import("@/lib/idGenerator");
         const regNo = await generateNextId("reg_format_student", AtcStudent, "registrationNo");
         student.registrationNo = regNo;

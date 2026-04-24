@@ -20,6 +20,18 @@ export async function GET(
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
+  // ATCs can only view their own students' history
+  if (user.role === "atc") {
+    await connectDB();
+    const student = await AtcStudent.findOne({ 
+      _id: studentId, 
+      $or: [{ atcId: user.id }, { tpCode: user.tpCode }] 
+    });
+    if (!student) {
+      return NextResponse.json({ message: "Forbidden: You don't have access to this student's records." }, { status: 403 });
+    }
+  }
+
   await connectDB();
 
   try {

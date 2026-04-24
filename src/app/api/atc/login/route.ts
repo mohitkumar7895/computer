@@ -59,6 +59,9 @@ export async function POST(request: Request) {
       path: "/",
     });
 
+    // Clear any existing admin token to prevent session crossover
+    response.cookies.delete("admin_token");
+
     return response;
   } catch (error) {
     console.error("[atc/login]", error);

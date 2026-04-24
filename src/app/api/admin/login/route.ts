@@ -63,6 +63,9 @@ export async function POST(request: Request) {
       path: "/",
     });
 
+    // Clear any existing ATC token to prevent session crossover
+    response.cookies.delete("atc_token");
+
     return response;
   } catch (error: any) {
     console.error("[admin/login] UNEXPECTED_ERROR:", error);

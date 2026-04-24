@@ -25,12 +25,12 @@ export async function GET() {
   await connectDB();
 
   const stats = await AtcStudent.aggregate([
-    { $match: { atcId: new mongoose.Types.ObjectId(user.id) } },
+    { $match: { tpCode: user.tpCode } },
     {
       $facet: {
         total: [{ $count: "count" }],
         pendingReview: [
-          { $match: { status: "pending" } },
+          { $match: { status: { $in: ["pending", "pending_atc", "pending_admin"] } } },
           { $count: "count" }
         ],
         active: [

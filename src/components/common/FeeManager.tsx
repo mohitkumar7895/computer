@@ -343,7 +343,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-0.5">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Admission: <span className="text-slate-700">₹{s.totalFee || s.admissionFees || 0}</span></p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Total Fee: <span className="text-slate-700">₹{s.totalFee || s.admissionFees || 0}</span></p>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Total Paid: <span className="text-emerald-600">₹{s.paidAmount || 0}</span></p>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Remaining Dues: <span className={`${((s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)) > 0 ? "text-red-600" : "text-emerald-700"}`}>₹{(s.totalFee || Number(s.admissionFees) || 0) - (s.paidAmount || 0)}</span></p>
                     </div>
@@ -458,7 +458,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                     value={formData.paidFor}
                     onChange={e => setFormData({...formData, paidFor: e.target.value})}
                     className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
-                    placeholder="e.g. Admission / Exam Fee"
+                    placeholder="e.g. Total Fee / Exam Fee"
                   />
                 </div>
                 <div>
@@ -531,7 +531,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                     return (
                       <>
                         <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100">
-                           <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Admission Fee</p>
+                           <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Total Fee</p>
                            <p className="text-2xl font-black text-blue-800">₹{totalAdmission}</p>
                         </div>
                         <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-100">

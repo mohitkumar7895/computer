@@ -204,7 +204,7 @@ export default function Navbar() {
                 onClick={handleNavClick("/direct-admission")}
                 className="block rounded-xl bg-gradient-to-r from-[#0a0aa1] to-[#1a1ac0] px-4 py-3.5 text-center font-bold text-white transition hover:shadow-lg active:scale-95 shadow-md"
               >
-                APPLY FOR ADMISSION
+                ENROLL NOW
               </Link>
             </div>
           </div>

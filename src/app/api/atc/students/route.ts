@@ -17,14 +17,31 @@ async function getAtcUser() {
     return null;
   }
 }
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getAtcUser();
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(request.url);
+  const isDirect = searchParams.get("direct") === "true";
+
   await connectDB();
   try {
-    const students = await AtcStudent.find({ atcId: user.id })
-      .select("registrationNo name fatherName mobile course admissionDate createdAt examMode offlineExamStatus status photo totalFee paidAmount duesAmount admissionFees")
+    const query: any = { tpCode: user.tpCode };
+
+    if (isDirect) {
+      // For Admission Request tab: ONLY show direct admissions that are pending
+      query.isDirectAdmission = true;
+      query.status = { $in: ["pending_atc", "pending_admin"] };
+    } else {
+      // For My Students tab: Show regular students OR approved direct admissions
+      query.$or = [
+        { isDirectAdmission: { $ne: true } }, // Regular students
+        { isDirectAdmission: true, status: { $in: ["approved", "active"] } } // Approved direct admissions
+      ];
+    }
+
+    const students = await AtcStudent.find(query)
+      .select("-aadharDoc -studentSignature -qualificationDoc -idProof -marksheet12th -graduationDoc -highestQualDoc -otherDocs")
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
@@ -221,12 +238,21 @@ export async function PUT(request: Request) {
     const { studentId, ...updateData } = await request.json();
     await connectDB();
 
-    const student = await AtcStudent.findOne({ _id: studentId, atcId: user.id });
+    const student = await AtcStudent.findOne({ _id: studentId, tpCode: user.tpCode });
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
     // Handle data type conversions
     if (updateData.disability === "Yes" || updateData.disability === "No") {
       updateData.disability = updateData.disability === "Yes";
+    }
+
+    // Recalculate financial fields if totalFee changed
+    if (typeof updateData.totalFee !== 'undefined') {
+      const newTotalFee = Number(updateData.totalFee);
+      student.totalFee = newTotalFee;
+      student.admissionFees = String(newTotalFee);
+      student.duesAmount = newTotalFee - (student.paidAmount || 0);
+      delete updateData.totalFee; // Prevent Object.assign from overwriting the manual update
     }
 
     Object.assign(student, updateData);

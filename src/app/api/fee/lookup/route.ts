@@ -19,7 +19,10 @@ export async function GET(request: Request) {
   try {
     const query: any = { registrationNo: regNo };
     if (user.role === "atc") {
-      query.atcId = user.id;
+      if (!user.tpCode) {
+        return NextResponse.json({ message: "Invalid session: TP Code missing." }, { status: 403 });
+      }
+      query.tpCode = user.tpCode;
     }
 
     const student = await AtcStudent.findOne(query)
