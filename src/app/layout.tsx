@@ -19,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 import { BrandProvider } from "@/context/BrandContext";
+import { AuthProvider } from "@/context/AuthContext";
 
 export default function RootLayout({
   children,
@@ -28,9 +29,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <BrandProvider>
-          {children}
-        </BrandProvider>
+        <AuthProvider>
+          <BrandProvider>
+            {children}
+          </BrandProvider>
+        </AuthProvider>
         <ScrollToTopButton />
       </body>
     </html>

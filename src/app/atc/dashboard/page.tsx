@@ -56,6 +56,7 @@ interface AtcUser {
 }
 
 import { useBrand } from "@/context/BrandContext";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AtcDashboardPage() {
   const { brandName } = useBrand();
@@ -76,47 +77,34 @@ export default function AtcDashboardPage() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [passMsg, setPassMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  const { user: authUser, loading: authLoading, logout } = useAuth();
+
   useEffect(() => {
-    // Try to load from cache for "instant" feel
-    const cached = localStorage.getItem("atc_dashboard_cache");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed.user) setUser(parsed.user);
-        if (parsed.stats) setStats(parsed.stats);
-        setLoading(false); // Stop showing spinner if we have cached data
-      } catch (e) {
-        console.error("Cache parse error", e);
-      }
+    if (authLoading) return;
+    if (!authUser) {
+      router.push("/atc/login");
+      return;
     }
 
-    fetch("/api/atc/me")
+    setUser(authUser as unknown as AtcUser);
+    
+    // Load stats
+    fetch("/api/atc/me", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
+    })
       .then(async (res) => {
         if (res.status === 401) {
-          localStorage.removeItem("atc_dashboard_cache");
-          router.push("/atc/login");
+          logout();
           return;
         }
         const data = await res.json();
-        if (data.user) {
-          setUser(data.user);
-          if (data.stats) setStats(data.stats);
-          // Update cache with error handling
-          try {
-            localStorage.setItem("atc_dashboard_cache", JSON.stringify({ user: data.user, stats: data.stats }));
-          } catch (e) {
-            console.warn("Storage quota exceeded, clearing cache", e);
-            localStorage.removeItem("atc_dashboard_cache");
-          }
-        } else {
-          router.push("/atc/login");
-        }
+        if (data.stats) setStats(data.stats);
       })
       .catch((err) => {
-        console.error("Dashboard mount error:", err);
+        console.error("Dashboard stats error:", err);
       })
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [authUser, authLoading, router, logout]);
 
   useEffect(() => {
     if (!user) return;
@@ -129,7 +117,7 @@ export default function AtcDashboardPage() {
 
   const handleLogout = async () => {
     await fetch("/api/atc/logout", { method: "POST" });
-    router.push("/atc/login");
+    logout();
   };
 
   const handleProfileSave = async (event: FormEvent<HTMLFormElement>) => {
@@ -395,7 +383,7 @@ export default function AtcDashboardPage() {
                     { label: "Pending Review", value: stats.pendingReview || 0, icon: Clock, bgColor: "bg-amber-50", textColor: "text-amber-600", dotColor: "bg-amber-100", labelColor: "text-amber-700" },
                     { label: "Active Students", value: stats.active || 0, icon: CheckCircle, bgColor: "bg-green-50", textColor: "text-green-600", dotColor: "bg-green-100", labelColor: "text-green-700" },
                     { label: "Rejected Students", value: stats.rejected || 0, icon: XCircle, bgColor: "bg-rose-50", textColor: "text-rose-600", dotColor: "bg-rose-100", labelColor: "text-rose-700" },
-                    { label: "Blocked Students", value: stats.blocked || 0, icon: ShieldAlert, bgColor: "bg-slate-50", textColor: "text-slate-600", dotColor: "bg-slate-100", labelColor: "text-slate-700" },
+                    { label: "Disabled Students", value: stats.blocked || 0, icon: ShieldAlert, bgColor: "bg-slate-50", textColor: "text-slate-600", dotColor: "bg-slate-100", labelColor: "text-slate-700" },
                   ].map((card) => (
                     <div key={card.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition hover:shadow-md">
                       <div className="flex items-center justify-between mb-3">

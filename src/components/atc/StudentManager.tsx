@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, type FormEvent } from "react";
 import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle, Search } from "lucide-react";
 import StudentIdCard from "@/components/common/StudentIdCard";
+import { useAuth } from "@/context/AuthContext";
 
 interface Student {
   _id: string;
@@ -101,11 +102,15 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
   
   // Local validation states for modals
   const [modalInvalidFields, setModalInvalidFields] = useState<Set<string>>(new Set());
+  const { token, loading: authLoading } = useAuth();
 
   const fetchStudents = async () => {
+    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/atc/students?direct=${isDirectAdmission}`);
+      const res = await fetch(`/api/atc/students?direct=${isDirectAdmission}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if(res.ok) {
         const data = await res.json();
         setStudents(data.students || []);
@@ -118,8 +123,11 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
   };
 
   const fetchCourses = async () => {
+    if (!token) return;
     try {
-      const res = await fetch("/api/atc/courses");
+      const res = await fetch("/api/atc/courses", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setAvailableCourses(data);
@@ -127,11 +135,15 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     } catch { /* ignore */ }
   };
 
+
   useEffect(() => {
     if (selectedStudent) {
       const fetchMedia = async () => {
+        if (!token) return;
         try {
-          const res = await fetch(`/api/atc/students/media?studentId=${selectedStudent._id}`);
+          const res = await fetch(`/api/atc/students/media?studentId=${selectedStudent._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
           if (res.ok) {
             const data = await res.json();
             if (data.media) {
@@ -151,7 +163,9 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     setIsFetching(true);
     setMsg(null);
     try {
-      const res = await fetch(`/api/atc/students/fetch?regNo=${encodeURIComponent(lookupRegNo.trim())}`);
+      const res = await fetch(`/api/atc/students/fetch?regNo=${encodeURIComponent(lookupRegNo.trim())}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       if (!res.ok) {
         setMsg({ type: "error", text: data.message || "Student not found" });
@@ -191,9 +205,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
   };
 
   useEffect(() => {
+    if (authLoading || !token) return;
     void fetchCourses(); // Always fetch courses on mount
     if (tab === "list") void fetchStudents();
-  }, [tab]);
+  }, [tab, authLoading, token]);
 
   const handleAddSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -276,7 +291,11 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
       }
 
       setMsg({ type: "success", text: "Creating student record..." });
-      const res = await fetch("/api/atc/students", { method: "POST", body: form });
+      const res = await fetch("/api/atc/students", { 
+        method: "POST", 
+        body: form,
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
       let data;
       const contentType = res.headers.get("content-type");
@@ -304,7 +323,11 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
         mediaForm.append("fieldName", field);
         mediaForm.append("file", file);
 
-        const mediaRes = await fetch("/api/atc/students/media", { method: "POST", body: mediaForm });
+        const mediaRes = await fetch("/api/atc/students/media", { 
+          method: "POST", 
+          body: mediaForm,
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (!mediaRes.ok) {
            console.warn(`Failed to upload ${field}`);
         }
@@ -354,7 +377,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     try {
       const res = await fetch("/api/atc/students", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ studentId: selectedStudent._id, ...editForm }),
       });
       if (res.ok) {
@@ -394,7 +420,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     try {
       const res = await fetch("/api/atc/exams/request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ 
           studentId: requestExamStudent._id, 
           examMode: examReqForm.examMode,
@@ -440,7 +469,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     try {
       const res = await fetch("/api/atc/exams/offline-result", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
           studentId: showResultModal._id,
           offlineExamStatus: "review_pending",
@@ -478,7 +510,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
       try {
         const res = await fetch("/api/atc/students/direct-action", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({ studentId, action, totalFee: Number(fee) }),
         });
         const data = await res.json();
@@ -499,7 +534,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
       try {
         const res = await fetch("/api/atc/students/direct-action", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({ studentId, action }),
         });
         const data = await res.json();

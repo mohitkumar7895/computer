@@ -1,26 +1,15 @@
 import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
-import { cookies } from "next/headers";
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
 import { connectDB } from "@/lib/mongodb";
 import { AtcUser } from "@/models/AtcUser";
-import { AtcApplication } from "@/models/AtcApplication";
 import { AtcStudent } from "@/models/Student";
+import { verifyAtc } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("atc_token")?.value ?? "";
+    const decoded = await verifyAtc(request);
     
-    if (!token) {
+    if (!decoded) {
       return NextResponse.json({ authorized: false, message: "No session found" }, { status: 401 });
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
-    if (decoded.role !== "atc") {
-       return NextResponse.json({ authorized: false, message: "Invalid role" }, { status: 401 });
     }
 
     await connectDB();
@@ -99,12 +88,8 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("atc_token")?.value ?? "";
-    if (!token) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
-    if (decoded.role !== "atc") return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    const decoded = await verifyAtc(request);
+    if (!decoded) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
 
     const { trainingPartnerName, mobile, email } = await request.json();
     await connectDB();

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import InternalPageLayout from "@/components/InternalPageLayout";
 import { useBrand } from "@/context/BrandContext";
+import { useAuth } from "@/context/AuthContext";
 import { User, Building2 } from "lucide-react";
 
 export default function AtcLoginPage() {
@@ -13,6 +14,8 @@ export default function AtcLoginPage() {
   const [form, setForm] = useState({ tpCode: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { login } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,9 +27,15 @@ export default function AtcLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tpCode: form.tpCode.trim().toUpperCase(), password: form.password }),
       });
-      const data = (await res.json()) as { message: string };
+      const data = await res.json();
       if (!res.ok) { setError(data.message); return; }
-      router.push("/atc/dashboard");
+      
+      if (data.token && data.user) {
+        login(data.token, data.user);
+        router.push("/atc/dashboard");
+      } else {
+        setError("Invalid response from server.");
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {

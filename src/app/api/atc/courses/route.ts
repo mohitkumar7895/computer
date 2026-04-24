@@ -3,24 +3,10 @@ export const dynamic = 'force-dynamic';
 import { connectDB } from "@/lib/mongodb";
 import { Course } from "@/models/Course";
 import { AtcUser } from "@/models/AtcUser";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-async function getAtcUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("atc_token")?.value;
-  if (!token) return null;
-  try {
-    return jwt.verify(token, JWT_SECRET) as { id: string; tpCode: string };
-  } catch {
-    return null;
-  }
-}
+import { verifyAtc } from "@/lib/auth";
 
 export async function GET() {
-  const sessionUser = await getAtcUser();
+  const sessionUser = await verifyAtc();
   if (!sessionUser) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {

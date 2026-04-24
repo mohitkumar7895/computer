@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, Filter, History, CreditCard, Printer, X, Download, Plus, Minus, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Student {
   _id: string;
@@ -59,7 +60,10 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  const { token, loading: authLoading } = useAuth();
+
   const fetchStudents = async () => {
+    if (!token) return;
     setLoading(true);
     try {
       const query = new URLSearchParams();
@@ -67,7 +71,9 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
       if (courseFilter) query.append("course", courseFilter);
       if (statusFilter) query.append("status", statusFilter);
       
-      const res = await fetch(`/api/fee/students?${query.toString()}`);
+      const res = await fetch(`/api/fee/students?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       setStudents(data.students || []);
     } catch (err) {
@@ -78,13 +84,17 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
   };
 
   useEffect(() => {
+    if (authLoading || !token) return;
     fetchStudents();
-  }, [search, courseFilter, statusFilter]);
+  }, [search, courseFilter, statusFilter, authLoading, token]);
 
   const fetchHistory = async (student: Student) => {
     setSelectedStudent(student);
+    if (!token) return;
     try {
-      const res = await fetch(`/api/fee/history/${student._id}`);
+      const res = await fetch(`/api/fee/history/${student._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       setTransactions(data.transactions || []);
       setShowDetails(true);
@@ -94,9 +104,11 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
   };
 
   const handleLookup = async (regNo: string) => {
-    if (!regNo) return;
+    if (!regNo || !token) return;
     try {
-      const res = await fetch(`/api/fee/lookup?regNo=${regNo}`);
+      const res = await fetch(`/api/fee/lookup?regNo=${regNo}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       if (res.ok && data.student) {
         setFormData(prev => ({
@@ -134,7 +146,10 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
       const endpoint = formData.type === "collect" ? "/api/fee/collect" : "/api/fee/return";
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
           studentId: student._id,
           date: formData.date,

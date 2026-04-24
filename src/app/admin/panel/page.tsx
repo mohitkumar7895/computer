@@ -1098,7 +1098,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                       { label: "Pending Review", count: studentCounts.pending, icon: Clock, color: "amber" },
                       { label: "Approved Students", count: studentCounts.approved, icon: CheckCircle, color: "green" },
                       { label: "Rejected Students", count: studentCounts.rejected, icon: XCircle, color: "red" },
-                      { label: "Blocked Students", count: studentCounts.disabled, icon: ShieldAlert, color: "slate" },
+                      { label: "Disabled Students", count: studentCounts.disabled, icon: ShieldAlert, color: "slate" },
                     ].map((stat) => (
                       <div key={stat.label} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color === 'red' ? 'bg-red-900/10' : `bg-${stat.color}-50`} group-hover:scale-110 transition-transform`}>

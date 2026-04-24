@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ShieldCheck, LogIn } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AdminLoginPage() {
   const { brandName, brandLogo } = useBrand();
@@ -13,6 +14,8 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { login } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,12 +27,18 @@ export default function AdminLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: form.email, password: form.password }),
       });
-      const data = (await res.json()) as { message: string };
+      const data = await res.json();
       if (!res.ok) {
         setError(data.message);
         return;
       }
-      router.push("/admin/panel");
+      
+      if (data.token && data.user) {
+        login(data.token, data.user);
+        router.push("/admin/panel");
+      } else {
+        setError("Invalid response from server.");
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {

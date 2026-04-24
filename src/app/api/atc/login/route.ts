@@ -43,11 +43,13 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       message: "Login successful.",
+      token,
       user: {
         id: user._id.toString(),
         tpCode: user.tpCode,
         trainingPartnerName: user.trainingPartnerName,
         email: user.email,
+        role: "atc"
       },
     });
 
