@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ShieldCheck, LogIn } from "lucide-react";
@@ -25,7 +26,9 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, password: form.password }),
+        body: JSON.stringify({ email: form.email, password: form.password,
+           credentials: "include",
+         }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -47,13 +50,13 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a0a2e] via-[#0d1554] to-[#0a0aa1] px-4 py-12">
+    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#0a0a2e] via-[#0d1554] to-[#0a0aa1] px-4 py-12">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
+          <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
             {brandLogo ? (
-               <img src={brandLogo} alt={brandName} className="w-full h-full object-contain p-2" />
+               <Image src={brandLogo} alt={brandName} fill className="object-contain p-2" />
             ) : (
                <ShieldCheck className="w-10 h-10 text-white" />
             )}
@@ -107,7 +110,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm hover:from-blue-400 hover:to-indigo-500 transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-linear-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm hover:from-blue-400 hover:to-indigo-500 transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <LogIn className="w-4 h-4" />
               {loading ? "Signing in..." : "Sign In"}

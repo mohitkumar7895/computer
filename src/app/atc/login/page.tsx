@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import InternalPageLayout from "@/components/InternalPageLayout";
 import { useBrand } from "@/context/BrandContext";
 import { useAuth } from "@/context/AuthContext";
-import { User, Building2 } from "lucide-react";
+import Image from "next/image";
+import { Building2 } from "lucide-react";
 
 export default function AtcLoginPage() {
   const { brandName, brandLogo } = useBrand();
@@ -25,7 +26,7 @@ export default function AtcLoginPage() {
       const res = await fetch("/api/atc/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tpCode: form.tpCode.trim().toUpperCase(), password: form.password }),
+        body: JSON.stringify({ tpCode: form.tpCode.trim().toUpperCase(), password: form.password, credentials: "include" }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message); return; }
@@ -55,9 +56,9 @@ export default function AtcLoginPage() {
       <div className="mx-auto w-full max-w-lg">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden p-6 sm:p-10">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 mb-4 shadow-sm overflow-hidden mx-auto">
+            <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 mb-4 shadow-sm overflow-hidden mx-auto">
               {brandLogo ? (
-                 <img src={brandLogo} alt={brandName} className="w-full h-full object-contain p-2" />
+                 <Image src={brandLogo} alt={brandName} fill className="object-contain p-2" />
               ) : (
                  <Building2 className="w-10 h-10 text-slate-300" />
               )}

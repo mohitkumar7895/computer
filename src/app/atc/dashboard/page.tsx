@@ -344,7 +344,7 @@ export default function AtcDashboardPage() {
               onClick={() => setTab("profile")}
               className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow hover:scale-105 transition"
             >
-              {user.trainingPartnerName.charAt(0).toUpperCase()}
+              {user.trainingPartnerName?.charAt(0).toUpperCase() || "U"}
             </button>
             <button onClick={handleLogout} className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition">
               <LogOut className="w-4 h-4" /> Logout
@@ -364,7 +364,7 @@ export default function AtcDashboardPage() {
                     <span className="text-green-300 text-sm font-semibold">Account Active</span>
                   </div>
                   <h2 className="text-2xl font-extrabold leading-tight">
-                    Welcome, {user.trainingPartnerName}!
+                    Welcome, {user.trainingPartnerName || "User"}!
                   </h2>
                   <p className="text-green-200 text-sm mt-1">Your Authorized Training Center portal is ready.</p>
                 </div>
