@@ -88,23 +88,26 @@ export default function AtcDashboardPage() {
 
     setUser(authUser as unknown as AtcUser);
     
-    // Load stats
-    fetch("/api/atc/me", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
-          logout();
-          return;
+    // Load stats only if not loading
+    const loadStats = async () => {
+      try {
+        const res = await fetch("/api/atc/me", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.stats) setStats(data.stats);
         }
-        const data = await res.json();
-        if (data.stats) setStats(data.stats);
-      })
-      .catch((err) => {
+        // No logout() on 401 here! AuthContext will handle it if needed.
+      } catch (err) {
         console.error("Dashboard stats error:", err);
-      })
-      .finally(() => setLoading(false));
-  }, [authUser, authLoading, router, logout]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStats();
+  }, [authUser, authLoading, router]);
 
   useEffect(() => {
     if (!user) return;

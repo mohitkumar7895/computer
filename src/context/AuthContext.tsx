@@ -27,90 +27,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const logout = useCallback(() => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+    }
     setUser(null);
     setToken(null);
     
-    // Redirect based on current route
-    if (pathname.startsWith("/admin")) {
-      router.push("/admin/login");
-    } else if (pathname.startsWith("/atc")) {
-      router.push("/atc/login");
-    }
+    const target = pathname.startsWith("/admin") ? "/admin/login" : "/atc/login";
+    router.push(target);
   }, [pathname, router]);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem("auth_token", newToken);
     localStorage.setItem("auth_user", JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-  };
+  }, []);
 
-  const refreshUser = useCallback(async () => {
-    const savedToken = localStorage.getItem("auth_token");
-    if (!savedToken) {
-      setLoading(false);
-      return;
-    }
+  const refreshUser = useCallback(async (forcedToken?: string, forcedRole?: string) => {
+    const activeToken = forcedToken || localStorage.getItem("auth_token") || token;
+    if (!activeToken) return;
 
     try {
-      // Determine which endpoint to call based on the saved user role or path
-      const savedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-      const role = savedUser.role || (pathname.startsWith("/admin") ? "admin" : "atc");
-      
-      const endpoint = role === "admin" ? "/api/admin/me" : "/api/atc/me";
+      const activeRole = forcedRole || user?.role || (pathname.startsWith("/admin") ? "admin" : "atc");
+      const endpoint = activeRole === "admin" ? "/api/admin/me" : "/api/atc/me";
       
       const res = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${savedToken}`,
-        },
+        headers: { Authorization: `Bearer ${activeToken.trim()}` },
       });
 
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
-          const updatedUser = { ...data.user, role };
+          const updatedUser = { ...data.user, role: activeRole };
           setUser(updatedUser);
-          setToken(savedToken);
           localStorage.setItem("auth_user", JSON.stringify(updatedUser));
         }
       } else if (res.status === 401) {
-        logout();
+         // Only logout if we are absolutely sure this token is dead
+         const st = localStorage.getItem("auth_token");
+         if (st === activeToken) {
+           console.warn("Session invalid, logging out.");
+           logout();
+         }
       }
     } catch (error) {
-      console.error("Failed to refresh user:", error);
-    } finally {
-      setLoading(false);
+      console.error("Background verification failed:", error);
     }
-  }, [logout, pathname]);
+  }, [token, user?.role, pathname, logout]);
 
+  // Sync state with localStorage ONCE on mount
   useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+    const savedToken = localStorage.getItem("auth_token");
+    const savedUserStr = localStorage.getItem("auth_user");
+    
+    if (savedToken && savedUserStr) {
+      try {
+        const parsed = JSON.parse(savedUserStr);
+        setToken(savedToken);
+        setUser(parsed);
+        // Verify in background
+        refreshUser(savedToken, parsed.role);
+      } catch (e) {
+        console.error("Hydration error", e);
+      }
+    }
+    
+    setLoading(false);
+    setIsInitialized(true);
+  }, []); 
 
-  // Handle protected routes
+  // Protection logic
   useEffect(() => {
-    if (loading) return;
+    if (!isInitialized || loading) return;
 
-    const isPublicRoute = 
+    const isPublic = 
       pathname === "/" || 
       pathname === "/atc/login" || 
       pathname === "/admin/login" || 
       pathname.startsWith("/public");
 
-    if (!user && !isPublicRoute) {
-      if (pathname.startsWith("/admin")) {
-        router.push("/admin/login");
-      } else if (pathname.startsWith("/atc")) {
-        router.push("/atc/login");
-      }
+    if (!user && !isPublic) {
+      const target = pathname.startsWith("/admin") ? "/admin/login" : "/atc/login";
+      router.push(target);
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, isInitialized, pathname, router]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser }}>

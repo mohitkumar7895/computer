@@ -4,18 +4,20 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export const getToken = async (request?: Request) => {
-  const cookieStore = await cookies();
-  // Check multiple cookie names
-  let token = cookieStore.get("atc_token")?.value || 
-              cookieStore.get("admin_token")?.value || 
-              cookieStore.get("auth_token")?.value || "";
-  
-  if (!token && request) {
+  // 1. Check Authorization Header first (preferred for API calls)
+  if (request) {
     const auth = request.headers.get("Authorization") ?? "";
-    token = auth.replace("Bearer ", "");
+    const tokenFromHeader = auth.replace("Bearer ", "");
+    if (tokenFromHeader) return tokenFromHeader;
   }
 
-  return token;
+  // 2. Fallback to Cookies (for SSR / direct navigation)
+  const cookieStore = await cookies();
+  const tokenFromCookie = cookieStore.get("atc_token")?.value || 
+                          cookieStore.get("admin_token")?.value || 
+                          cookieStore.get("auth_token")?.value || "";
+  
+  return tokenFromCookie;
 };
 
 export const verifyAdmin = async (request?: Request) => {

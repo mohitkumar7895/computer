@@ -31,6 +31,6 @@ export async function GET(request: Request) {
 
   } catch (err: any) {
     console.error("API /admin/me error:", err);
-    return NextResponse.json({ authorized: false, message: "Session expired" }, { status: 401 });
+    return NextResponse.json({ authorized: false, message: "Internal server error" }, { status: 500 });
   }
 }
