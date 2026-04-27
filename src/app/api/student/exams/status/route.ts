@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
 import { StudentExam } from "@/models/StudentExam";
 import { CenterSetAssignment } from "@/models/CenterSetAssignment";
+import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function GET(request: Request) {
   try {
@@ -16,6 +17,17 @@ export async function GET(request: Request) {
     await connectDB();
     // Populate setId for titles in the UI
     const exams = await StudentExam.find({ studentId }).populate("setId").sort({ createdAt: -1 });
+    const changed: Promise<unknown>[] = [];
+    exams.forEach((exam) => {
+      const lifecycleStatus = lifecycleStatusForExam(exam);
+      if (exam.lifecycleStatus !== lifecycleStatus) {
+        exam.lifecycleStatus = lifecycleStatus;
+        changed.push(exam.save());
+      }
+    });
+    if (changed.length > 0) {
+      await Promise.all(changed);
+    }
 
     return NextResponse.json({ exams });
   } catch (error) {

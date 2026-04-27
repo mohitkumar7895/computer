@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
+import ExamCountdown from "@/components/common/ExamCountdown";
+import { buildExamWindow, isWithinCountdownWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { apiFetch } from "@/utils/api";
 
 interface ExamManagerProps {
   student: any;
@@ -32,7 +35,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
 
   const fetchExams = async () => {
     try {
-      const res = await fetch(`/api/student/exams/status?studentId=${student._id}`);
+      const res = await apiFetch(`/api/student/exams/status?studentId=${student._id}`);
       const data = await res.json();
       setExams(data.exams || []);
     } catch (err) {
@@ -63,7 +66,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
         ...(mode === "offline" ? offlineForm : {})
       };
       
-      const res = await fetch("/api/student/exams/status", {
+      const res = await apiFetch("/api/student/exams/status", {
         method: editingExamId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
@@ -247,6 +250,14 @@ export default function ExamManager({ student }: ExamManagerProps) {
                       <p className="text-sm font-bold text-slate-800">
                         {exam.examDate ? new Date(exam.examDate).toLocaleDateString() : 'TBD'}
                       </p>
+                      {exam.examTime && (
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{exam.examTime}</p>
+                      )}
+                      {exam.examMode === "offline" && (
+                        <p className="text-[10px] font-bold text-slate-500 mt-1">
+                          Center: {exam.offlineDetails?.preferredCenter || "Assigned ATC Center"}
+                        </p>
+                      )}
 
                     </td>
                     <td className="px-6 py-5 bg-slate-50/50">
@@ -277,13 +288,28 @@ export default function ExamManager({ student }: ExamManagerProps) {
                          {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'online' && (
                            <div className="flex flex-col items-start gap-1">
                              {(() => {
-                                const now = new Date();
                                 const isReleased = exam.admitCardReleased;
-                                if (!isReleased) return <span className="text-[9px] font-bold text-slate-400 italic">Admit Card Not Released</span>;
+                                const lifecycleStatus = lifecycleStatusForExam(exam);
+                                const { startsAt } = buildExamWindow(exam);
+                                if (!isReleased) {
+                                  return <span className="text-[9px] font-bold text-slate-400 italic">Admit Card Not Released</span>;
+                                }
+                                if (startsAt && isWithinCountdownWindow(exam)) {
+                                  return <ExamCountdown targetAt={startsAt} />;
+                                }
+                                if (lifecycleStatus === "upcoming") {
+                                  return <span className="text-[9px] font-bold text-slate-400 italic">Exam not started</span>;
+                                }
                                 return (
-                                  <button onClick={() => setExamInProgress(exam)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition">Attempt Now</button>
+                                  <button onClick={() => setExamInProgress(exam)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition">Start Exam</button>
                                 );
                              })()}
+                           </div>
+                         )}
+                         {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'offline' && (
+                           <div className="flex flex-col gap-1">
+                             <span className="text-[10px] font-bold text-slate-500">Offline exam at your center</span>
+                             <span className="text-[9px] font-bold text-slate-400">No start button required</span>
                            </div>
                          )}
                          {exam.status === 'completed' && (

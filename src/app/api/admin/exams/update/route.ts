@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
+import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { requestId, status, examDate, examTime, setId, examMode, admitCardReleased } = body;
+    const { requestId, status, examDate, examTime, setId, examMode, durationMinutes, admitCardReleased } = body;
 
     if (!requestId || !status) {
       return NextResponse.json({ message: "requestId and status are required." }, { status: 400 });
@@ -13,12 +14,19 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const updateData: any = { approvalStatus: status };
+    const updateData: Record<string, unknown> = { approvalStatus: status };
     if (examDate) updateData.examDate = new Date(examDate);
     if (examTime) updateData.examTime = examTime;
+    if (durationMinutes) updateData.durationMinutes = Number(durationMinutes);
     if (examMode) updateData.examMode = examMode;
     if (setId) updateData.setId = setId;
     if (admitCardReleased !== undefined) updateData.admitCardReleased = admitCardReleased;
+    if (examDate && examTime) {
+      const dt = new Date(`${examDate}T${examTime}:00`);
+      if (!Number.isNaN(dt.getTime())) {
+        updateData.examDateTime = dt;
+      }
+    }
 
     const updatedExam = await StudentExam.findByIdAndUpdate(
       requestId,
@@ -29,6 +37,8 @@ export async function POST(request: Request) {
     if (!updatedExam) {
       return NextResponse.json({ message: "Exam record not found." }, { status: 404 });
     }
+    updatedExam.lifecycleStatus = lifecycleStatusForExam(updatedExam);
+    await updatedExam.save();
 
     // If offline exam is approved, update student status to 'appeared' so ATC can enter result
     if (status === "approved" && updatedExam.examMode === "offline") {

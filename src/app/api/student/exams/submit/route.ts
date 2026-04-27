@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { StudentExam } from '@/models/StudentExam';
 import { ExamQuestion } from '@/models/ExamQuestion';
-import { AtcStudent } from '@/models/AtcStudent';
 import '@/models/QuestionSet';
 import '@/models/AtcUser';
+import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function POST(request: Request) {
   try {
@@ -17,9 +17,19 @@ export async function POST(request: Request) {
     if (!examRecord) {
       return NextResponse.json({ message: 'Exam record not found' }, { status: 404 });
     }
+    if (String(examRecord.studentId) !== String(studentId)) {
+      return NextResponse.json({ message: "Invalid student for this exam." }, { status: 403 });
+    }
+    if (examRecord.examMode !== "online") {
+      return NextResponse.json({ message: "Submission allowed only for online exams." }, { status: 400 });
+    }
+    if (examRecord.status === "completed") {
+      return NextResponse.json({ message: "Reattempt not allowed." }, { status: 409 });
+    }
+    // Allow submission for any non-completed approved online attempt.
     const questions = await ExamQuestion.find({ setId: examRecord.setId, isActive: true });
     let totalScore = 0;
-    const maxScore = questions.reduce((sum: number, q: any) => sum + (q.marks || 1), 0);
+    const maxScore = questions.reduce((sum: number, q) => sum + (q.marks || 1), 0);
     for (const q of questions) {
       const selectedOption = answers[q._id.toString()] || '';
       const isCorrect = selectedOption.trim().toLowerCase() === q.correctOption.trim().toLowerCase();
@@ -28,10 +38,12 @@ export async function POST(request: Request) {
     examRecord.totalScore = totalScore;
     examRecord.maxScore = maxScore;
     examRecord.status = 'completed';
+    examRecord.lifecycleStatus = "completed";
     examRecord.submittedAt = new Date();
     await examRecord.save();
     return NextResponse.json({ message: 'Exam submitted successfully', score: totalScore, max: maxScore });
-  } catch (error: any) {
-    return NextResponse.json({ message: 'Submission failed', error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ message: 'Submission failed', error: message }, { status: 500 });
   }
 }

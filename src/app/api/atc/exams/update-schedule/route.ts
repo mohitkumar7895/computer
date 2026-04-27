@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
+import { verifyAtc } from "@/lib/auth";
+import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function POST(request: Request) {
   try {
+    const atc = await verifyAtc(request);
+    if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
-    const { examId, examDate, examTime, setId, examMode } = body;
+    const { examId, examDate, examTime, setId, durationMinutes } = body;
 
     if (!examId) {
       return NextResponse.json({ message: "examId is required." }, { status: 400 });
@@ -13,21 +18,29 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (examDate) updateData.examDate = new Date(examDate);
     if (examTime) updateData.examTime = examTime;
-    if (examMode) updateData.examMode = examMode;
+    if (durationMinutes) updateData.durationMinutes = Number(durationMinutes);
     if (setId) updateData.setId = setId;
+    if (examDate && examTime) {
+      const dt = new Date(`${examDate}T${examTime}:00`);
+      if (!Number.isNaN(dt.getTime())) {
+        updateData.examDateTime = dt;
+      }
+    }
 
-    const updatedExam = await StudentExam.findByIdAndUpdate(
-      examId,
-      { $set: updateData },
+    const updatedExam = await StudentExam.findOneAndUpdate(
+      { _id: examId, atcId: atc.id, status: { $ne: "completed" } },
+      { $set: updateData, $setOnInsert: {} },
       { new: true }
     );
 
     if (!updatedExam) {
       return NextResponse.json({ message: "Exam record not found." }, { status: 404 });
     }
+    updatedExam.lifecycleStatus = lifecycleStatusForExam(updatedExam);
+    await updatedExam.save();
 
     return NextResponse.json({ message: "Exam schedule proposed successfully.", exam: updatedExam });
   } catch (error) {

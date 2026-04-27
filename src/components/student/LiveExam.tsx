@@ -7,6 +7,7 @@ import {
   Shield, Timer, Bookmark, HelpCircle,
   Menu, X
 } from "lucide-react";
+import { apiFetch } from "@/utils/api";
 
 interface Question {
   _id: string;
@@ -49,8 +50,13 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
   const fetchQuestions = async () => {
     try {
       const setId = exam.setId?._id || exam.setId;
-      const res = await fetch(`/api/student/exams/questions?setId=${setId}`);
+      const res = await apiFetch(`/api/student/exams/questions?setId=${setId}&examId=${exam._id}&studentId=${student._id}`);
       const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Unable to start exam right now.");
+        onFinish();
+        return;
+      }
       setQuestions(data.questions || []);
     } catch (err) {
       console.error(err);
@@ -74,7 +80,7 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
     
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/student/exams/submit", {
+      const res = await apiFetch("/api/student/exams/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -83,9 +89,12 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
           answers: answers
         })
       });
+      const data = await res.json();
       if (res.ok) {
         if (!auto) alert("Exam submitted successfully!");
         onFinish();
+      } else {
+        alert(data.message || "Submission failed.");
       }
     } catch (err) {
       alert("Submission error. Contact admin.");

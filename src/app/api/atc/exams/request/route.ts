@@ -4,6 +4,7 @@ import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -15,10 +16,13 @@ export async function POST(request: Request) {
 
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     
-    const { studentId, examMode, offlineDetails, examDate, examTime, setId } = await request.json();
+    const { studentId, examDate, examTime, durationMinutes, setId } = await request.json();
 
-    if (!studentId || !examMode) {
-      return NextResponse.json({ message: "Student ID and Exam Mode are required" }, { status: 400 });
+    if (!studentId || !examDate || !examTime || !durationMinutes) {
+      return NextResponse.json(
+        { message: "studentId, examDate, examTime, and durationMinutes are required." },
+        { status: 400 },
+      );
     }
 
     await dbConnect();
@@ -43,28 +47,57 @@ export async function POST(request: Request) {
       );
     }
 
-    const student = await AtcStudent.findById(studentId);
+    const student = await AtcStudent.findById(studentId).lean();
     if (!student) {
       return NextResponse.json({ message: "Student not found" }, { status: 404 });
+    }
+    if (String(student.atcId) !== String(decoded.id)) {
+      return NextResponse.json({ message: "Unauthorized student mapping." }, { status: 403 });
+    }
+
+    const mode = String(student.examMode || "online").toLowerCase();
+    if (mode !== "online" && mode !== "offline") {
+      return NextResponse.json({ message: "Student exam mode is invalid." }, { status: 400 });
+    }
+
+    const dateTime = new Date(`${examDate}T${examTime}:00`);
+    if (Number.isNaN(dateTime.getTime())) {
+      return NextResponse.json({ message: "Invalid exam date/time." }, { status: 400 });
+    }
+
+    const duration = Number(durationMinutes);
+    if (!Number.isFinite(duration) || duration < 1 || duration > 600) {
+      return NextResponse.json({ message: "Duration must be between 1 and 600 minutes." }, { status: 400 });
+    }
+
+    if (!setId) {
+      return NextResponse.json({ message: "Question set is required." }, { status: 400 });
     }
 
     const newExam = new StudentExam({
       studentId,
       atcId: decoded.id,
-      examMode,
-      offlineDetails: examMode === "offline" ? offlineDetails : undefined,
+      examMode: mode,
       examDate,
       examTime,
+      examDateTime: dateTime,
+      durationMinutes: duration,
       setId,
       approvalStatus: "pending",
-      status: "pending"
+      status: "pending",
+      lifecycleStatus: lifecycleStatusForExam({
+        examDateTime: dateTime,
+        durationMinutes: duration,
+        status: "pending",
+      }),
     });
 
     await newExam.save();
 
     return NextResponse.json({ message: "Exam request submitted successfully", exam: newExam });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Exam request error:", error);
-    return NextResponse.json({ message: error.message || "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

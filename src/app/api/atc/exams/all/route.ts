@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
+import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -33,6 +34,22 @@ export async function GET() {
       })
       .sort({ createdAt: -1 })
       .lean();
+
+    const updates = requests
+      .map((req) => {
+        const lifecycleStatus = lifecycleStatusForExam(req);
+        if (req.lifecycleStatus === lifecycleStatus) return null;
+        return {
+          updateOne: {
+            filter: { _id: req._id },
+            update: { $set: { lifecycleStatus } },
+          },
+        };
+      })
+      .filter(Boolean) as Array<{ updateOne: { filter: { _id: unknown }; update: { $set: { lifecycleStatus: string } } } }>;
+    if (updates.length > 0) {
+      await StudentExam.bulkWrite(updates);
+    }
 
     return NextResponse.json({ requests });
   } catch (error) {

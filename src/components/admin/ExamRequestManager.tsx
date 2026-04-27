@@ -72,11 +72,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [atcTab, setAtcTab] = useState<"new" | "history">(role === "admin" ? "history" : "new");
   const [requestExamStudent, setRequestExamStudent] = useState<any | null>(null);
   const [examReqForm, setExamReqForm] = useState({ 
-    examMode: "online", 
-    preferredDate: "", 
-    preferredCenter: "",
     examDate: "",
     examTime: "",
+    durationMinutes: 60,
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);
@@ -163,6 +161,32 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     }
   };
 
+  const handleAtcScheduleUpdate = async (examId: string) => {
+    setActionLoading(examId);
+    try {
+      const res = await apiFetch("/api/atc/exams/update-schedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          examId,
+          examDate: approvalForm.examDate,
+          examTime: approvalForm.examTime,
+          setId: approvalForm.setId,
+        }),
+      });
+      if (res.ok) {
+        await fetchRequests();
+        setShowApproveModal(false);
+      }
+    } catch (err) {
+      console.error("Schedule update failed", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleRequestExam = async (e: FormEvent) => {
     e.preventDefault();
     if (!requestExamStudent) return;
@@ -175,19 +199,16 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         },
         body: JSON.stringify({ 
           studentId: requestExamStudent._id, 
-          examMode: examReqForm.examMode,
-          offlineDetails: examReqForm.examMode === 'offline' ? {
-            preferredDate: examReqForm.examDate,
-            preferredCenter: examReqForm.preferredCenter
-          } : undefined,
           examDate: examReqForm.examDate,
           examTime: examReqForm.examTime,
+          durationMinutes: examReqForm.durationMinutes,
           setId: examReqForm.setId
         }),
       });
       if (res.ok) {
         await fetchRequests();
         setRequestExamStudent(null);
+        setExamReqForm({ examDate: "", examTime: "", durationMinutes: 60, setId: "" });
       }
     } catch (err) {
       console.error("Request failed", err);
@@ -512,8 +533,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                    Admit Card
                                  </button>
                                )}
-                               <button
-                                 onClick={() => { setRequestExamStudent(s); setExamReqForm({ ...examReqForm, examMode: s.preferredMode || 'online' }); }}
+                              <button
+                                onClick={() => {
+                                  setRequestExamStudent(s);
+                                  setExamReqForm((prev) => ({ ...prev, examDate: "", examTime: "", durationMinutes: 60, setId: "" }));
+                                }}
                                  disabled={hasTodayRequest}
                                  className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition shadow-lg shadow-slate-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
                                >
@@ -673,6 +697,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                  </button>
                                </div>
                              )}
+                             {role === "atc" && exam.status !== "completed" && (
+                               <button
+                                 onClick={() => openApproveModal(exam)}
+                                 className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition"
+                               >
+                                 Edit Request
+                               </button>
+                             )}
                              {role === "admin" && exam.offlineExamStatus === "review_pending" && (
                                <div className="flex gap-2">
                                  <button
@@ -761,20 +793,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                </div>
              )}
 
-             <div className="space-y-6">
+               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className={labelCls}>Final Exam Mode</label>
-                    <select 
-                        className={inputCls}
-                        value={(approvalForm as any).examMode}
-                        onChange={(e) => setApprovalForm({...approvalForm, examMode: e.target.value} as any)}
-                    >
-                      <option value="online">Online</option>
-                      <option value="offline">Offline</option>
-                    </select>
-                  </div>
-
                   <div className="space-y-2">
                     <label className={labelCls}>Final Exam Date</label>
                     <input 
@@ -785,6 +805,15 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <label className={labelCls}>Final Exam Time</label>
+                    <input
+                      type="time"
+                      className={inputCls}
+                      value={approvalForm.examTime}
+                      onChange={(e) => setApprovalForm({ ...approvalForm, examTime: e.target.value })}
+                    />
+                  </div>
                 </div>
 
 
@@ -805,7 +834,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
                 <button 
                   onClick={async () => {
-                    if (selectedExams.length > 0) {
+                    if (role === "atc" && selectedExam) {
+                      await handleAtcScheduleUpdate(selectedExam._id);
+                    } else if (selectedExams.length > 0) {
                       setActionLoading("bulk");
                       try {
                         for (const id of selectedExams) {
@@ -828,7 +859,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   }}
                   className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-black transition shadow-xl"
                 >
-                  {(actionLoading === "bulk" || actionLoading) ? "Processing..." : (role === "admin" ? "Approve & Release" : "Save Schedule Details")}
+                  {(actionLoading === "bulk" || actionLoading) ? "Processing..." : (role === "admin" ? "Approve & Release" : "Save Request Changes")}
                 </button>
              </div>
           </div>
@@ -925,21 +956,21 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
               </div>
               <form onSubmit={handleRequestExam} className="p-8 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2 col-span-full">
-                       <label className={labelCls}>Examination Mode *</label>
-                       <select 
-                         className={inputCls}
-                         value={examReqForm.examMode}
-                         onChange={e => setExamReqForm({...examReqForm, examMode: e.target.value})}
-                         required
-                       >
-                          <option value="online">Online Examination</option>
-                          <option value="offline">Offline Examination (Center Based)</option>
-                       </select>
+                    <div className="space-y-2">
+                      <label className={labelCls}>Student ID</label>
+                      <input className={inputCls} value={requestExamStudent.registrationNo || "N/A"} readOnly />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={labelCls}>Mode (From Admission)</label>
+                      <input
+                        className={inputCls}
+                        value={(requestExamStudent.examMode || "online").toUpperCase()}
+                        readOnly
+                      />
                     </div>
 
                     <div className="space-y-2">
-                       <label className={labelCls}>Proposed Date *</label>
+                       <label className={labelCls}>Exam Date *</label>
                        <input 
                          type="date"
                          className={inputCls}
@@ -952,8 +983,32 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
 
 
+                    <div className="space-y-2">
+                      <label className={labelCls}>Exam Time *</label>
+                      <input
+                        type="time"
+                        className={inputCls}
+                        required
+                        value={examReqForm.examTime}
+                        onChange={(e) => setExamReqForm({ ...examReqForm, examTime: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className={labelCls}>Duration (Minutes) *</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={600}
+                        className={inputCls}
+                        required
+                        value={examReqForm.durationMinutes}
+                        onChange={(e) => setExamReqForm({ ...examReqForm, durationMinutes: Number(e.target.value) || 60 })}
+                      />
+                    </div>
+
                     <div className="space-y-2 col-span-full">
-                       <label className={labelCls}>Select Question Set *</label>
+                       <label className={labelCls}>Set / Paper *</label>
                        <select 
                          className={inputCls}
                          value={examReqForm.setId}
@@ -966,19 +1021,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           ))}
                        </select>
                     </div>
-
-                    {examReqForm.examMode === 'offline' && (
-                      <div className="space-y-2 col-span-full">
-                         <label className={labelCls}>Preferred Center *</label>
-                         <input 
-                           className={inputCls}
-                           placeholder="Center Name"
-                           required
-                           value={examReqForm.preferredCenter}
-                           onChange={e => setExamReqForm({...examReqForm, preferredCenter: e.target.value})}
-                         />
-                      </div>
-                    )}
                   </div>
 
                   <div className="pt-4 flex gap-4">

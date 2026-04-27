@@ -22,6 +22,9 @@ export interface IStudentExam {
   admitCardReleased: boolean;
   examDate?: Date;
   examTime?: string;
+  examDateTime?: Date;
+  durationMinutes?: number;
+  lifecycleStatus?: "upcoming" | "active" | "completed";
   answers: IStudentExamAnswer[];
   totalScore: number;
   maxScore: number;
@@ -69,6 +72,13 @@ const StudentExamSchema = new Schema<IStudentExam>(
     admitCardReleased: { type: Boolean, default: false },
     examDate: { type: Date },
     examTime: { type: String },
+    examDateTime: { type: Date },
+    durationMinutes: { type: Number, default: 60, min: 1 },
+    lifecycleStatus: {
+      type: String,
+      enum: ["upcoming", "active", "completed"],
+      default: "upcoming",
+    },
     answers: { type: [StudentExamAnswerSchema], default: [] },
     totalScore: { type: Number, default: 0 },
     maxScore: { type: Number, default: 100 },
