@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { CreditCard, History, Printer, CheckCircle, AlertCircle, FileText, Plus, Minus } from "lucide-react";
+import { apiFetch } from "@/utils/api";
 
 interface Transaction {
   _id: string;
@@ -18,7 +19,7 @@ export default function StudentFeeView({ student }: { student: any }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/fee/history/${student._id}`)
+    apiFetch(`/api/fee/history/${student._id}`)
       .then(res => res.json())
       .then(data => {
         setTransactions(data.transactions || []);

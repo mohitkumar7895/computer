@@ -124,7 +124,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const fetchQuestionSets = async () => {
     if (authLoading || !authUser) return;
     try {
-      const res = await apiFetch("/api/atc/question-sets");
+      const endpoint = role === "admin" ? "/api/admin/question-sets" : "/api/atc/question-sets";
+      const res = await apiFetch(endpoint);
       if (res.ok) {
         const data = await res.json();
         setQuestionSets(data.sets || []);

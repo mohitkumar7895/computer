@@ -9,6 +9,7 @@ import {
   parseFeeOptions,
   SETTINGS_PROCESS_FEE_KEY,
 } from "@/utils/atcSettings";
+import { apiFetch } from "@/utils/api";
 
 export type InfraRow = { rooms: string; seats: string; area: string };
 
@@ -59,17 +60,17 @@ export default function PaymentReceipt({ data, onBack }: Props) {
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
 
   useEffect(() => {
-    fetch("/api/admin/settings?key=qr_code")
+    apiFetch("/api/public/settings?key=qr_code")
       .then((r) => r.json())
       .then((d: { value: string | null }) => setQrCode(d.value ?? null))
       .catch(() => null);
 
-    fetch("/api/admin/settings?key=auth_signature")
+    apiFetch("/api/public/settings?key=auth_signature")
       .then((r) => r.json())
       .then((d: { value: string | null }) => setAuthSignature(d.value ?? null))
       .catch(() => null);
 
-    fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
+    apiFetch(`/api/public/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
       .then((r) => r.json())
       .then((d: { value: string | null }) => setFeeOptions(parseFeeOptions(d.value)))
       .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));

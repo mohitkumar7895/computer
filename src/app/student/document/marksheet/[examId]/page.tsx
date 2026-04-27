@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ShieldCheck, Printer, FileText } from "lucide-react";
+import { apiFetch } from "@/utils/api";
 
 export default function MarksheetPrintPage() {
   const { examId } = useParams();
@@ -14,7 +15,7 @@ export default function MarksheetPrintPage() {
 
   useEffect(() => {
     // 1. Fetch Marksheet Data
-    fetch(`/api/student/documents/marksheet?examId=${examId}`)
+    apiFetch(`/api/student/documents/marksheet?examId=${examId}`)
       .then(res => res.json())
       .then(d => {
         if (d.data) setData(d.data);
@@ -23,12 +24,12 @@ export default function MarksheetPrintPage() {
       .catch(() => router.push("/student/dashboard"));
 
     // 2. Fetch Background Template
-    fetch("/api/admin/settings/backgrounds").then(res => res.json()).then(bgs => {
+    apiFetch("/api/public/backgrounds").then(res => res.json()).then(bgs => {
       setBg(bgs.marksheet);
     });
 
     // 3. Fetch Signature
-    fetch("/api/admin/settings?key=authorized_signature").then(res => res.json()).then(sig => {
+    apiFetch("/api/public/settings?key=authorized_signature").then(res => res.json()).then(sig => {
       if (sig.value) setSig(sig.value);
     });
 

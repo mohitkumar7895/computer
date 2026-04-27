@@ -15,6 +15,7 @@ import {
   parseFeeOptions,
   SETTINGS_PROCESS_FEE_KEY,
 } from "@/utils/atcSettings";
+import { apiFetch } from "@/utils/api";
 
 type FormState = {
   processFee: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -109,12 +110,12 @@ export default function BecomeAtcForm() {
   const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfraRow>>(emptyInfra);
 
   useEffect(() => {
-    fetch("/api/admin/settings?key=qr_code")
+    apiFetch("/api/public/settings?key=qr_code")
       .then(res => res.json())
       .then(data => setQrCode(data.value))
       .catch(() => {});
 
-    fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
+    apiFetch(`/api/public/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
       .then(res => res.json())
       .then(data => setFeeOptions(parseFeeOptions(data.value)))
       .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));

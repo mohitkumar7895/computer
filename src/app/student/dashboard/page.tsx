@@ -18,6 +18,7 @@ import StudentFeeView from "@/components/student/StudentFeeView";
 
 import { useBrand } from "@/context/BrandContext";
 import { cookieFetch } from "@/lib/auth-client";
+import { apiFetch } from "@/utils/api";
 
 export default function StudentDashboardPage() {
   const { brandName } = useBrand();
@@ -41,19 +42,19 @@ export default function StudentDashboardPage() {
   };
 
   useEffect(() => {
-    fetch("/api/student/me")
+    apiFetch("/api/student/me")
       .then(async (res) => {
         if (!res.ok) { router.push("/student/login"); return; }
         const data = await res.json();
         setStudent(data.student);
 
         // Fetch backgrounds
-        fetch("/api/admin/settings/backgrounds").then(r => r.json()).then(setBgs).catch(() => {});
+        apiFetch("/api/public/backgrounds").then(r => r.json()).then(setBgs).catch(() => {});
         
         // Fetch his center details if he has a tpCode
         if (data.student.tpCode) {
-           fetch(`/api/admin/applications`).then(r => r.json()).then(cData => {
-              const myCenter = cData.applications?.find((a: any) => a.tpCode === data.student.tpCode);
+           apiFetch(`/api/public/centers`).then(r => r.json()).then((cData: Array<{ tpCode?: string }>) => {
+              const myCenter = cData?.find((a) => a.tpCode === data.student.tpCode);
               setCenter(myCenter);
            }).catch(() => {});
         }

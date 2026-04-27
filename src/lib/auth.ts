@@ -2,27 +2,23 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
 
-export const getToken = async (request?: Request) => {
-  // 1. Check Authorization Header first (preferred for API calls)
+const getBearerFromRequest = (request?: Request): string => {
   if (request) {
     const auth = request.headers.get("Authorization") ?? "";
     const tokenFromHeader = auth.replace("Bearer ", "");
     if (tokenFromHeader) return tokenFromHeader;
   }
-
-  // 2. Fallback to Cookies (for SSR / direct navigation)
-  const cookieStore = await cookies();
-  const tokenFromCookie = cookieStore.get("atc_token")?.value || 
-                          cookieStore.get("admin_token")?.value || 
-                          cookieStore.get("auth_token")?.value || "";
-  
-  return tokenFromCookie;
+  return "";
 };
 
 export const verifyAdmin = async (request?: Request) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) return null;
-  const token = await getToken(request);
+  const cookieStore = await cookies();
+  const token =
+    cookieStore.get("admin_token")?.value ||
+    cookieStore.get("auth_token")?.value ||
+    getBearerFromRequest(request);
   if (!token) return null;
   
   try {
@@ -37,7 +33,11 @@ export const verifyAdmin = async (request?: Request) => {
 export const verifyAtc = async (request?: Request) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) return null;
-  const token = await getToken(request);
+  const cookieStore = await cookies();
+  const token =
+    cookieStore.get("atc_token")?.value ||
+    cookieStore.get("auth_token")?.value ||
+    getBearerFromRequest(request);
   if (!token) return null;
   
   try {

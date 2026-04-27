@@ -357,7 +357,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       setSameAddress(false);
       setCurrentAddr("");
       setDisability("No");
-      setTimeout(() => setTab("list"), 2000);
+      await fetchStudents();
+      setTab("list");
     } catch (err: any) {
       console.error("Submission Error:", err);
       let errorMsg = err.message;

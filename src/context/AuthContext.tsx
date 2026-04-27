@@ -143,11 +143,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const cookieResult = await tryStaffMe(targetUrl, null);
       if (cookieResult.ok) return cookieResult;
       if (cookieResult.status === 401) {
-        const lsToken =
+        const lsToken = typeof window !== "undefined" ? localStorage.getItem(AUTH_TOKEN_KEY) : null;
+        const lsUser =
           typeof window !== "undefined"
-            ? localStorage.getItem(AUTH_TOKEN_KEY)
+            ? localStorage.getItem(AUTH_USER_KEY)
             : null;
-        if (lsToken) {
+        let canUseBearer = false;
+        if (lsUser) {
+          try {
+            const parsed = JSON.parse(lsUser) as StaffUser;
+            const targetRole = targetUrl.includes("/admin/") ? "admin" : "atc";
+            canUseBearer = parsed.role === targetRole;
+          } catch {
+            canUseBearer = false;
+          }
+        }
+        if (lsToken && canUseBearer) {
           const bearerResult = await tryStaffMe(targetUrl, lsToken);
           if (bearerResult.ok) return bearerResult;
           if (bearerResult.status === 401) {

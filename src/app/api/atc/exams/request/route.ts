@@ -2,19 +2,13 @@ import { NextResponse } from "next/server";
 import { connectDB as dbConnect } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
 import { lifecycleStatusForExam } from "@/lib/exam-schedule";
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
+import { verifyAtc } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("atc_token")?.value;
-    if (!token) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+    const atc = await verifyAtc(request);
+    if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     
     const { studentId, examDate, examTime, durationMinutes, setId } = await request.json();
 
@@ -36,7 +30,7 @@ export async function POST(request: Request) {
 
     const todayRequest = await StudentExam.findOne({
       studentId,
-      atcId: decoded.id,
+      atcId: atc.id,
       createdAt: { $gte: dayStart, $lte: dayEnd },
     });
 
@@ -51,7 +45,7 @@ export async function POST(request: Request) {
     if (!student) {
       return NextResponse.json({ message: "Student not found" }, { status: 404 });
     }
-    if (String(student.atcId) !== String(decoded.id)) {
+    if (String(student.atcId) !== String(atc.id)) {
       return NextResponse.json({ message: "Unauthorized student mapping." }, { status: 403 });
     }
 
@@ -76,7 +70,7 @@ export async function POST(request: Request) {
 
     const newExam = new StudentExam({
       studentId,
-      atcId: decoded.id,
+      atcId: atc.id,
       examMode: mode,
       examDate,
       examTime,
