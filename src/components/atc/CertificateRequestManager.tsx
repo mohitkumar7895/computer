@@ -3,6 +3,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, Building2, ClipboardCheck, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 
 interface ExamRequest {
   _id: string;
@@ -96,16 +97,15 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     certificate: true 
   });
 
-  const { token, loading: authLoading } = useAuth();
+  const { loading: authLoading, user: authUser } = useAuth();
 
   const fetchRequests = async () => {
-    if (!token) return;
+    if (authLoading || !authUser) return;
     setLoading(true);
     try {
       const url = role === "admin" ? "/api/admin/exams/all" : "/api/atc/exams/all";
-      const res = await fetch(url, { 
+      const res = await apiFetch(url, { 
         cache: "no-store",
-        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
@@ -113,9 +113,8 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       }
       
       if (role === "atc") {
-        const studentRes = await fetch("/api/atc/students", { 
+        const studentRes = await apiFetch("/api/atc/students", { 
           cache: "no-store",
-          headers: { Authorization: `Bearer ${token}` }
         });
         if (studentRes.ok) {
           const sData = await studentRes.json();
@@ -131,11 +130,9 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   };
 
   const fetchQuestionSets = async () => {
-    if (!token) return;
+    if (authLoading || !authUser) return;
     try {
-      const res = await fetch("/api/atc/question-sets", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch("/api/atc/question-sets");
       if (res.ok) {
         const data = await res.json();
         setQuestionSets(data.sets || []);
@@ -146,19 +143,18 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   };
 
   useEffect(() => {
-    if (authLoading || !token) return;
+    if (authLoading || !authUser) return;
     fetchRequests();
     fetchQuestionSets();
-  }, [atcId, role, authLoading, token]);
+  }, [atcId, role, authLoading, authUser]);
 
   const handleAction = async (requestId: string, status: string, details?: any) => {
     setActionLoading(requestId);
     try {
-      const res = await fetch("/api/admin/exams/update", {
+      const res = await apiFetch("/api/admin/exams/update", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ requestId, status, ...details }),
       });
@@ -178,11 +174,10 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     if (!requestExamStudent) return;
     setRequesting(true);
     try {
-      const res = await fetch("/api/atc/exams/request", {
+      const res = await apiFetch("/api/atc/exams/request", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ 
           studentId: requestExamStudent._id, 
@@ -224,10 +219,9 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       formData.append("examMode", selectedExam.examMode);
       if (resultCopyFile) formData.append("examCopy", resultCopyFile);
 
-      const res = await fetch("/api/atc/exams/offline-result", {
+      const res = await apiFetch("/api/atc/exams/offline-result", {
         method: "POST",
         body: formData,
-        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         await fetchRequests();
@@ -243,11 +237,10 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   const handleApproveResult = async (examId: string, status: "published" | "appeared" = "published") => {
     setActionLoading(examId);
     try {
-      const res = await fetch("/api/admin/exams/approve-result", {
+      const res = await apiFetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ examId, status }),
       });
@@ -276,11 +269,10 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       // In a real scenario, ideally a single bulk API endpoint. 
       // For now, loop or use a /bulk endpoint if it exists.
       for (const id of selectedExams) {
-        await fetch("/api/admin/exams/update", {
+        await apiFetch("/api/admin/exams/update", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ requestId: id, status: action === "reject" ? "rejected" : "delete" }),
         });
@@ -792,11 +784,10 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                       setActionLoading("bulk");
                       try {
                         for (const id of selectedExams) {
-                          await fetch("/api/admin/exams/update", {
+                          await apiFetch("/api/admin/exams/update", {
                             method: "POST",
                             headers: { 
                               "Content-Type": "application/json",
-                              Authorization: `Bearer ${token}`
                             },
                             body: JSON.stringify({ requestId: id, status: "approved", ...approvalForm, admitCardReleased: role === "admin" }),
                           });

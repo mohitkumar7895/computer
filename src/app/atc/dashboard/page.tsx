@@ -57,6 +57,7 @@ interface AtcUser {
 
 import { useBrand } from "@/context/BrandContext";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 
 export default function AtcDashboardPage() {
   const { brandName } = useBrand();
@@ -81,24 +82,24 @@ export default function AtcDashboardPage() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [passMsg, setPassMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const { user: authUser, loading: authLoading, logout, token } = useAuth();
+  const { user: authUser, loading: authLoading, sessionReady, logout } = useAuth();
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!authUser) {
-      router.push("/atc/login");
+    if (!sessionReady || authLoading) return;
+
+    if (!authUser || authUser.role !== "atc") {
+      setLoading(false);
+      router.replace("/atc/login");
       return;
     }
 
     setUser(authUser as unknown as AtcUser);
-    
-    // Load stats only if not loading
+
+    let cancelled = false;
     const loadStats = async () => {
-      if (!token) return;
       try {
-        const res = await fetch("/api/atc/me", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await apiFetch("/api/atc/me");
+        if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
           if (data.stats) setStats(data.stats);
@@ -106,12 +107,15 @@ export default function AtcDashboardPage() {
       } catch (err) {
         console.error("Dashboard stats error:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    loadStats();
-  }, [authUser, authLoading, router]);
+    void loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, authLoading, sessionReady, router]);
 
   useEffect(() => {
     if (!user) return;
@@ -123,8 +127,7 @@ export default function AtcDashboardPage() {
   }, [user]);
 
   const handleLogout = async () => {
-    await fetch("/api/atc/logout", { method: "POST" });
-    logout();
+    await logout();
   };
 
   const handleProfileSave = async (event: FormEvent<HTMLFormElement>) => {
@@ -151,11 +154,10 @@ export default function AtcDashboardPage() {
     }
 
     try {
-      const res = await fetch("/api/atc/me", {
+      const res = await apiFetch("/api/atc/me", {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(centerInfo),
       });
@@ -191,11 +193,10 @@ export default function AtcDashboardPage() {
 
     setPassSaving(true);
     try {
-      const res = await fetch("/api/atc/settings/password", {
+      const res = await apiFetch("/api/atc/settings/password", {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
       });

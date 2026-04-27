@@ -25,6 +25,7 @@ export default function AtcLoginPage() {
     try {
       const res = await fetch("/api/atc/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tpCode: form.tpCode.trim().toUpperCase(), password: form.password }),
       });

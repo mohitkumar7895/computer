@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { PlusCircle, Trash2, Video, FileText, Type, Search, Trash, Eye, Play, FileIcon, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 
 interface Material {
   _id: string;
@@ -25,7 +26,7 @@ export default function StudyMaterialManager({ role }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const { token, loading: authLoading } = useAuth();
+  const { loading: authLoading, user: authUser } = useAuth();
   
   const [formData, setFormData] = useState({
     title: "",
@@ -36,11 +37,9 @@ export default function StudyMaterialManager({ role }: Props) {
   });
 
   const fetchMaterials = useCallback(async () => {
-    if (!token) return;
+    if (authLoading || !authUser) return;
     try {
-      const res = await fetch(`/api/${role}/study-material`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/${role}/study-material`);
       const data = await res.json();
       setMaterials(Array.isArray(data) ? data : (data && Array.isArray(data.materials) ? data.materials : []));
     } catch (err) {
@@ -48,22 +47,21 @@ export default function StudyMaterialManager({ role }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [role, token]);
+  }, [role, authLoading, authUser]);
 
   useEffect(() => {
-    if (authLoading || !token) return;
+    if (authLoading || !authUser) return;
     void fetchMaterials();
-  }, [fetchMaterials, authLoading, token]);
+  }, [fetchMaterials, authLoading, authUser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`/api/${role}/study-material`, {
+      const res = await apiFetch(`/api/${role}/study-material`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(formData),
       });
@@ -81,11 +79,10 @@ export default function StudyMaterialManager({ role }: Props) {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this material?")) return;
     try {
-      const res = await fetch(`/api/${role}/study-material`, {
+      const res = await apiFetch(`/api/${role}/study-material`, {
         method: "DELETE",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ id }),
       });
@@ -102,7 +99,7 @@ export default function StudyMaterialManager({ role }: Props) {
     setLoading(true);
     try {
       for (const id of selectedMaterials) {
-        await fetch(`/api/${role}/study-material`, {
+        await apiFetch(`/api/${role}/study-material`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id }),

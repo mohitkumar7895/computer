@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapPin, ShieldCheck, Layers, RefreshCw, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 
 interface CenterAssignmentManagerProps {
   approvedCenters: Array<{
@@ -32,7 +33,7 @@ interface Assignment {
 }
 
 export default function CenterAssignmentManager({ approvedCenters }: CenterAssignmentManagerProps) {
-  const { token } = useAuth();
+  const { user: authUser } = useAuth();
   const [sets, setSets] = useState<QuestionSet[]>([]);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
@@ -50,12 +51,10 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
   );
 
   const fetchSets = async () => {
-    if (!token) return;
+    if (!authUser) return;
     setLoadingSets(true);
     try {
-      const res = await fetch("/api/admin/question-sets", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch("/api/admin/question-sets");
       const data = await res.json();
       setSets(data.sets ?? []);
     } catch {
@@ -72,9 +71,7 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
     setAssignment(null);
     try {
       const query = center.tpCode ? `tpCode=${encodeURIComponent(center.tpCode)}` : `centerId=${encodeURIComponent(center._id)}`;
-      const res = await fetch(`/api/admin/center-assignments?${query}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/admin/center-assignments?${query}`);
       if (res.ok) {
         const data = await res.json();
         setAssignment(data.assignment ?? null);
@@ -100,8 +97,8 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
   };
 
   useEffect(() => {
-    if (token) void fetchSets();
-  }, [token]);
+    if (authUser) void fetchSets();
+  }, [authUser]);
 
   useEffect(() => {
     if (selectedCenter) {
@@ -143,11 +140,10 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
         examDate: examDate.trim(),
         notes: notes.trim(),
       };
-      const res = await fetch("/api/admin/center-assignments", {
+      const res = await apiFetch("/api/admin/center-assignments", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(body),
       });

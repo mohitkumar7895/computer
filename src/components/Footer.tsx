@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { motion, useAnimationControls, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   FaChevronCircleRight,
   FaFacebookF,
@@ -18,43 +17,11 @@ import { FOOTER_LINKS, SITE_INFO, SOCIAL_LINKS } from "@/utils/constants";
 import { useBrand } from "@/context/BrandContext";
 
 export default function Footer() {
-  const { brandName, brandMobile, brandUrl, brandLogo, brandEmail, brandAddress } = useBrand();
+  const { brandName, brandMobile, brandUrl, brandAddress } = useBrand();
   const socialIcons = [FaFacebookF, FaTwitter, FaYoutube, FaGooglePlusG];
-  const bannerControls = useAnimationControls();
   const prefersReducedMotion = useReducedMotion();
 
-  useEffect(() => {
-    if (prefersReducedMotion) return;
-
-    let isMounted = true;
-
-    const animateBanner = async () => {
-      while (isMounted) {
-        await bannerControls.start({
-          x: ["-8%", "8%"],
-          transition: {
-            duration: 4.5,
-            ease: "easeInOut",
-          },
-        });
-
-        await bannerControls.start({
-          x: ["8%", "-8%"],
-          transition: {
-            duration: 6.5,
-            ease: "easeInOut",
-          },
-        });
-      }
-    };
-
-    void animateBanner();
-
-    return () => {
-      isMounted = false;
-      void bannerControls.stop();
-    };
-  }, [bannerControls, prefersReducedMotion]);
+  const bannerCycleDuration = 4.5 + 6.5;
 
   return (
     <footer id="contact" className="scroll-mt-28 mt-12 bg-[#767171] text-white sm:scroll-mt-32">
@@ -85,8 +52,22 @@ export default function Footer() {
         <div className="overflow-hidden">
           <motion.div
             className="mx-auto flex w-full max-w-7xl items-center justify-center gap-2 px-6 py-8 text-center text-base font-light text-[#7f7f7f] will-change-transform sm:text-xl lg:text-2xl"
-            animate={prefersReducedMotion ? { x: 0 } : bannerControls}
             initial={{ x: "-8%" }}
+            animate={
+              prefersReducedMotion
+                ? { x: 0 }
+                : { x: ["-8%", "8%", "-8%"] }
+            }
+            transition={
+              prefersReducedMotion
+                ? { duration: 0 }
+                : {
+                    duration: bannerCycleDuration,
+                    ease: "easeInOut",
+                    repeat: Infinity,
+                    times: [0, 4.5 / bannerCycleDuration, 1],
+                  }
+            }
           >
             <FaUniversity className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
             <p>

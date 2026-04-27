@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Fragment, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
@@ -122,7 +123,7 @@ const PrintField = ({ label, value }: any) => (
 export default function AdminPanelPage() {
   usePageTitle("admin");
   const router = useRouter();
-  const { token, loading: authLoading } = useAuth();
+  const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,13 +218,14 @@ export default function AdminPanelPage() {
   const feeLabel = (value: string) => getFeeLabel(feePlans, value, FEE_LABEL);
 
   const fetchApplications = useCallback(async () => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/applications", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.status === 401) { router.push("/admin/login"); return; }
+      const res = await apiFetch("/api/admin/applications");
+      if (res.status === 401) {
+        await authLogout();
+        return;
+      }
       const data = (await res.json()) as { applications: Application[] };
       setApplications(data.applications ?? []);
     } catch {
@@ -231,14 +233,15 @@ export default function AdminPanelPage() {
     } finally {
       setLoading(false);
     }
-    
-    fetch("/api/admin/settings/backgrounds", {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.json()).then(data => {
-      setBgs(data);
-      setBgLoading(false);
-    });
-  }, [router, token]);
+
+    apiFetch("/api/admin/settings/backgrounds")
+      .then((res) => res.json())
+      .then((data) => {
+        setBgs(data);
+        setBgLoading(false);
+      })
+      .catch(() => setBgLoading(false));
+  }, [authLogout, sessionReady, authLoading, authUser]);
 
   const openCenterEditor = (app: Application) => {
     setToastMsg(null);
@@ -277,11 +280,10 @@ export default function AdminPanelPage() {
 
     setEditSaving(true);
     try {
-      const res = await fetch(`/api/admin/applications/${editingCenter._id}`, {
+      const res = await apiFetch(`/api/admin/applications/${editingCenter._id}`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           update: {
@@ -309,68 +311,64 @@ export default function AdminPanelPage() {
   };
 
   const fetchSettings = useCallback(async () => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setQrLoading(true);
     setSigLoading(true);
     try {
-      const h = { Authorization: `Bearer ${token}` };
-      
-      const qRes = await fetch("/api/admin/settings?key=qr_code", { headers: h });
+      const qRes = await apiFetch("/api/admin/settings?key=qr_code");
       const qData = (await qRes.json()) as { value: string | null };
       setQrPreview(qData.value ?? null);
 
-      const sRes = await fetch("/api/admin/settings?key=auth_signature", { headers: h });
+      const sRes = await apiFetch("/api/admin/settings?key=auth_signature");
       const sData = (await sRes.json()) as { value: string | null };
       setSigPreview(sData.value ?? null);
 
-      const fRes = await fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`, { headers: h });
+      const fRes = await apiFetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`);
       const fData = (await fRes.json()) as { value: string | null };
       setFeePlans(parseFeeOptions(fData.value));
 
-      const cfRes = await fetch("/api/admin/settings?key=reg_format_center", { headers: h });
+      const cfRes = await apiFetch("/api/admin/settings?key=reg_format_center");
       const cfData = await cfRes.json();
       if (cfData.value) setCenterFormat(JSON.parse(cfData.value));
 
-      const sfRes = await fetch("/api/admin/settings?key=reg_format_student", { headers: h });
+      const sfRes = await apiFetch("/api/admin/settings?key=reg_format_student");
       const sfData = await sfRes.json();
       if (sfData.value) setStudentFormat(JSON.parse(sfData.value));
 
-      const bRes = await fetch("/api/admin/settings?key=brand_name", { headers: h });
+      const bRes = await apiFetch("/api/admin/settings?key=brand_name");
       const bData = (await bRes.json()) as { value: string | null };
       if (bData.value) setBrandName(bData.value);
 
-      const bmRes = await fetch("/api/admin/settings?key=brand_mobile", { headers: h });
+      const bmRes = await apiFetch("/api/admin/settings?key=brand_mobile");
       const bmData = (await bmRes.json()) as { value: string | null };
       if (bmData.value) setBrandMobile(bmData.value);
 
-      const beRes = await fetch("/api/admin/settings?key=brand_email", { headers: h });
+      const beRes = await apiFetch("/api/admin/settings?key=brand_email");
       const beData = (await beRes.json()) as { value: string | null };
       if (beData.value) setBrandEmail(beData.value);
 
-      const baRes = await fetch("/api/admin/settings?key=brand_address", { headers: h });
+      const baRes = await apiFetch("/api/admin/settings?key=brand_address");
       const baData = (await baRes.json()) as { value: string | null };
       if (baData.value) setBrandAddress(baData.value);
 
-      const buRes = await fetch("/api/admin/settings?key=brand_url", { headers: h });
+      const buRes = await apiFetch("/api/admin/settings?key=brand_url");
       const buData = (await buRes.json()) as { value: string | null };
       if (buData.value) setBrandUrl(buData.value);
 
-      const blRes = await fetch("/api/admin/settings?key=brand_logo", { headers: h });
+      const blRes = await apiFetch("/api/admin/settings?key=brand_logo");
       const blData = (await blRes.json()) as { value: string | null };
       if (blData.value) setBrandLogo(blData.value);
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
     }
-  }, [token]);
-  
+  }, [sessionReady, authLoading, authUser]);
+
   const fetchStudents = useCallback(async () => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setStudentLoading(true);
     try {
-      const res = await fetch("/api/admin/students", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch("/api/admin/students");
       const data = await res.json();
       setStudents(data.students || []);
     } catch {
@@ -378,45 +376,43 @@ export default function AdminPanelPage() {
     } finally {
       setStudentLoading(false);
     }
-  }, [token]);
+  }, [sessionReady, authLoading, authUser]);
 
   const fetchPendingResults = useCallback(async () => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setResultsLoading(true);
     try {
-      const res = await fetch("/api/admin/exams/pending-results", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch("/api/admin/exams/pending-results");
       if (res.ok) {
         const data = await res.json();
         setPendingResults(data);
       }
     } catch { showToast("error", "Failed to fetch pending results"); }
     finally { setResultsLoading(false); }
-  }, [token]);
+  }, [sessionReady, authLoading, authUser]);
 
   useEffect(() => { 
-    if (!authLoading && token) void fetchApplications(); 
-  }, [fetchApplications, authLoading, token]);
+    if (sessionReady && !authLoading && authUser) void fetchApplications(); 
+  }, [fetchApplications, sessionReady, authLoading, authUser]);
 
   useEffect(() => { 
-    if (tab === "settings" && !authLoading && token) void fetchSettings(); 
-  }, [tab, fetchSettings, authLoading, token]);
+    if (tab === "settings" && sessionReady && !authLoading && authUser) void fetchSettings(); 
+  }, [tab, fetchSettings, sessionReady, authLoading, authUser]);
 
   useEffect(() => { 
-    if (tab === "dashboard" && !authLoading && token) {
+    if (tab === "dashboard" && sessionReady && !authLoading && authUser) {
       void fetchApplications();
       void fetchStudents();
     }
-  }, [tab, fetchApplications, fetchStudents, authLoading, token]);
+  }, [tab, fetchApplications, fetchStudents, sessionReady, authLoading, authUser]);
 
   useEffect(() => { 
-    if (tab === "students" && !authLoading && token) void fetchStudents(); 
-  }, [tab, fetchStudents, authLoading, token]);
+    if (tab === "students" && sessionReady && !authLoading && authUser) void fetchStudents(); 
+  }, [tab, fetchStudents, sessionReady, authLoading, authUser]);
 
   useEffect(() => { 
-    if (tab === "resultReview" && !authLoading && token) void fetchPendingResults(); 
-  }, [tab, fetchPendingResults, authLoading, token]);
+    if (tab === "resultReview" && sessionReady && !authLoading && authUser) void fetchPendingResults(); 
+  }, [tab, fetchPendingResults, sessionReady, authLoading, authUser]);
 
 
 
@@ -424,11 +420,10 @@ export default function AdminPanelPage() {
     setStudentActionId(id + action);
     try {
 
-      const res = await fetch(`/api/admin/students/${id}`, {
+      const res = await apiFetch(`/api/admin/students/${id}`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ action }),
       });
@@ -444,40 +439,39 @@ export default function AdminPanelPage() {
   };
 
   const handleBrandSave = async () => {
-    if (!token || !brandName.trim()) return showToast("error", "Brand name cannot be empty.");
+    if (!authUser || !brandName.trim()) return showToast("error", "Brand name cannot be empty.");
     setBrandSaving(true);
     try {
       const h = { 
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
       };
       
       // Save Name
-      await fetch("/api/admin/settings", {
+      await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: h,
         body: JSON.stringify({ key: "brand_name", value: brandName.trim() }),
       });
       // Save Mobile
-      await fetch("/api/admin/settings", {
+      await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: h,
         body: JSON.stringify({ key: "brand_mobile", value: brandMobile.trim() }),
       });
       // Save URL
-      await fetch("/api/admin/settings", {
+      await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: h,
         body: JSON.stringify({ key: "brand_url", value: brandUrl.trim() }),
       });
       // Save Email
-      await fetch("/api/admin/settings", {
+      await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: h,
         body: JSON.stringify({ key: "brand_email", value: brandEmail.trim() }),
       });
       // Save Address
-      await fetch("/api/admin/settings", {
+      await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: h,
         body: JSON.stringify({ key: "brand_address", value: brandAddress.trim() }),
@@ -499,11 +493,10 @@ export default function AdminPanelPage() {
       const base64 = reader.result as string;
       setBrandLogo(base64);
       try {
-        await fetch("/api/admin/settings", {
+        await apiFetch("/api/admin/settings", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ key: "brand_logo", value: base64 }),
         });
@@ -517,13 +510,12 @@ export default function AdminPanelPage() {
 
   const handleResetPassword = async (id: string) => {
     const newPass = prompt("Enter new password for student:");
-    if (!newPass || !token) return;
+    if (!newPass || !authUser) return;
     try {
-      const res = await fetch(`/api/admin/students/${id}`, {
+      const res = await apiFetch(`/api/admin/students/${id}`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ action: "resetPassword", newPassword: newPass }),
       });
@@ -536,15 +528,14 @@ export default function AdminPanelPage() {
 
   const handleBulkAction = async (type: "students" | "centers", action: string) => {
     const ids = type === "students" ? selectedStudents : selectedApps;
-    if (ids.length === 0 || !token) return;
+    if (ids.length === 0 || !authUser) return;
     if (!confirm(`Are you sure you want to ${action} ${ids.length} items?`)) return;
 
     try {
-      const res = await fetch(`/api/admin/${type === "students" ? "students" : "applications"}/bulk`, {
+      const res = await apiFetch(`/api/admin/${type === "students" ? "students" : "applications"}/bulk`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ ids, action }),
       });
@@ -560,14 +551,13 @@ export default function AdminPanelPage() {
   };
 
   const handleAction = async (id: string, action: "approve" | "reject" | "toggleStatus") => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setActionLoading(id + action);
     try {
-      const res = await fetch(`/api/admin/applications/${id}`, {
+      const res = await apiFetch(`/api/admin/applications/${id}`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ action }),
       });
@@ -592,12 +582,11 @@ export default function AdminPanelPage() {
   };
 
   const openApplicationForCreateEdit = async (application: Application) => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setToastMsg(null);
     setActionLoading(application._id + "fetching");
     try {
-      const res = await fetch(`/api/admin/applications/${application._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await apiFetch(`/api/admin/applications/${application._id}`, {
       });
       if (!res.ok) throw new Error("Failed to fetch full application details.");
       const data = await res.json();
@@ -685,14 +674,13 @@ export default function AdminPanelPage() {
   };
 
   const handleQrSave = async () => {
-    if (!qrPreview || !token) return;
+    if (!qrPreview || !authUser) return;
     setQrSaving(true);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const res = await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ key: "qr_code", value: qrPreview }),
       });
@@ -707,13 +695,12 @@ export default function AdminPanelPage() {
   };
 
   const handleQrRemove = async () => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setQrPreview(null);
-    await fetch("/api/admin/settings", {
+    await apiFetch("/api/admin/settings", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({ key: "qr_code", value: "" }),
     });
@@ -729,14 +716,13 @@ export default function AdminPanelPage() {
   };
 
   const handleSigSave = async () => {
-    if (!sigPreview || !token) return;
+    if (!sigPreview || !authUser) return;
     setSigSaving(true);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const res = await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ key: "auth_signature", value: sigPreview }),
       });
@@ -751,13 +737,12 @@ export default function AdminPanelPage() {
   };
 
   const handleSigRemove = async () => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     setSigPreview(null);
-    await fetch("/api/admin/settings", {
+    await apiFetch("/api/admin/settings", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({ key: "auth_signature", value: "" }),
     });
@@ -766,17 +751,16 @@ export default function AdminPanelPage() {
 
   const handleBgUpload = async (e: ChangeEvent<HTMLInputElement>, key: string) => {
     const file = e.target.files?.[0];
-    if (!file || !token) return;
+    if (!file || !authUser) return;
     setBgSaving(key);
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
       try {
-        const res = await fetch("/api/admin/settings/backgrounds", {
+        const res = await apiFetch("/api/admin/settings/backgrounds", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ key, value: base64 })
         });
@@ -794,12 +778,11 @@ export default function AdminPanelPage() {
   };
 
   const handleBgRemove = async (key: string) => {
-    if (!confirm("Are you sure?") || !token) return;
+    if (!confirm("Are you sure?") || !authUser) return;
     setBgSaving(key);
     try {
-      const res = await fetch("/api/admin/settings/backgrounds?key=" + key, { 
+      const res = await apiFetch("/api/admin/settings/backgrounds?key=" + key, { 
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         setBgs(prev => ({ ...prev, [key]: "" }));
@@ -826,7 +809,7 @@ export default function AdminPanelPage() {
       .map((plan) => ({ value: plan.value.trim(), label: plan.label.trim() }))
       .filter((plan) => plan.value && plan.label);
 
-    if (validPlans.length === 0 || !token) {
+    if (validPlans.length === 0 || !authUser) {
       setFeeSaveMsg({ type: "error", text: "Please add at least one valid fee plan." });
       return;
     }
@@ -834,11 +817,10 @@ export default function AdminPanelPage() {
     setFeeSaving(true);
     setFeeSaveMsg(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const res = await apiFetch("/api/admin/settings", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ key: SETTINGS_PROCESS_FEE_KEY, value: JSON.stringify(validPlans) }),
       });
@@ -862,17 +844,16 @@ export default function AdminPanelPage() {
 
   const handlePasswordChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (!passData.old || !passData.new || !token) { showToast("error", "All password fields are required."); return; }
+    if (!passData.old || !passData.new || !authUser) { showToast("error", "All password fields are required."); return; }
     if (passData.new !== passData.confirm) { showToast("error", "New passwords do not match."); return; }
     if (passData.new.length < 6) { showToast("error", "Password must be at least 6 characters."); return; }
     
     setPassSaving(true);
     try {
-      const res = await fetch("/api/admin/settings/password", {
+      const res = await apiFetch("/api/admin/settings/password", {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
       });
@@ -885,13 +866,12 @@ export default function AdminPanelPage() {
   };
 
   const handleResultApproval = async (examId: string, status: "published" | "appeared") => {
-    if (!token) return;
+    if (!sessionReady || authLoading || !authUser) return;
     try {
-      const res = await fetch("/api/admin/exams/approve-result", {
+      const res = await apiFetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ examId, status, marksheet: true, certificate: true })
       });
@@ -904,8 +884,7 @@ export default function AdminPanelPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
+    await authLogout();
   };
 
   const districts = appStateFilter ? DISTRICTS_BY_STATE[appStateFilter] || [] : [];
@@ -1453,11 +1432,10 @@ export default function AdminPanelPage() {
                              setResultsLoading(true);
                              try {
                                for (const id of selectedResults) {
-                                 await fetch("/api/admin/exams/approve-result", {
+                                 await apiFetch("/api/admin/exams/approve-result", {
                                    method: "POST",
                                    headers: { 
                                      "Content-Type": "application/json",
-                                     Authorization: `Bearer ${token}`
                                    },
                                    body: JSON.stringify({ examId: id, status: "published" }),
                                  });
@@ -2087,19 +2065,17 @@ export default function AdminPanelPage() {
                       onClick={async () => {
                         setIdFormatSaving(true);
                         try {
-                          await fetch("/api/admin/settings", {
+                          await apiFetch("/api/admin/settings", {
                             method: "POST",
                             headers: { 
                               "Content-Type": "application/json",
-                              Authorization: `Bearer ${token}`
                             },
                             body: JSON.stringify({ key: "reg_format_center", value: JSON.stringify(centerFormat) }),
                           });
-                          await fetch("/api/admin/settings", {
+                          await apiFetch("/api/admin/settings", {
                             method: "POST",
                             headers: { 
                               "Content-Type": "application/json",
-                              Authorization: `Bearer ${token}`
                             },
                             body: JSON.stringify({ key: "reg_format_student", value: JSON.stringify(studentFormat) }),
                           });
@@ -2426,11 +2402,10 @@ export default function AdminPanelPage() {
                 <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={async (e) => {
                   e.preventDefault();
                   try {
-                    const res = await fetch(`/api/admin/students/${editingStudent._id}`, {
+                    const res = await apiFetch(`/api/admin/students/${editingStudent._id}`, {
                       method: "PATCH",
                       headers: { 
                         "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`
                       },
                       body: JSON.stringify({ action: "updateDetails", updateData: studentEditValues }),
                     });

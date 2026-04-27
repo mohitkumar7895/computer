@@ -17,6 +17,7 @@ import StudentIdCard from "@/components/common/StudentIdCard";
 import StudentFeeView from "@/components/student/StudentFeeView";
 
 import { useBrand } from "@/context/BrandContext";
+import { cookieFetch } from "@/lib/auth-client";
 
 export default function StudentDashboardPage() {
   const { brandName } = useBrand();
@@ -62,7 +63,7 @@ export default function StudentDashboardPage() {
   }, [router]);
 
   const handleLogout = async () => {
-    await fetch("/api/student/logout", { method: "POST" });
+    await cookieFetch("/api/student/logout", { method: "POST" });
     router.push("/student/login");
   };
 
@@ -74,7 +75,7 @@ export default function StudentDashboardPage() {
     
     setPassSaving(true);
     try {
-      const res = await fetch("/api/student/settings/password", {
+      const res = await cookieFetch("/api/student/settings/password", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),

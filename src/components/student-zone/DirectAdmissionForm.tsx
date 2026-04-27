@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, type FormEvent } from "react";
-import { CheckCircle, FileText, User, MapPin, CreditCard, UserPlus, Building2 } from "lucide-react";
+import { CheckCircle, FileText, User, MapPin, CreditCard } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
 
 interface Course {
@@ -15,7 +15,7 @@ interface Center {
 }
 
 export default function DirectAdmissionForm() {
-  const { brandName, brandLogo } = useBrand();
+  const { brandName } = useBrand();
   const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -69,15 +69,27 @@ export default function DirectAdmissionForm() {
     const requiredInputs = formEl.querySelectorAll("[required]");
     const invalid = new Set<string>();
     
-    requiredInputs.forEach((input: any) => {
-      if (!input.value || (input.type === 'file' && input.files.length === 0)) {
-        invalid.add(input.name);
+    requiredInputs.forEach((el) => {
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement
+      ) {
+        const emptyFile =
+          el instanceof HTMLInputElement &&
+          el.type === "file" &&
+          (!el.files || el.files.length === 0);
+        if (!el.value || emptyFile) {
+          if (el.name) invalid.add(el.name);
+        }
       }
     });
 
     const fileInputs = formEl.querySelectorAll("input[type='file']");
     let fileError = "";
-    fileInputs.forEach((input: any) => {
+    fileInputs.forEach((el) => {
+      if (!(el instanceof HTMLInputElement)) return;
+      const input = el;
       const file = input.files?.[0];
       if (file) {
         if (file.type.startsWith("image/")) {
@@ -125,8 +137,11 @@ export default function DirectAdmissionForm() {
       setCurrentAddr("");
       setDisability("No");
       setSelectedQual("");
-    } catch (err: any) {
-      setMsg({ type: "error", text: err.message || "Something went wrong" });
+    } catch (err: unknown) {
+      setMsg({
+        type: "error",
+        text: err instanceof Error ? err.message : "Something went wrong",
+      });
     } finally {
       setLoading(false);
     }
@@ -136,7 +151,7 @@ export default function DirectAdmissionForm() {
   const labelCls = (name?: string) => `block text-[11px] font-bold ${invalidFields.has(name || "") ? "text-red-700" : "text-slate-500"} uppercase tracking-wider mb-1.5`;
   const sectionCls = "bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5";
 
-  if (!isMounted) return <div className="min-h-[400px] flex items-center justify-center"><span className="w-8 h-8 rounded-full border-4 border-slate-100 border-t-blue-600 animate-spin" /></div>;
+  if (!isMounted) return <div className="min-h-100 flex items-center justify-center"><span className="w-8 h-8 rounded-full border-4 border-slate-100 border-t-blue-600 animate-spin" /></div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -164,11 +179,11 @@ export default function DirectAdmissionForm() {
               <input required name="name" className={inputCls("name")} placeholder="Student's Legal Name" />
             </div>
             <div>
-              <label className={labelCls("fatherName")}>Father's Name *</label>
+              <label className={labelCls("fatherName")}>{"Father's Name *"}</label>
               <input required name="fatherName" className={inputCls("fatherName")} placeholder="Father's Name" />
             </div>
             <div>
-              <label className={labelCls("motherName")}>Mother's Name *</label>
+              <label className={labelCls("motherName")}>{"Mother's Name *"}</label>
               <input required name="motherName" className={inputCls("motherName")} placeholder="Mother's Name" />
             </div>
             <div><label className={labelCls("dob")}>Date of Birth *</label><input required type="date" name="dob" className={inputCls("dob")} /></div>

@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export const getToken = async (request?: Request) => {
   // 1. Check Authorization Header first (preferred for API calls)
@@ -21,11 +20,13 @@ export const getToken = async (request?: Request) => {
 };
 
 export const verifyAdmin = async (request?: Request) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return null;
   const token = await getToken(request);
   if (!token) return null;
   
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
+    const decoded = jwt.verify(token, secret) as unknown as { id: string; role: string };
     if (decoded.role !== "admin") return null;
     return decoded;
   } catch {
@@ -34,11 +35,13 @@ export const verifyAdmin = async (request?: Request) => {
 };
 
 export const verifyAtc = async (request?: Request) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return null;
   const token = await getToken(request);
   if (!token) return null;
   
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string; tpCode: string };
+    const decoded = jwt.verify(token, secret) as unknown as { id: string; role: string; tpCode: string };
     if (decoded.role !== "atc") return null;
     return decoded;
   } catch {

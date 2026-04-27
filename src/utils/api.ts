@@ -1,26 +1,20 @@
 /**
- * Utility for making API requests with automatic token attachment.
+ * Browser API requests with same-origin cookies (httpOnly session) and optional Bearer from localStorage.
  */
 
-export async function apiFetch(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem("auth_token");
-  
-  const headers = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers || {}),
-  };
+export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const raw =
+    typeof window !== "undefined" ? window.localStorage.getItem("auth_token") : null;
+  const bearer = raw?.trim() || "";
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (response.status === 401) {
-    // Optional: handle unauthorized globally
-    // localStorage.removeItem("auth_token");
-    // window.location.href = "/atc/login";
+  const headers = new Headers(options.headers);
+  if (bearer && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${bearer}`);
   }
 
-  return response;
+  return fetch(url, {
+    ...options,
+    credentials: "include",
+    headers,
+  });
 }

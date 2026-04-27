@@ -2,6 +2,7 @@
 
 import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 import {
   Building2, User, Layers, CreditCard, ChevronDown,
   Send, RotateCcw, CheckCircle, MapPin, Phone, Mail,
@@ -110,7 +111,7 @@ interface Props {
 }
 
 export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", applicationId, initialData }: Props) {
-  const { token } = useAuth();
+  const { user: authUser } = useAuth();
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -203,18 +204,17 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   }, [mode, initialData]);
 
   useEffect(() => {
-    if (!token) return;
-    const h = { Authorization: `Bearer ${token}` };
-    fetch("/api/admin/settings?key=qr_code", { headers: h })
+    if (!authUser) return;
+    apiFetch("/api/admin/settings?key=qr_code")
       .then(res => res.json())
       .then(data => setQrCode(data.value))
       .catch(() => {});
 
-    fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`, { headers: h })
+    apiFetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
       .then(res => res.json())
       .then(data => setFeeOptions(parseFeeOptions(data.value)))
       .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));
-  }, [token]);
+  }, [authUser]);
 
   const districtOptions = DISTRICTS_BY_STATE[form.state] ?? [];
 
@@ -435,10 +435,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         : "/api/admin/applications";
       const method = mode === "edit" ? "PATCH" : "POST";
 
-      const response = await fetch(url, { 
+      const response = await apiFetch(url, { 
         method, 
         body: payload,
-        headers: { Authorization: `Bearer ${token}` }
       });
       const data = (await response.json()) as { message: string, tpCode?: string, mobile?: string };
       

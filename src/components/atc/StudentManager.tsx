@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, type FormEvent } from "react";
 import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle, Search, Hash, X } from "lucide-react";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/utils/api";
 
 interface Student {
   _id: string;
@@ -45,6 +46,7 @@ interface Student {
   duesAmount?: number;
   admissionFees?: string;
   marksheet10th?: string;
+  otherDocs?: string;
 }
 
 interface Course {
@@ -106,15 +108,13 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   
   // Local validation states for modals
   const [modalInvalidFields, setModalInvalidFields] = useState<Set<string>>(new Set());
-  const { token, loading: authLoading } = useAuth();
+  const { loading: authLoading, user: authUser } = useAuth();
 
   const fetchStudents = async () => {
-    if (!token) return;
+    if (authLoading || !authUser) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/atc/students?direct=${isDirectAdmission}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/atc/students?direct=${isDirectAdmission}`);
       console.log(`[StudentManager] Fetching students (direct=${isDirectAdmission}). Status: ${res.status}`);
       if(res.ok) {
         const data = await res.json();
@@ -129,11 +129,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   };
 
   const fetchCourses = async () => {
-    if (!token) return;
+    if (authLoading || !authUser) return;
     try {
-      const res = await fetch("/api/atc/courses", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch("/api/atc/courses");
       if (res.ok) {
         const data = await res.json();
         setAvailableCourses(data);
@@ -145,11 +143,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   useEffect(() => {
     if (selectedStudent) {
       const fetchMedia = async () => {
-        if (!token) return;
+        if (authLoading || !authUser) return;
         try {
-          const res = await fetch(`/api/atc/students/media?studentId=${selectedStudent._id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const res = await apiFetch(`/api/atc/students/media?studentId=${selectedStudent._id}`);
           if (res.ok) {
             const data = await res.json();
             if (data.media) {
@@ -169,9 +165,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     setIsFetching(true);
     setMsg(null);
     try {
-      const res = await fetch(`/api/atc/students/fetch?regNo=${encodeURIComponent(lookupRegNo.trim())}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/atc/students/fetch?regNo=${encodeURIComponent(lookupRegNo.trim())}`);
       const data = await res.json();
       if (!res.ok) {
         setMsg({ type: "error", text: data.message || "Student not found" });
@@ -211,10 +205,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   };
 
   useEffect(() => {
-    if (authLoading || !token) return;
+    if (authLoading || !authUser) return;
     void fetchCourses(); // Always fetch courses on mount
     if (tab === "list") void fetchStudents();
-  }, [tab, authLoading, token]);
+  }, [tab, authLoading, authUser]);
 
   const handleAddSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -316,10 +310,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       }
 
       setMsg({ type: "success", text: "Creating student record..." });
-      const res = await fetch("/api/atc/students", { 
+      const res = await apiFetch("/api/atc/students", { 
         method: "POST", 
         body: form,
-        headers: { Authorization: `Bearer ${token}` }
       });
       
       let data;
@@ -348,10 +341,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
         mediaForm.append("fieldName", field);
         mediaForm.append("file", file);
 
-        const mediaRes = await fetch("/api/atc/students/media", { 
+        const mediaRes = await apiFetch("/api/atc/students/media", { 
           method: "POST", 
           body: mediaForm,
-          headers: { Authorization: `Bearer ${token}` }
         });
         if (!mediaRes.ok) {
            console.warn(`Failed to upload ${field}`);
@@ -400,11 +392,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
     setUpdating(true);
     try {
-      const res = await fetch("/api/atc/students", {
+      const res = await apiFetch("/api/atc/students", {
         method: "PUT",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ studentId: selectedStudent._id, ...editForm }),
       });
@@ -443,11 +434,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
     setRequesting(true);
     try {
-      const res = await fetch("/api/atc/exams/request", {
+      const res = await apiFetch("/api/atc/exams/request", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ 
           studentId: requestExamStudent._id, 
@@ -492,11 +482,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
     setResultSubmitting(true);
     try {
-      const res = await fetch("/api/atc/exams/offline-result", {
+      const res = await apiFetch("/api/atc/exams/offline-result", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           studentId: showResultModal._id,
@@ -533,11 +522,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       }
       setUpdating(true);
       try {
-        const res = await fetch("/api/atc/students/direct-action", {
+        const res = await apiFetch("/api/atc/students/direct-action", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ studentId, action, totalFee: Number(fee) }),
         });
@@ -557,11 +545,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       if (!confirm("Are you sure you want to reject this application?")) return;
       setUpdating(true);
       try {
-        const res = await fetch("/api/atc/students/direct-action", {
+        const res = await apiFetch("/api/atc/students/direct-action", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ studentId, action }),
         });
@@ -581,14 +568,13 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   };
 
   const handleUpdateStudent = async () => {
-    if (!token || !selectedStudent) return;
+    if (!authUser || !selectedStudent) return;
     setUpdating(true);
     try {
-      const res = await fetch("/api/atc/students", {
+      const res = await apiFetch("/api/atc/students", {
         method: "PUT",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ 
           studentId: selectedStudent._id,
@@ -1366,32 +1352,38 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                          { label: "Exam Mode", key: "examMode", type: "select", options: ["online", "offline"] },
                          { label: "Referred By", key: "referredBy" },
                          { label: "Course Type", key: "courseType", type: "select", options: ["Regular", "ODL (Open Distance Learning)"] },
-                       ].map((item, idx) => (
+                       ].map((item, idx) => {
+                         const accKey = "key" in item && item.key ? item.key : undefined;
+                         if (isEditing && !accKey) return null;
+                         return (
                          <div key={idx} className="space-y-1.5">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
-                            {isEditing ? (
+                            {isEditing && accKey ? (
                               item.type === "select" ? (
                                 <select 
-                                  value={(editForm as any)[item.key]}
-                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
-                                  className={modalInputCls(item.key)}
+                                  value={String((editForm as unknown as Record<string, string>)[accKey] ?? "")}
+                                  onChange={e => setEditForm({...editForm, [accKey]: e.target.value})}
+                                  className={modalInputCls(accKey)}
                                 >
                                   <option value="">Select</option>
-                                  {item.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                  {item.type === "select" && item.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                               ) : (
                                 <input 
                                   type={item.type || "text"}
-                                  value={(editForm as any)[item.key]}
-                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
-                                  className={modalInputCls(item.key)}
+                                  value={String((editForm as unknown as Record<string, string>)[accKey] ?? "")}
+                                  onChange={e => setEditForm({...editForm, [accKey]: e.target.value})}
+                                  className={modalInputCls(accKey)}
                                 />
                               )
                             ) : (
-                              <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">{(selectedStudent as any)[item.key] || 'N/A'}</p>
+                              <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">
+                                {"value" in item && item.value !== undefined ? item.value : accKey ? String((selectedStudent as unknown as Record<string, unknown>)[accKey] ?? "N/A") : "N/A"}
+                              </p>
                             )}
                          </div>
-                       ))}
+                         );
+                       })}
                     </div>
                   </div>
                 </div>

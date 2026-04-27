@@ -1,9 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { authFetch } from "@/lib/auth-client";
+import { requiresStaffSession } from "@/lib/staff-session";
 
-interface User {
+export interface StaffUser {
   id: string;
   tpCode?: string;
   username?: string;
@@ -13,114 +21,223 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: StaffUser | null;
   token: string | null;
   loading: boolean;
-  login: (token: string, user: User) => void;
-  logout: () => void;
+  /** True once we've finished trying to restore (or rejected) the staff session. */
+  sessionReady: boolean;
+  login: (token: string, user: StaffUser) => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
+const AUTH_TOKEN_KEY = "auth_token";
+const AUTH_USER_KEY = "auth_user";
+
+type MeResult = {
+  ok: boolean;
+  user?: StaffUser;
+  /** HTTP status. 0 = network error, 502 = bad JSON. */
+  status: number;
+};
+
+/** Map a portal path to its `/me` endpoint. Returns null for non-staff pages. */
+function meUrlForPath(pathname: string): "/api/admin/me" | "/api/atc/me" | null {
+  if (pathname.startsWith("/admin")) return "/api/admin/me";
+  if (pathname.startsWith("/atc")) return "/api/atc/me";
+  return null;
+}
+
+async function tryStaffMe(
+  url: "/api/atc/me" | "/api/admin/me",
+  bearer: string | null,
+): Promise<MeResult> {
+  try {
+    const res = await authFetch(url, bearer, { method: "GET" });
+    const status = res.status;
+    if (!res.ok) return { ok: false, status };
+
+    let data: { user?: Record<string, unknown> };
+    try {
+      data = (await res.json()) as { user?: Record<string, unknown> };
+    } catch {
+      return { ok: false, status: 502 };
+    }
+    if (!data.user) return { ok: false, status };
+
+    const role: "atc" | "admin" = url.includes("/admin/") ? "admin" : "atc";
+    return {
+      ok: true,
+      status,
+      user: { ...(data.user as Omit<StaffUser, "role">), role },
+    };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+function readCachedUser(): { user: StaffUser | null; token: string | null } {
+  if (typeof window === "undefined") return { user: null, token: null };
+  try {
+    const rawUser = localStorage.getItem(AUTH_USER_KEY);
+    const rawToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    const parsed = rawUser ? (JSON.parse(rawUser) as StaffUser) : null;
+    return { user: parsed, token: rawToken };
+  } catch {
+    return { user: null, token: null };
+  }
+}
+
+function clearCachedSession(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+}
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  const logout = useCallback(() => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-    }
+  const [user, setUser] = useState<StaffUser | null>(() => readCachedUser().user);
+  const [token, setToken] = useState<string | null>(() => readCachedUser().token);
+  const [loading, setLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  const logout = useCallback(async () => {
+    const role: "admin" | "atc" =
+      user?.role ?? (pathname.startsWith("/admin") ? "admin" : "atc");
+
+    clearCachedSession();
     setUser(null);
     setToken(null);
-    
-    const target = pathname.startsWith("/admin") ? "/admin/login" : "/atc/login";
-    router.push(target);
-  }, [pathname, router]);
-
-  const login = useCallback((newToken: string, newUser: User) => {
-    localStorage.setItem("auth_token", newToken);
-    localStorage.setItem("auth_user", JSON.stringify(newUser));
-    setToken(newToken);
-    setUser(newUser);
-  }, []);
-
-  const refreshUser = useCallback(async (forcedToken?: string, forcedRole?: string) => {
-    const activeToken = forcedToken || localStorage.getItem("auth_token") || token;
-    if (!activeToken) return;
 
     try {
-      const activeRole = forcedRole || user?.role || (pathname.startsWith("/admin") ? "admin" : "atc");
-      const endpoint = activeRole === "admin" ? "/api/admin/me" : "/api/atc/me";
-      
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${activeToken.trim()}` },
+      await fetch(role === "admin" ? "/api/admin/logout" : "/api/atc/logout", {
+        method: "POST",
+        credentials: "include",
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          const updatedUser = { ...data.user, role: activeRole };
-          setUser(updatedUser);
-          localStorage.setItem("auth_user", JSON.stringify(updatedUser));
-        }
-      } else if (res.status === 401) {
-         // Only logout if we are absolutely sure this token is dead
-         const st = localStorage.getItem("auth_token");
-         if (st === activeToken) {
-           console.warn("Session invalid, logging out.");
-           logout();
-         }
-      }
-    } catch (error) {
-      console.error("Background verification failed:", error);
+    } catch {
+      /* ignore */
     }
-  }, [token, user?.role, pathname, logout]);
 
-  // Sync state with localStorage ONCE on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem("auth_token");
-    const savedUserStr = localStorage.getItem("auth_user");
-    
-    if (savedToken && savedUserStr) {
-      try {
-        const parsed = JSON.parse(savedUserStr);
-        setToken(savedToken);
-        setUser(parsed);
-        // Verify in background
-        refreshUser(savedToken, parsed.role);
-      } catch (e) {
-        console.error("Hydration error", e);
-      }
+    router.replace(role === "admin" ? "/admin/login" : "/atc/login");
+  }, [user?.role, pathname, router]);
+
+  const login = useCallback((newToken: string, newUser: StaffUser) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(AUTH_TOKEN_KEY, newToken);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
     }
-    
+    setToken(newToken);
+    setUser(newUser);
     setLoading(false);
-    setIsInitialized(true);
-  }, []); 
+    setSessionReady(true);
+  }, []);
 
-  // Protection logic
-  useEffect(() => {
-    if (!isInitialized || loading) return;
+  const validate = useCallback(
+    async (targetUrl: "/api/admin/me" | "/api/atc/me"): Promise<MeResult> => {
+      const cookieResult = await tryStaffMe(targetUrl, null);
+      if (cookieResult.ok) return cookieResult;
+      if (cookieResult.status === 401) {
+        const lsToken =
+          typeof window !== "undefined"
+            ? localStorage.getItem(AUTH_TOKEN_KEY)
+            : null;
+        if (lsToken) {
+          const bearerResult = await tryStaffMe(targetUrl, lsToken);
+          if (bearerResult.ok) return bearerResult;
+          if (bearerResult.status === 401) {
+            clearCachedSession();
+          }
+          return bearerResult;
+        }
+      }
+      return cookieResult;
+    },
+    [],
+  );
 
-    const isPublic = 
-      pathname === "/" || 
-      pathname === "/atc/login" || 
-      pathname === "/admin/login" || 
-      pathname.startsWith("/public");
+  const refreshUser = useCallback(async () => {
+    const role: "admin" | "atc" =
+      user?.role ?? (pathname.startsWith("/admin") ? "admin" : "atc");
+    const target: "/api/admin/me" | "/api/atc/me" =
+      role === "admin" ? "/api/admin/me" : "/api/atc/me";
 
-    if (!user && !isPublic) {
-      const target = pathname.startsWith("/admin") ? "/admin/login" : "/atc/login";
-      router.push(target);
+    const result = await validate(target);
+    if (result.ok && result.user) {
+      setUser(result.user);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(result.user));
+      }
+      return;
     }
-  }, [user, loading, isInitialized, pathname, router]);
+    if (result.status === 401) {
+      await logout();
+    }
+  }, [user?.role, pathname, logout, validate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restore() {
+      if (typeof window === "undefined") return;
+
+      const target = meUrlForPath(pathname);
+      if (!target || !requiresStaffSession(pathname)) {
+        if (!cancelled) {
+          setLoading(false);
+          setSessionReady(true);
+        }
+        return;
+      }
+
+      if (!cancelled) setLoading(true);
+
+      const result = await validate(target);
+      if (cancelled) return;
+
+      if (result.ok && result.user) {
+        setUser(result.user);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(result.user));
+        }
+        setLoading(false);
+        setSessionReady(true);
+        return;
+      }
+
+      if (result.status === 401) {
+        clearCachedSession();
+        setUser(null);
+        setToken(null);
+      }
+      // Network/server error: keep optimistic user so the UI doesn't bounce; still mark ready.
+      setLoading(false);
+      setSessionReady(true);
+    }
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, validate]);
+
+  useEffect(() => {
+    if (!sessionReady || loading) return;
+    if (!requiresStaffSession(pathname)) return;
+    if (user) return;
+
+    router.replace(pathname.startsWith("/admin") ? "/admin/login" : "/atc/login");
+  }, [user, loading, sessionReady, pathname, router]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, sessionReady, login, logout, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
