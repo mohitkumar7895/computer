@@ -32,18 +32,13 @@ export async function POST(request: Request) {
     await connectDB();
 
     if (action === "delete") {
-      const apps = await AtcApplication.find({ _id: { $in: ids } }, { tpCode: 1 });
-      const tpCodes = apps.map(app => app.tpCode).filter(Boolean);
-      await AtcUser.deleteMany({ tpCode: { $in: tpCodes } });
+      await AtcUser.deleteMany({ applicationId: { $in: ids } });
       await AtcApplication.deleteMany({ _id: { $in: ids } });
       return NextResponse.json({ message: `${ids.length} centers deleted successfully` });
     } 
     else if (action === "disable") {
-      const apps = await AtcApplication.find({ _id: { $in: ids }, status: "approved" }, { tpCode: 1 });
-      if (apps.length === 0) return NextResponse.json({ message: "No approved centers selected to disable." }, { status: 400 });
-      const tpCodes = apps.map(app => app.tpCode).filter(Boolean);
-      await AtcUser.updateMany({ tpCode: { $in: tpCodes } }, { $set: { status: "disabled" } });
-      return NextResponse.json({ message: `${apps.length} centers disabled successfully` });
+      await AtcUser.updateMany({ applicationId: { $in: ids } }, { $set: { status: "disabled" } });
+      return NextResponse.json({ message: "Centers disabled successfully" });
     }
     else if (action === "reject") {
       const res = await AtcApplication.updateMany({ _id: { $in: ids }, status: "pending" }, { $set: { status: "rejected" } });
@@ -91,11 +86,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: `${results.length} centers approved successfully.` });
     }
     else if (action === "enable") {
-      const apps = await AtcApplication.find({ _id: { $in: ids }, status: "approved" }, { tpCode: 1 });
-      if (apps.length === 0) return NextResponse.json({ message: "No approved centers selected to enable." }, { status: 400 });
-      const tpCodes = apps.map(app => app.tpCode).filter(Boolean);
-      await AtcUser.updateMany({ tpCode: { $in: tpCodes } }, { $set: { status: "active" } });
-      return NextResponse.json({ message: `${apps.length} centers enabled successfully` });
+      await AtcUser.updateMany({ applicationId: { $in: ids } }, { $set: { status: "active" } });
+      return NextResponse.json({ message: "Centers enabled successfully" });
     }
 
     return NextResponse.json({ message: "Invalid action" }, { status: 400 });

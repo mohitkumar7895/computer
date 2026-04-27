@@ -22,7 +22,7 @@ type FormState = {
   totalName: string; district: string; state: string; pin: string; country: string;
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
   chiefName: string; designation: string; educationQualification: string;
-  professionalExperience: string; dob: string; paymentMode: string;
+  professionalExperience: string; dob: string; aadharNo: string; paymentMode: string;
   paidAmount: string; transactionNo: string;
 };
 
@@ -30,7 +30,7 @@ const initialFormState: FormState = {
   processFee: "", trainingPartnerName: "", trainingPartnerAddress: "", postalAddressOffice: "", zones: [],
   totalName: "", district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
-  educationQualification: "", professionalExperience: "", dob: "", paymentMode: "",
+  educationQualification: "", professionalExperience: "", dob: "", aadharNo: "", paymentMode: "",
   paidAmount: "", transactionNo: "",
 };
 
@@ -152,6 +152,7 @@ export default function BecomeAtcForm() {
     if (!form.educationQualification.trim()) r.push("Education qualification is required.");
     if (!form.professionalExperience.trim()) r.push("Professional experience is required.");
     if (!form.dob.trim()) r.push("Date of birth is required.");
+    if (!/^\d{12}$/.test(form.aadharNo)) r.push("Aadhar number must be exactly 12 digits.");
     if (!photo) r.push("Passport size photo is required.");
     if (!signature) r.push("Signature is required.");
     if (!aadharDoc) r.push("Aadhar card PDF is required.");
@@ -496,6 +497,15 @@ export default function BecomeAtcForm() {
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="date" className={inputCls + " pl-9"} value={form.dob}
                   onChange={(e) => setField("dob", e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <Label>Aadhar Number *</Label>
+              <div className="relative">
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input className={inputCls + " pl-9"} placeholder="12-digit Aadhar number" maxLength={12}
+                  value={form.aadharNo} onChange={(e) => setField("aadharNo", e.target.value.replace(/\D/g, "").slice(0, 12))} />
               </div>
             </div>
 

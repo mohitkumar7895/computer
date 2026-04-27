@@ -75,6 +75,7 @@ export async function POST(request: Request) {
       }
     }
 
+    const aadharNo = String(formData.get("aadharNo") ?? "").trim();
     const application = await AtcApplication.create({
       processFee: String(formData.get("processFee") ?? ""),
       trainingPartnerName: String(formData.get("trainingPartnerName") ?? ""),
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
       logo: base64Files.logo || "",
       signature: base64Files.signature || "",
       aadharDoc: base64Files.aadharDoc || "",
+      aadharNo,
       marksheetDoc: base64Files.marksheetDoc || "",
       otherDocs: base64Files.otherDocs || "",
       paymentMode: String(formData.get("paymentMode") ?? ""),
@@ -111,7 +113,7 @@ export async function POST(request: Request) {
       submittedByAdmin: false,
     });
 
-    const refNumber = application._id.toString().slice(-6).toUpperCase();
+    const refNumber = `ATC-${Date.now()}-${aadharNo || application._id.toString().slice(-6).toUpperCase()}`;
     return NextResponse.json({ message: "Application submitted successfully. We will review and contact you soon.", refNumber });
   } catch (error) {
     console.error("[become-atc POST]", error);

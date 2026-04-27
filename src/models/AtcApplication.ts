@@ -25,6 +25,7 @@ export interface IAtcApplication {
   logo?: string; // Base64 or URL
   signature?: string; // Base64 or URL
   aadharDoc?: string; // Base64 or URL
+  aadharNo?: string;
   marksheetDoc?: string; // Base64 or URL
   otherDocs?: string; // Base64 or URL
   paymentMode: string;
@@ -67,6 +68,7 @@ const AtcApplicationSchema = new Schema<IAtcApplication>(
     logo: { type: String },
     signature: { type: String },
     aadharDoc: { type: String },
+    aadharNo: { type: String, default: "" },
     marksheetDoc: { type: String },
     otherDocs: { type: String },
     paymentMode: { type: String, required: true },

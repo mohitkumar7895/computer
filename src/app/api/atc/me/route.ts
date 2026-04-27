@@ -35,7 +35,9 @@ export async function GET(request: Request) {
         $facet: {
           total: [{ $count: "count" }],
           pendingReview: [
-            { $match: { status: "pending", isDirectAdmission: { $ne: true } } }, 
+            { $match: { 
+              status: { $in: ["pending", "pending_admin"] }
+            } }, 
             { $count: "count" }
           ],
           frontAll: [

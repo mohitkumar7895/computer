@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, type FormEvent } from "react";
-import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle, Search } from "lucide-react";
+import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle, Search, Hash, X } from "lucide-react";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { useAuth } from "@/context/AuthContext";
 
@@ -55,9 +55,10 @@ interface Course {
 
 interface StudentManagerProps {
   isDirectAdmission?: boolean;
+  initialFilter?: "all" | "pending" | "approved" | "rejected";
 }
 
-export default function StudentManager({ isDirectAdmission = false }: StudentManagerProps) {
+export default function StudentManager({ isDirectAdmission = false, initialFilter }: StudentManagerProps) {
   const [tab, setTab] = useState<"list" | "add">("list");
   const [students, setStudents] = useState<Student[]>([]);
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
@@ -68,7 +69,9 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
   const [disability, setDisability] = useState("No");
   const [selectedQual, setSelectedQual] = useState("");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected">(isDirectAdmission ? "pending" : "all");
+  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected">(
+    initialFilter || (isDirectAdmission ? "pending" : "all")
+  );
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -97,6 +100,7 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     session: "2024-25",
     examStatus: "appeared" as const
   });
+  const [isEditing, setIsEditing] = useState(false);
   const [editTab, setEditTab] = useState<"personal" | "academic" | "address" | "documents" | "fees">("personal");
   const [resultSubmitting, setResultSubmitting] = useState(false);
   
@@ -573,6 +577,38 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
       } finally {
         setUpdating(false);
       }
+    }
+  };
+
+  const handleUpdateStudent = async () => {
+    if (!token || !selectedStudent) return;
+    setUpdating(true);
+    try {
+      const res = await fetch("/api/atc/students", {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          studentId: selectedStudent._id,
+          ...editForm
+        })
+      });
+      if (res.ok) {
+        setMsg({ type: "success", text: "Student profile updated successfully" });
+        setIsEditing(false);
+        void fetchStudents();
+        const data = await res.json();
+        setSelectedStudent(data.student);
+      } else {
+        const data = await res.json();
+        setMsg({ type: "error", text: data.message || "Failed to update student" });
+      }
+    } catch {
+      setMsg({ type: "error", text: "Error updating student" });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -1098,425 +1134,378 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* Premium Student Profile Modal */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className={`p-8 border-b border-slate-100 flex items-center justify-between ${selectedStudent.status === 'active' || selectedStudent.status === 'approved' ? 'bg-emerald-50/50' : 'bg-slate-50/50'}`}>
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${selectedStudent.status === 'active' || selectedStudent.status === 'approved' ? 'bg-emerald-600' : 'bg-blue-600'}`}>
-                    <User className="w-4 h-4 text-white" />
-                 </div>
-                 {selectedStudent.status === 'active' || selectedStudent.status === 'approved' ? 'Student Full Profile' : 'Edit Student Record'}
-              </h3>
-              <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                 <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="max-h-[75vh] overflow-y-auto">
-              {(selectedStudent.status === 'active' || selectedStudent.status === 'approved') ? (
-                <div className="p-8 space-y-8 animate-in fade-in zoom-in-95 duration-500">
-                  {/* Identity Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex flex-col items-center p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-white/20 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-500">
+            {/* Modal Header */}
+            <div className={`shrink-0 px-10 py-8 flex items-center justify-between border-b border-slate-100 ${
+              (selectedStudent.status === 'active' || selectedStudent.status === 'approved') 
+                ? 'bg-gradient-to-r from-emerald-50 to-white' 
+                : 'bg-gradient-to-r from-blue-50 to-white'
+            }`}>
+              <div className="flex items-center gap-6">
+                <div className="relative group">
+                   <div className="w-20 h-20 rounded-3xl overflow-hidden bg-white border-4 border-white shadow-2xl transition-transform group-hover:scale-105 duration-300">
                       {selectedStudent.photo ? (
-                        <img src={selectedStudent.photo} alt={selectedStudent.name} className="w-24 h-24 rounded-3xl object-cover border-4 border-white shadow-xl mb-3" />
+                        <img src={selectedStudent.photo} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-24 h-24 rounded-3xl bg-white flex items-center justify-center border-4 border-white shadow-xl mb-3">
-                          <User className="w-10 h-10 text-slate-200" />
+                        <div className="w-full h-full flex items-center justify-center bg-slate-50">
+                           <User className="w-8 h-8 text-slate-300" />
                         </div>
                       )}
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 mb-1">REG REGISTERED</p>
-                      <p className="text-xs font-black text-slate-900 tracking-tighter">{selectedStudent.registrationNo}</p>
+                   </div>
+                   <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-2xl border-4 border-white flex items-center justify-center shadow-lg ${
+                     (selectedStudent.status === 'active' || selectedStudent.status === 'approved') ? 'bg-emerald-500' : 'bg-blue-500'
+                   }`}>
+                      <CheckCircle className="w-4 h-4 text-white" />
+                   </div>
+                </div>
+                <div>
+                   <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{selectedStudent.name}</h3>
+                      <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                        (selectedStudent.status === 'active' || selectedStudent.status === 'approved')
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-100 text-amber-700 border-amber-200'
+                      }`}>
+                        {selectedStudent.status.replace('_', ' ')}
+                      </span>
+                   </div>
+                   <div className="flex items-center gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                      <span className="flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-blue-600" /> {selectedStudent.registrationNo || 'REGISTRATION PENDING'}</span>
+                      <span className="w-1 h-1 rounded-full bg-slate-300" />
+                      <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-600" /> {selectedStudent.course}</span>
+                   </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {isEditing ? (
+                  <button 
+                    onClick={handleUpdateStudent}
+                    disabled={updating}
+                    className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg flex items-center gap-2"
+                  >
+                    {updating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    Save Profile
+                  </button>
+                ) : (
+                  (selectedStudent.status === 'pending' || selectedStudent.status === 'pending_admin' || selectedStudent.status === 'pending_atc') && (
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Edit Profile
+                    </button>
+                  )
+                )}
+                <button 
+                  onClick={() => { setSelectedStudent(null); setIsEditing(false); }}
+                  className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-10">
+              {/* Profile Overview Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                {/* Left Column: Essential Stats & Info */}
+                <div className="lg:col-span-8 space-y-8">
+                  {/* Personal Information Card */}
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-8">
+                    <div className="flex items-center justify-between">
+                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                          <User className="w-4 h-4 text-blue-600" /> Personal Identity details
+                       </h4>
+                       <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Verified Record</span>
                     </div>
-                    <div className="md:col-span-2 grid grid-cols-2 gap-x-8 gap-y-6 pt-4">
-                       <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Full Name</label>
-                          <p className="text-sm font-black text-slate-800 uppercase">{selectedStudent.name}</p>
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Father Name</label>
-                          <p className="text-sm font-black text-slate-800 uppercase">{selectedStudent.fatherName}</p>
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mother Name</label>
-                          <p className="text-sm font-black text-slate-800 uppercase">{selectedStudent.motherName}</p>
-<label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Date of Birth</label>
-                          <p className="text-sm font-black text-slate-800">
-                            {selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : "N/A"}
-                          </p>
-                       </div>
-                    </div>
-                  </div>
-
-                  {/* Personal & Social Details */}
-                  <div className="p-6 bg-blue-50/30 rounded-[2rem] border border-blue-100/50 grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Gender</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.gender}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Category</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.category}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Religion</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.religion || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Aadhar No</label>
-                      <p className="text-[11px] font-black text-slate-800">{selectedStudent.aadharNo || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Nationality</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.nationality || 'Indian'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Marital Status</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.maritalStatus || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Disability</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.disability ? `YES (${selectedStudent.disabilityDetails})` : 'NO'}</p>
-                    </div>
-                  </div>
-
-                  {/* Contact & Academics */}
-                  <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Course</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.course}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Academic Session</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.session}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Student Mobile</label>
-                      <p className="text-[11px] font-black text-slate-800">{selectedStudent.mobile}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Parents Mobile</label>
-                      <p className="text-[11px] font-black text-slate-800">{selectedStudent.parentsMobile || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Admission Date</label>
-                      <p className="text-[11px] font-black text-slate-800">{selectedStudent.admissionDate}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Qualification</label>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">{selectedStudent.highestQualification || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  {/* Address Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-5 bg-white rounded-3xl border border-slate-100">
-                      <label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Current Address</label>
-                      <p className="text-[11px] font-bold text-slate-700 leading-relaxed">{selectedStudent.currentAddress}</p>
-                    </div>
-                    <div className="p-5 bg-white rounded-3xl border border-slate-100">
-                      <label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Permanent Address</label>
-                      <p className="text-[11px] font-bold text-slate-700 leading-relaxed">{selectedStudent.permanentAddress}</p>
-                    </div>
-                  </div>
-
-                  {/* Documents Section */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                       <FileText className="w-3.5 h-3.5 text-emerald-600" /> Student Documentation
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-8 gap-x-12">
                        {[
-                         { label: 'Aadhar Card', exists: !!selectedStudent.aadharDoc },
-                         { label: '10th Marksheet', exists: !!(selectedStudent as any).marksheet10th },
-                         { label: 'Student Photo', exists: !!selectedStudent.photo },
-                         { label: 'Signature', exists: !!selectedStudent.studentSignature },
-                       ].map(doc => (
-                         <div key={doc.label} className="p-3 bg-white rounded-2xl border border-slate-100 flex items-center justify-between">
-                            <span className="text-[10px] font-black text-slate-500 uppercase">{doc.label}</span>
-                            {doc.exists ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <X className="w-3.5 h-3.5 text-slate-300" />}
+                         { label: "Father Name", key: "fatherName" },
+                         { label: "Mother Name", key: "motherName" },
+                         { label: "Date of Birth", key: "dob", type: "date" },
+                         { label: "Gender", key: "gender", type: "select", options: ["Male", "Female", "Other"] },
+                         { label: "Category", key: "category", type: "select", options: ["General", "OBC", "SC", "ST"] },
+                         { label: "Religion", key: "religion" },
+                         { label: "Aadhar Number", key: "aadharNo" },
+                         { label: "Nationality", key: "nationality" },
+                         { label: "Marital Status", key: "maritalStatus", type: "select", options: ["Single", "Married", "Others"] },
+                       ].map((item, idx) => (
+                         <div key={idx} className="space-y-1.5">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
+                            {isEditing ? (
+                              item.type === "select" ? (
+                                <select 
+                                  value={(editForm as any)[item.key]}
+                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
+                                  className={modalInputCls(item.key)}
+                                >
+                                  {item.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                              ) : (
+                                <input 
+                                  type={item.type || "text"}
+                                  value={(editForm as any)[item.key]}
+                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
+                                  className={modalInputCls(item.key)}
+                                />
+                              )
+                            ) : (
+                              <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">
+                                 {item.key === 'dob' 
+                                   ? (selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A') 
+                                   : (selectedStudent as any)[item.key] || 'Not Provided'}
+                              </p>
+                            )}
                          </div>
                        ))}
                     </div>
                   </div>
-
-                  <div className="pt-4">
-                     <button 
-                        onClick={() => setSelectedStudent(null)}
-                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl"
-                     >
-                        Close Profile
-                     </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
-              {/* Tab Navigation */}
-              <div className="flex items-center px-8 bg-white border-b border-slate-100 sticky top-0 z-10 overflow-x-auto no-scrollbar">
-                {[
-                  { id: "personal", label: "Personal Details", icon: User },
-                  { id: "academic", label: "Academic Info", icon: BookOpen },
-                  { id: "address", label: "Address & Social", icon: MapPin },
-                  { id: "fees", label: "Fee & Financials", icon: CreditCard },
-                  { id: "documents", label: "Documents", icon: FileText }
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setEditTab(t.id as any)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap text-[10px] font-black uppercase tracking-widest ${
-                      editTab === t.id 
-                        ? "border-blue-600 text-blue-600 bg-blue-50/50" 
-                        : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <t.icon className="w-3.5 h-3.5" />
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              <form onSubmit={handleUpdate} className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {editTab === "personal" && (
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                       <User className="w-4 h-4 text-blue-600" />
-                       <h4 className="text-[11px] font-black uppercase text-slate-700 tracking-wider">Personal Identity</h4>
-                    </div>
+                  {/* Contact & Location Card */}
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-8">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                       <MapPin className="w-4 h-4 text-rose-600" /> Contact & Residence
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Student Full Name *</label>
-                         <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className={modalInputCls("edit_name")} required />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Father's Name *</label>
-                         <input value={editForm.fatherName} onChange={e => setEditForm({...editForm, fatherName: e.target.value})} className={modalInputCls("edit_father")} required />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Mother's Name *</label>
-                         <input value={editForm.motherName} onChange={e => setEditForm({...editForm, motherName: e.target.value})} className={modalInputCls("edit_mother")} required />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Date of Birth *</label>
-                           <input type="date" value={editForm.dob} onChange={e => setEditForm({...editForm, dob: e.target.value})} className={modalInputCls("edit_dob")} required />
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Gender *</label>
-                           <select value={editForm.gender} onChange={e => setEditForm({...editForm, gender: e.target.value})} className={modalInputCls("edit_gender")} required>
-                              <option>Male</option><option>Female</option><option>Other</option>
-                           </select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Mobile Number *</label>
-                         <input value={editForm.mobile} onChange={e => setEditForm({...editForm, mobile: e.target.value})} className={modalInputCls("edit_mobile")} required maxLength={10} />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Email Address</label>
-                         <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className={modalInputCls("edit_email")} placeholder="example@email.com" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {editTab === "academic" && (
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                       <BookOpen className="w-4 h-4 text-emerald-600" />
-                       <h4 className="text-[11px] font-black uppercase text-slate-700 tracking-wider">Academic Profile</h4>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Course *</label>
-                         <select 
-                            value={editForm.course} 
-                            onChange={e => setEditForm({...editForm, course: e.target.value})} 
-                            className={modalInputCls("edit_course")} 
-                            required
-                         >
-                            <option value="">Select a Course</option>
-                            {availableCourses.length > 0 ? (
-                              availableCourses.map(c => <option key={c._id} value={c.name}>{c.name}</option>)
-                            ) : (
-                              <option value={editForm.course}>{editForm.course}</option>
-                            )}
-                         </select>
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Course Mode</label>
-                         <select value={editForm.courseType} onChange={e => setEditForm({...editForm, courseType: e.target.value})} className={modalInputCls("edit_ctype")}>
-                            <option>Regular</option>
-                            <option>ODL (Open Distance Learning)</option>
-                         </select>
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Admission Session *</label>
-                         <input value={editForm.session} onChange={e => setEditForm({...editForm, session: e.target.value})} className={modalInputCls("edit_session")} required placeholder="e.g. 2024-25" />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Date of Admission *</label>
-                         <input type="date" value={editForm.admissionDate} onChange={e => setEditForm({...editForm, admissionDate: e.target.value})} className={modalInputCls("edit_date")} required />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Highest Qualification *</label>
-                         <input value={editForm.highestQualification} onChange={e => setEditForm({...editForm, highestQualification: e.target.value})} className={modalInputCls("edit_qual")} required />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Qualification Details</label>
-                         <input value={editForm.qualificationDetail} onChange={e => setEditForm({...editForm, qualificationDetail: e.target.value})} className={modalInputCls("edit_qual_det")} placeholder="Percentage/Year/Board" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {editTab === "address" && (
-                  <div className="space-y-8">
-                    <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                       <MapPin className="w-4 h-4 text-rose-600" />
-                       <h4 className="text-[11px] font-black uppercase text-slate-700 tracking-wider">Location & Social</h4>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Aadhar Number</label>
-                         <input value={editForm.aadharNo} onChange={e => setEditForm({...editForm, aadharNo: e.target.value})} className={modalInputCls("edit_aadhar")} maxLength={12} placeholder="12 Digit Aadhar" />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Category</label>
-                         <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})} className={modalInputCls("edit_category")}>
-                            <option>General</option><option>OBC</option><option>SC</option><option>ST</option>
-                         </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Current Residential Address *</label>
-                         <textarea value={editForm.currentAddress} onChange={e => setEditForm({...editForm, currentAddress: e.target.value})} className={modalInputCls("edit_curr")} rows={3} required />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Permanent/Home Address *</label>
-                         <textarea value={editForm.permanentAddress} onChange={e => setEditForm({...editForm, permanentAddress: e.target.value})} className={modalInputCls("edit_perm")} rows={3} required />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nationality</label>
-                         <input value={editForm.nationality} onChange={e => setEditForm({...editForm, nationality: e.target.value})} className={modalInputCls("edit_nat")} />
+                       <div className="space-y-6">
+                          <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-200 transition-colors">
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Primary Mobile</p>
+                             {isEditing ? (
+                               <input 
+                                 type="text"
+                                 value={editForm.mobile}
+                                 onChange={e => setEditForm({...editForm, mobile: e.target.value})}
+                                 className={modalInputCls("mobile")}
+                               />
+                             ) : (
+                               <p className="text-lg font-black text-slate-800 tracking-tighter flex items-center gap-2">
+                                  {selectedStudent.mobile}
+                                  <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-600 text-[8px] font-black uppercase">Primary</span>
+                               </p>
+                             )}
+                          </div>
+                          <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-200 transition-colors">
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Parents/Emergency Mobile</p>
+                             {isEditing ? (
+                               <input 
+                                 type="text"
+                                 value={editForm.parentsMobile}
+                                 onChange={e => setEditForm({...editForm, parentsMobile: e.target.value})}
+                                 className={modalInputCls("parentsMobile")}
+                               />
+                             ) : (
+                               <p className="text-lg font-black text-slate-800 tracking-tighter">{selectedStudent.parentsMobile || 'N/A'}</p>
+                             )}
+                          </div>
+                          <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-200 transition-colors">
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Email Address</p>
+                             {isEditing ? (
+                               <input 
+                                 type="email"
+                                 value={editForm.email}
+                                 onChange={e => setEditForm({...editForm, email: e.target.value})}
+                                 className={modalInputCls("email")}
+                               />
+                             ) : (
+                               <p className="text-sm font-bold text-slate-800 lowercase tracking-tight">{selectedStudent.email || 'N/A'}</p>
+                             )}
+                          </div>
                        </div>
-                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Religion</label>
-                         <input value={editForm.religion} onChange={e => setEditForm({...editForm, religion: e.target.value})} className={modalInputCls("edit_rel")} />
-                       </div>
-                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Marital Status</label>
-                         <select value={editForm.maritalStatus} onChange={e => setEditForm({...editForm, maritalStatus: e.target.value})} className={modalInputCls("edit_marit")}>
-                            <option>Single</option><option>Married</option><option>Other</option>
-                         </select>
-                       </div>
-                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Reference</label>
-                         <input value={editForm.referredBy} onChange={e => setEditForm({...editForm, referredBy: e.target.value})} className={modalInputCls("edit_ref")} placeholder="Referred By" />
-                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {editTab === "fees" && (
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                       <CreditCard className="w-4 h-4 text-amber-600" />
-                       <h4 className="text-[11px] font-black uppercase text-slate-700 tracking-wider">Fee Management</h4>
-                    </div>
-                    <div className="p-8 bg-amber-50/30 rounded-3xl border border-amber-100/50 flex items-center gap-6">
-                       <div className="w-12 h-12 rounded-2xl bg-white border border-amber-200 flex items-center justify-center shadow-sm">
-                          <CreditCard className="w-6 h-6 text-amber-600" />
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Course Fee Setup</p>
-                          <p className="text-[10px] font-bold text-amber-600/70">Set the total agreed course fee here. Dues will be calculated automatically.</p>
-                       </div>
-                    </div>
-                    <div className="max-w-md mx-auto py-8">
-                       <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block text-center">Total Course Fee (₹) *</label>
-                          <div className="relative group">
-                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300 group-focus-within:text-blue-600 transition-colors">₹</span>
-                            <input 
-                              type="number"
-                              value={editForm.totalFee} 
-                              onChange={e => setEditForm({...editForm, totalFee: Number(e.target.value)})} 
-                              className="w-full pl-12 pr-6 py-6 bg-white border-2 border-slate-100 rounded-[2rem] text-3xl font-black text-slate-800 focus:border-blue-500 focus:ring-8 focus:ring-blue-500/5 transition-all outline-none text-center"
-                              placeholder="0"
-                            />
+                       <div className="space-y-6">
+                          <div className="p-6 bg-blue-50/30 rounded-[2rem] border border-blue-100 h-full">
+                             <div className="space-y-6">
+                                <div>
+                                   <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2">Current Address</p>
+                                   {isEditing ? (
+                                     <textarea 
+                                       value={editForm.currentAddress}
+                                       onChange={e => setEditForm({...editForm, currentAddress: e.target.value})}
+                                       className={modalInputCls("currentAddress") + " h-20"}
+                                     />
+                                   ) : (
+                                     <p className="text-xs font-bold text-slate-700 leading-relaxed uppercase">{selectedStudent.currentAddress}</p>
+                                   )}
+                                </div>
+                                <div className="pt-6 border-t border-blue-100">
+                                   <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2">Permanent Address</p>
+                                   {isEditing ? (
+                                     <textarea 
+                                       value={editForm.permanentAddress}
+                                       onChange={e => setEditForm({...editForm, permanentAddress: e.target.value})}
+                                       className={modalInputCls("permanentAddress") + " h-20"}
+                                     />
+                                   ) : (
+                                     <p className="text-xs font-bold text-slate-700 leading-relaxed uppercase">{selectedStudent.permanentAddress}</p>
+                                   )}
+                                </div>
+                             </div>
                           </div>
                        </div>
                     </div>
                   </div>
-                )}
 
-                {editTab === "documents" && (
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                       <ShieldCheck className="w-4 h-4 text-blue-600" />
-                       <h4 className="text-[11px] font-black uppercase text-slate-700 tracking-wider">Verification Documents</h4>
-                    </div>
-                    <div className="p-8 bg-blue-50/50 rounded-3xl border border-blue-100 flex items-center gap-6">
-                       <div className="w-16 h-16 rounded-2xl bg-white border border-blue-200 p-1 shadow-sm overflow-hidden flex items-center justify-center">
-                          {selectedStudent.photo ? <img src={selectedStudent.photo} className="w-full h-full object-cover" /> : <User className="w-8 h-8 text-slate-200" />}
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-1">Document Repository</p>
-                          <p className="text-[10px] font-bold text-blue-600/70 leading-relaxed">These records are synchronized with the central server. To update documents, please submit a request to the Admin Panel.</p>
-                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Academic Profile Card */}
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-8">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                       <BookOpen className="w-4 h-4 text-emerald-600" /> Academic & admission info
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                        {[
-                         { label: 'Aadhar Card', exists: !!selectedStudent.aadharDoc, data: selectedStudent.aadharDoc },
-                         { label: 'Marksheet', exists: !!(selectedStudent as any).marksheet10th, data: (selectedStudent as any).marksheet10th },
-                         { label: 'Signature', exists: !!selectedStudent.studentSignature, data: selectedStudent.studentSignature },
-                         { label: 'Photo ID', exists: !!selectedStudent.photo, data: selectedStudent.photo },
-                       ].map(doc => (
-                         <div key={doc.label} className="p-4 bg-white rounded-2xl border border-slate-100 flex flex-col gap-3 shadow-sm group hover:border-blue-200 transition-colors">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{doc.label}</span>
-                            <div className="flex items-center gap-2">
-                               {doc.exists ? (
-                                 <div className="flex flex-col gap-2 w-full">
-                                   <div className="flex items-center gap-2">
-                                      <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center"><CheckCircle className="w-3 h-3 text-emerald-500" /></div>
-                                      <span className="text-[10px] font-bold text-emerald-600">Verified</span>
-                                   </div>
-                                   <button 
-                                     type="button"
-                                     onClick={() => {
-                                       const win = window.open();
-                                       if (win) {
-                                         win.document.write(`<iframe src="${doc.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-                                       }
-                                     }}
-                                     className="mt-1 w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-2"
-                                   >
-                                      <Download className="w-3 h-3" /> View
-                                   </button>
-                                 </div>
-                               ) : (
-                                 <><div className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center"><XCircle className="w-3 h-3 text-slate-300" /></div><span className="text-[10px] font-bold text-slate-400">Missing</span></>
-                               )}
-                            </div>
+                         { label: "Course Name", value: selectedStudent.course },
+                         { label: "Session", value: selectedStudent.session },
+                         { label: "Admission Date", value: selectedStudent.admissionDate || 'N/A' },
+                         { label: "Highest Qualification", value: selectedStudent.highestQualification },
+                         { label: "Exam Mode", value: selectedStudent.examMode || 'N/A' },
+                         { label: "Course Name", key: "course", type: "select", options: availableCourses.map(c => c.name) },
+                         { label: "Session", key: "session" },
+                         { label: "Admission Date", key: "admissionDate", type: "date" },
+                         { label: "Highest Qualification", key: "highestQualification" },
+                         { label: "Exam Mode", key: "examMode", type: "select", options: ["online", "offline"] },
+                         { label: "Referred By", key: "referredBy" },
+                         { label: "Course Type", key: "courseType", type: "select", options: ["Regular", "ODL (Open Distance Learning)"] },
+                       ].map((item, idx) => (
+                         <div key={idx} className="space-y-1.5">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
+                            {isEditing ? (
+                              item.type === "select" ? (
+                                <select 
+                                  value={(editForm as any)[item.key]}
+                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
+                                  className={modalInputCls(item.key)}
+                                >
+                                  <option value="">Select</option>
+                                  {item.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                              ) : (
+                                <input 
+                                  type={item.type || "text"}
+                                  value={(editForm as any)[item.key]}
+                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
+                                  className={modalInputCls(item.key)}
+                                />
+                              )
+                            ) : (
+                              <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">{(selectedStudent as any)[item.key] || 'N/A'}</p>
+                            )}
                          </div>
                        ))}
                     </div>
                   </div>
-                )}
-
-                <div className="flex gap-4 pt-6 sticky bottom-0 bg-slate-50/80 backdrop-blur-md p-6 -mx-8 -mb-8 border-t border-slate-200">
-                   <button type="button" onClick={() => setSelectedStudent(null)} className="flex-1 py-4 bg-white text-slate-600 border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition shadow-sm">Cancel</button>
-                   <button type="submit" disabled={updating} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-100 disabled:opacity-50">
-                      {updating ? "Processing..." : "Save Student Data"}
-                   </button>
                 </div>
-              </form>
+
+                {/* Right Column: Financials & Documents Preview */}
+                <div className="lg:col-span-4 space-y-8">
+                  
+                  {/* Financial Status Card */}
+                  <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                    <h4 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-8">Financial Overview</h4>
+                    
+                    <div className="space-y-6">
+                       <div className="flex items-end justify-between border-b border-white/10 pb-4">
+                          <p className="text-xs font-bold text-white/60">Total Agreed Fee</p>
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                               <span className="text-lg font-black opacity-50">₹</span>
+                               <input 
+                                 type="number"
+                                 value={editForm.totalFee}
+                                 onChange={e => setEditForm({...editForm, totalFee: Number(e.target.value)})}
+                                 className="w-24 bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-right text-lg font-black outline-none focus:border-white/40"
+                               />
+                            </div>
+                          ) : (
+                            <p className="text-3xl font-black tracking-tighter">₹{selectedStudent.totalFee || selectedStudent.admissionFees || 0}</p>
+                          )}
+                       </div>
+                       <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-emerald-400">Total Amount Paid</p>
+                          <p className="text-lg font-black text-emerald-400">₹{selectedStudent.paidAmount || 0}</p>
+                       </div>
+                       <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-red-400">Pending Dues</p>
+                          <p className="text-lg font-black text-red-400">₹{(selectedStudent.totalFee || Number(selectedStudent.admissionFees) || 0) - (selectedStudent.paidAmount || 0)}</p>
+                       </div>
+                    </div>
+
+                    <div className="mt-8 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                       <CreditCard className="w-5 h-5 text-amber-400" />
+                       <p className="text-[9px] font-bold text-white/70 leading-tight uppercase tracking-wider">Payments are synchronized with the central accounts registry.</p>
+                    </div>
+                  </div>
+
+                  {/* Documents Section */}
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-6">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                       <FileText className="w-4 h-4 text-blue-600" /> Uploaded Documents
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                       {[
+                         { label: 'Aadhar Document', key: 'aadharDoc', data: selectedStudent.aadharDoc },
+                         { label: '10th Marksheet', key: 'marksheet10th', data: (selectedStudent as any).marksheet10th },
+                         { label: '12th Marksheet', key: 'marksheet12th', data: (selectedStudent as any).marksheet12th },
+                         { label: 'Graduation Doc', key: 'graduationDoc', data: (selectedStudent as any).graduationDoc },
+                         { label: 'Signature Copy', key: 'studentSignature', data: selectedStudent.studentSignature },
+                         { label: 'Other Document', key: 'otherDocs', data: selectedStudent.otherDocs },
+                       ].filter(d => d.data).map((doc, idx) => (
+                         <div key={idx} className="group flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all">
+                            <div className="flex items-center gap-3">
+                               <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors overflow-hidden">
+                                  {doc.data?.includes('image/') || doc.data?.endsWith('.jpg') || doc.data?.endsWith('.png') ? (
+                                    <img src={doc.data} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <FileText className="w-5 h-5" />
+                                  )}
+                               </div>
+                               <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{doc.label}</span>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const win = window.open();
+                                if (win) {
+                                  win.document.write(`<iframe src="${doc.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                                }
+                              }}
+                              className="px-4 py-2 bg-white text-blue-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm"
+                            >
+                               View Full
+                            </button>
+                         </div>
+                       ))}
+
+                       {![
+                         selectedStudent.aadharDoc, (selectedStudent as any).marksheet10th, 
+                         selectedStudent.studentSignature, selectedStudent.otherDocs
+                       ].some(Boolean) && (
+                         <div className="p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Documents Uploaded</p>
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-              )}
+
+            {/* Modal Footer */}
+            <div className="shrink-0 px-10 py-6 bg-white border-t border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                 Last Sync: {new Date(selectedStudent.createdAt).toLocaleDateString()}
+              </div>
+              <div className="flex items-center gap-4">
+                 <button 
+                   onClick={() => setSelectedStudent(null)}
+                   className="px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                 >
+                   Dismiss View
+                 </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1729,7 +1718,7 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
           </div>
         )}
 
-        <style jsx global>{`
+        <style dangerouslySetInnerHTML={{ __html: `
           @media print {
             @page { margin: 0; size: auto; }
             body * { visibility: hidden !important; }
@@ -1746,7 +1735,8 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
               justify-content: center !important;
             }
           }
-        `}</style>
+        ` }} />
+
       {/* SUCCESS POPUP MODAL */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
@@ -1772,9 +1762,3 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     </div>
   );
 }
-
-const X = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);

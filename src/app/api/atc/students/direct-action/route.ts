@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     if (action === "approved") {
       student.status = "pending_admin";
-      student.registrationNo = `PENDING-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      student.registrationNo = `PENDING-${Date.now()}-${student.aadharNo || Math.floor(Math.random() * 1000)}`;
       student.totalFee = totalFee;
       student.admissionFees = String(totalFee);
       student.duesAmount = totalFee - (student.paidAmount || 0);

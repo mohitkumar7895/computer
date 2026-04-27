@@ -275,6 +275,7 @@ export async function DELETE(
   const { id } = await params;
   await connectDB();
 
+  await AtcUser.deleteMany({ applicationId: id });
   await AtcApplication.findByIdAndDelete(id);
   return NextResponse.json({ message: "Application deleted." });
 }

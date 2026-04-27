@@ -152,7 +152,7 @@ export async function POST(request: Request) {
       marksheet12th,
       graduationDoc,
       highestQualDoc,
-      registrationNo: `PENDING-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      registrationNo: `PENDING-${Date.now()}-${aadharNo || Math.floor(Math.random() * 1000)}`,
       referredBy: String(formData.get("referredBy") || "").trim(),
       password: studentMobile,
       examMode: String(formData.get("examMode") || "online").trim(),

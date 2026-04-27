@@ -28,6 +28,7 @@ export default function DirectAdmissionForm() {
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [admissionDate, setAdmissionDate] = useState("");
   const [isMounted, setIsMounted] = useState(false);
+  const [centersLoaded, setCentersLoaded] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -57,6 +58,8 @@ export default function DirectAdmissionForm() {
       }
     } catch (err) {
       console.error("Failed to fetch centers", err);
+    } finally {
+      setCentersLoaded(true);
     }
   };
 
@@ -227,8 +230,10 @@ export default function DirectAdmissionForm() {
             </div>
             <div className="md:col-span-2">
               <label className={labelCls("centerCode")}>Select Training Center *</label>
-              <select required name="centerCode" className={inputCls("centerCode")} disabled={availableCenters.length === 0}>
-                <option value="">{availableCenters.length > 0 ? "Select Study Center" : "Loading Centers..."}</option>
+               <select required name="centerCode" className={inputCls("centerCode")} disabled={!centersLoaded || availableCenters.length === 0}>
+                <option value="">
+                  {!centersLoaded ? "Loading Centers..." : availableCenters.length > 0 ? "Select Study Center" : "No active centers found"}
+                </option>
                 {availableCenters.map(c => (
                   <option key={c.tpCode} value={c.tpCode}>{c.trainingPartnerName} ({c.tpCode})</option>
                 ))}
