@@ -72,6 +72,7 @@ export default function AdminLoginPage() {
                 type="email"
                 required
                 autoFocus
+                autoComplete="username"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="admin@example.com"
@@ -85,6 +86,7 @@ export default function AdminLoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
+                  autoComplete="current-password"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="Enter your password"

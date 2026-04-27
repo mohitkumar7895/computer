@@ -73,6 +73,7 @@ export default function AtcLoginPage() {
               type="text"
               required
               autoFocus
+              autoComplete="username"
               placeholder="TP CODE"
               value={form.tpCode}
               onChange={(e) => setForm({ ...form, tpCode: e.target.value })}
@@ -81,6 +82,7 @@ export default function AtcLoginPage() {
             <input
               type="password"
               required
+              autoComplete="current-password"
               placeholder="Password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}

@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 function isPublicAdminApi(pathname: string): boolean {
-  return pathname === "/api/admin/login" || pathname === "/api/admin/register";
+  return (
+    pathname === "/api/admin/login" ||
+    pathname === "/api/admin/register" ||
+    pathname === "/api/admin/logout"
+  );
 }
 
 export async function middleware(request: NextRequest) {
