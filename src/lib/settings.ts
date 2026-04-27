@@ -22,3 +22,28 @@ export async function getSetting(key: string, defaultValue: string = ""): Promis
 export async function getBrandName(): Promise<string> {
   return getSetting("brand_name", "Yukti Computer Education");
 }
+
+export async function getFullBrandData() {
+  try {
+    await connectDB();
+    const keys = [
+      "brand_name", 
+      "brand_mobile", 
+      "brand_email", 
+      "brand_address", 
+      "brand_url", 
+      "brand_logo",
+      "qr_code",
+      "auth_signature"
+    ];
+    const settings = await Setting.find({ key: { $in: keys } }).lean();
+    const data: Record<string, string> = {};
+    settings.forEach((s: any) => {
+      data[s.key] = s.value;
+    });
+    return data;
+  } catch (err) {
+    console.error("Error fetching full brand data:", err);
+    return {};
+  }
+}

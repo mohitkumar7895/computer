@@ -1,8 +1,10 @@
 "use client";
 
+// Navigation Bar Component with Brand Integration
+
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Clock3, Download, LogIn, Mail, Menu, Phone, Wallet, X } from "lucide-react";
+import { ChevronDown, Clock3, Download, LogIn, Mail, Menu, Phone, Wallet, X, UserPlus } from "lucide-react";
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { NAV_LINKS, SITE_INFO } from "@/utils/constants";
 
@@ -127,6 +129,10 @@ export default function Navbar() {
               <Download className="h-3 w-3" />
               Downloads
             </Link>
+            <Link href="/direct-admission" className="inline-flex items-center gap-1 hover:text-blue-200">
+              <UserPlus className="h-3 w-3" />
+              Direct Admission
+            </Link>
             <Link href="#" className="inline-flex items-center gap-1 hover:text-blue-200">
               <Wallet className="h-3 w-3" />
               Pay Fees
@@ -137,7 +143,7 @@ export default function Navbar() {
 
       <div className="bg-white">
         <div className="mx-auto flex w-full max-w-330 flex-wrap items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" onClick={handleNavClick("/")} className="shrink-0">
+          <Link href="/" onClick={handleNavClick("/")} className="shrink-0 flex items-center gap-3 group">
             {brandLogo ? (
               <img
                 src={brandLogo}
@@ -154,6 +160,14 @@ export default function Navbar() {
                 priority
               />
             )}
+            <div className="flex flex-col">
+              <span className="text-lg sm:text-2xl font-black text-[#0a0aa1] uppercase leading-none tracking-tighter">
+                {brandName}
+              </span>
+              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+                Professional Education
+              </span>
+            </div>
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">
@@ -175,13 +189,6 @@ export default function Navbar() {
                 <p className="text-sm leading-none text-slate-800 lg:text-base">{brandMobile || SITE_INFO.phone}</p>
               </div>
             </div>
-            <Link
-              href="/direct-admission"
-              onClick={handleNavClick("/direct-admission")}
-              className="inline-flex min-w-36 items-center justify-center rounded-sm bg-[#0a0aa1] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#080885]"
-            >
-              APPLY NOW
-            </Link>
           </div>
 
           <button
@@ -207,13 +214,6 @@ export default function Navbar() {
                 <p className="font-semibold text-slate-900">Call Us</p>
                 <p>(+91) 9272638590</p>
               </div>
-              <Link
-                href="/direct-admission"
-                onClick={handleNavClick("/direct-admission")}
-                className="block rounded-xl bg-gradient-to-r from-[#0a0aa1] to-[#1a1ac0] px-4 py-3.5 text-center font-bold text-white transition hover:shadow-lg active:scale-95 shadow-md"
-              >
-                ENROLL NOW
-              </Link>
             </div>
           </div>
         ) : null}

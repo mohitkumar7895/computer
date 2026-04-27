@@ -111,8 +111,10 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
       const res = await fetch(`/api/atc/students?direct=${isDirectAdmission}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log(`[StudentManager] Fetching students (direct=${isDirectAdmission}). Status: ${res.status}`);
       if(res.ok) {
         const data = await res.json();
+        console.log(`[StudentManager] Received ${data.students?.length || 0} students`);
         setStudents(data.students || []);
       }
     } catch {
@@ -215,15 +217,34 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
     const formEl = e.currentTarget;
     const requiredInputs = formEl.querySelectorAll("[required]");
     const invalid = new Set<string>();
+    
     requiredInputs.forEach((input: any) => {
       if (!input.value || (input.type === 'file' && input.files.length === 0)) {
         invalid.add(input.name);
       }
     });
+    const fileInputs = formEl.querySelectorAll("input[type='file']");
+    let fileError = "";
+    fileInputs.forEach((input: any) => {
+      const file = input.files?.[0];
+      if (file) {
+        if (file.type.startsWith("image/")) {
+          if (file.size > 100 * 1024) {
+            invalid.add(input.name);
+            fileError = "Image files (Photo, Signature, etc) must be under 100 KB.";
+          }
+        } else if (file.type === "application/pdf") {
+          if (file.size > 500 * 1024) {
+            invalid.add(input.name);
+            fileError = "PDF documents (Aadhar, Marksheets, etc) must be under 500 KB.";
+          }
+        }
+      }
+    });
 
     if (invalid.size > 0) {
       setInvalidFields(invalid);
-      setMsg({ type: "error", text: "Please fill all required fields highlighted in red." });
+      setMsg({ type: "error", text: fileError || "Please fill all required fields highlighted in red." });
       setLoading(false);
       return;
     }
@@ -566,19 +587,18 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
   const modalInputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${modalInvalidFields.has(name || "") ? "border-red-700 ring-4 ring-red-50" : "border-slate-200"} rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400`;
 
   const filteredStudents = students.filter(s => {
-    // If we are in Admission Request mode (Direct Admission)
+    // If we are in Front Admission mode
     if (isDirectAdmission) {
-      // Only show pending requests that need action or are waiting for admin
-      if (studentFilter === "all") return s.status === "pending_atc" || s.status === "pending_admin";
-      if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_atc" || s.status === "pending_admin";
-      if (studentFilter === "approved") return false; // Approved students move to "My Students"
+      if (studentFilter === "all") return true; 
+      if (studentFilter === "pending") return s.status === "pending_atc";
+      if (studentFilter === "approved") return s.status === "pending_admin";
       return s.status === studentFilter;
     } 
     
     // If we are in My Students mode
     else {
       if (studentFilter === "all") return true; // Show everything in "All"
-      if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_atc" || s.status === "pending_admin";
+      if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_admin";
       if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
       if (studentFilter === "rejected") return s.status === "rejected";
       return s.status === studentFilter;
@@ -593,7 +613,7 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
           onClick={() => setTab("list")}
           className={`px-4 py-3 text-sm font-bold transition-all relative ${tab === "list" ? "text-green-600" : "text-slate-400 hover:text-slate-600"}`}
         >
-          <span className="flex items-center gap-2"><Users className="w-4 h-4" /> {isDirectAdmission ? "Admission Requests" : "All Students"}</span>
+          <span className="flex items-center gap-2"><Users className="w-4 h-4" /> {isDirectAdmission ? "Front Admission Requests" : "All Students"}</span>
           {tab === "list" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full" />}
         </button>
         {!isDirectAdmission && (
@@ -619,7 +639,6 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
             {/* Status Filter Bar */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
               {(["all", "pending", "approved", "rejected"] as const).map((s) => {
-                if (isDirectAdmission && s === "approved") return null;
 
                 return (
                   <button
@@ -631,7 +650,7 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
                         : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    {s === "all" ? (isDirectAdmission ? "New Requests" : "All Students") : s}
+                    {s === "all" ? (isDirectAdmission ? "All Requests" : "All Students") : s}
                   </button>
                 );
               })}
@@ -740,7 +759,9 @@ export default function StudentManager({ isDirectAdmission = false }: StudentMan
                              s.status === "rejected" ? "bg-red-100 text-red-700" :
                              "bg-amber-100 text-amber-700"
                            }`}>
-                             {(s.status === "approved" || s.status === "active") ? "Approved" : s.status === "rejected" ? "Rejected" : "Pending"}
+                             {(s.status === "approved" || s.status === "active") ? "Approved" : 
+                              s.status === "pending_admin" ? "Awaiting Admin" :
+                              s.status === "rejected" ? "Rejected" : "Pending"}
                            </span>
                         </td>
                         <td className="px-6 py-5 text-right">

@@ -24,16 +24,7 @@ export const studentZoneItems: StudentZoneItem[] = [
       "After selecting a course, students can submit their basic details, required documents, and preferred batch timing. Our team then verifies the information and confirms the admission steps clearly.",
     ],
   },
-  {
-    slug: "direct-admission",
-    title: "Direct Admission",
-    summary: "Get direct admission support with quick counseling and course guidance.",
-    pageType: "direct-admission",
-    body: [
-      "Students looking for direct admission can connect with our institute team for immediate course counseling and seat availability. We guide applicants through course selection, fees, and batch planning.",
-      "The direct admission process is ideal for students who are ready to begin training quickly and want personal assistance in choosing the right program.",
-    ],
-  },
+
   {
     slug: "examination-process",
     title: "Examination Process",
@@ -82,6 +73,16 @@ export const studentZoneItems: StudentZoneItem[] = [
     body: [
       "Our certification verification support helps students and institutions confirm the authenticity of course completion and related academic credentials issued by the institute.",
       "This section is intended to improve transparency and trust for both students and external verification requests.",
+    ],
+  },
+  {
+    slug: "direct-admission",
+    title: "Direct Admission",
+    summary: "Enroll directly into our courses through our simplified online admission portal.",
+    pageType: "direct-admission",
+    body: [
+      "The Direct Admission portal is designed for independent students who wish to apply for courses without visiting a physical study center initially.",
+      "Fill out the comprehensive admission form, upload required documents, and choose your preferred course and exam mode. Our team will review your application and process your enrollment accordingly.",
     ],
   },
 ];

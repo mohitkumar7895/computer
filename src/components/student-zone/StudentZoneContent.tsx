@@ -67,18 +67,19 @@ function RegistrationIntro() {
 }
 
 export default function StudentZoneContent({ item }: StudentZoneContentProps) {
+  if (!item) {
+    return (
+      <div className="p-10 text-center border border-dashed border-slate-200 rounded-2xl">
+        <p className="text-slate-400 font-medium">Page content not found. Please try again later.</p>
+      </div>
+    );
+  }
+
   if (item.pageType === "registration-process") {
     return (
       <div className="space-y-10">
         <RegistrationIntro />
-        <div className="text-center">
-          <Link
-            href="/direct-admission"
-            className="inline-flex rounded-sm bg-[#0a0aa1] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#080885]"
-          >
-            Open Direct Admission Form
-          </Link>
-        </div>
+
       </div>
     );
   }

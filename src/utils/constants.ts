@@ -61,7 +61,7 @@ export const NAV_LINKS: NavLink[] = [
     href: "#",
     children: [
       { label: "Admin Login", href: "/admin/login" },
-      { label: "FMS Login", href: "/atc/login" },
+      { label: "ATC Login", href: "/atc/login" },
       { label: "Student Login", href: "/student/login" },
     ],
   },

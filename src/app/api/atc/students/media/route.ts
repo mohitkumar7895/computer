@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import { verifyAtc } from "@/lib/auth";
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-async function getAtcUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("atc_token")?.value;
-  if (!token) return null;
-  try {
-    return jwt.verify(token, JWT_SECRET) as { id: string; tpCode: string };
-  } catch {
-    return null;
-  }
-}
 export async function GET(request: Request) {
-  const user = await getAtcUser();
+  const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
@@ -38,7 +25,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAtcUser();
+  const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {

@@ -101,14 +101,11 @@ export default function Footer() {
         <div className="flex items-start justify-center md:justify-start">
           <div className="inline-flex flex-col items-center text-center md:items-start md:text-left">
             <div className="leading-none">
-              {brandLogo ? (
-                <img src={brandLogo} alt={brandName} className="h-16 w-auto object-contain mb-2" />
-              ) : (
-                <>
-                  <span className="font-serif text-4xl text-[#d08a2f] sm:text-5xl">{brandName.charAt(0)}</span>
-                  <span className="ml-2 text-2xl font-black tracking-wide text-white sm:text-3xl">Group&apos;s</span>
-                </>
-              )}
+            <div className="flex items-center gap-4">
+              <span className="text-2xl font-black text-white uppercase tracking-tighter">
+                {brandName}
+              </span>
+            </div>
             </div>
             <p className="mt-3 text-sm text-slate-200">{brandUrl || "Save money. Live better."}</p>
           </div>

@@ -5,8 +5,13 @@ import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student"; // Ensure model registration
 import { AtcUser } from "@/models/AtcUser";
 
+import { verifyAdmin } from "@/lib/auth";
+
 export async function GET(request: Request) {
   try {
+    const admin = await verifyAdmin(request);
+    if (!admin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
     const atcId = searchParams.get("atcId");
 

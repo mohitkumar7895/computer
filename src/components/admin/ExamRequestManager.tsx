@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type FormEvent } from "react";
 import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2, FileText, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface ExamRequest {
   _id: string;
@@ -88,20 +89,28 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [releaseForm, setReleaseForm] = useState({ marksheet: true, certificate: true });
+  const { token, loading: authLoading } = useAuth();
   const showRosterTab = role === "atc";
 
   const fetchRequests = async () => {
+    if (!token) return;
     setLoading(true);
     try {
       const url = role === "admin" ? "/api/admin/exams/all" : "/api/atc/exams/all";
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, { 
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setRequests(data.requests || []);
       }
       
       if (role === "atc") {
-        const studentRes = await fetch("/api/atc/students", { cache: "no-store" });
+        const studentRes = await fetch("/api/atc/students", { 
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (studentRes.ok) {
           const sData = await studentRes.json();
           const validStudents = (sData.students || []).filter((s: any) => s.status === "approved" || s.status === "active");
@@ -116,8 +125,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   };
 
   const fetchQuestionSets = async () => {
+    if (!token) return;
     try {
-      const res = await fetch("/api/atc/question-sets");
+      const res = await fetch("/api/atc/question-sets", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setQuestionSets(data.sets || []);
@@ -128,16 +140,20 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   };
 
   useEffect(() => {
+    if (authLoading || !token) return;
     fetchRequests();
     fetchQuestionSets();
-  }, [atcId, role]);
+  }, [atcId, role, authLoading, token]);
 
   const handleAction = async (requestId: string, status: string, details?: any) => {
     setActionLoading(requestId);
     try {
       const res = await fetch("/api/admin/exams/update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ requestId, status, ...details }),
       });
       if (res.ok) {
@@ -158,7 +174,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     try {
       const res = await fetch("/api/atc/exams/request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ 
           studentId: requestExamStudent._id, 
           examMode: examReqForm.examMode,
@@ -198,6 +217,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       const res = await fetch("/api/atc/exams/offline-result", {
         method: "POST",
         body: formData,
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         await fetchRequests();
@@ -215,7 +235,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     try {
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ examId, status, marksheet: true, certificate: true }),
       });
       if (res.ok) {
@@ -248,7 +271,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       for (const id of selectedExams) {
         await fetch("/api/admin/exams/update", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({ requestId: id, status: action === "reject" ? "rejected" : "delete" }),
         });
       }
@@ -793,7 +819,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         for (const id of selectedExams) {
                           await fetch("/api/admin/exams/update", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: { 
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`
+                            },
                             body: JSON.stringify({ requestId: id, status: "approved", ...approvalForm, admitCardReleased: role === "admin" }),
                           });
                         }

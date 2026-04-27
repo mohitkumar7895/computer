@@ -1,26 +1,11 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudyMaterial } from "@/models/StudyMaterial";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import { verifyAtc } from "@/lib/auth";
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-async function verifyAtc() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("atc_token")?.value;
-  if (!token) return null;
+export async function GET(request: Request) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string, tpCode: string };
-    return decoded;
-  } catch {
-    return null;
-  }
-}
-
-export async function GET() {
-  try {
-    const atc = await verifyAtc();
+    const atc = await verifyAtc(request);
     if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     await connectDB();
@@ -39,7 +24,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const atc = await verifyAtc();
+    const atc = await verifyAtc(request);
     if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const data = await request.json();
@@ -60,7 +45,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const atc = await verifyAtc();
+    const atc = await verifyAtc(request);
     if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const { id } = await request.json();

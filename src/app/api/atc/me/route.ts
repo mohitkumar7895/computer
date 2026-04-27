@@ -38,8 +38,20 @@ export async function GET(request: Request) {
             { $match: { status: "pending", isDirectAdmission: { $ne: true } } }, 
             { $count: "count" }
           ],
-          directPending: [
-            { $match: { isDirectAdmission: true, status: { $in: ["pending_atc", "pending_admin"] } } }, 
+          frontAll: [
+            { $match: { isDirectAdmission: true } }, 
+            { $count: "count" }
+          ],
+          frontPending: [
+            { $match: { isDirectAdmission: true, status: "pending_atc" } }, 
+            { $count: "count" }
+          ],
+          frontApproved: [
+            { $match: { isDirectAdmission: true, status: "pending_admin" } }, 
+            { $count: "count" }
+          ],
+          frontRejected: [
+            { $match: { isDirectAdmission: true, status: "rejected" } }, 
             { $count: "count" }
           ],
           active: [
@@ -52,7 +64,7 @@ export async function GET(request: Request) {
             }},
             { $count: "count" }
           ],
-          rejected: [{ $match: { status: "rejected" } }, { $count: "count" }],
+          rejected: [{ $match: { status: "rejected", isDirectAdmission: { $ne: true } } }, { $count: "count" }],
           blocked: [{ $match: { userStatus: "disabled" } }, { $count: "count" }]
         }
       }
@@ -73,7 +85,11 @@ export async function GET(request: Request) {
       stats: {
         total: stats.total[0]?.count || 0,
         pendingReview: stats.pendingReview[0]?.count || 0,
-        directPending: stats.directPending[0]?.count || 0,
+        directPending: stats.frontPending[0]?.count || 0, // Keep this for sidebar badge
+        frontAll: stats.frontAll[0]?.count || 0,
+        frontPending: stats.frontPending[0]?.count || 0,
+        frontApproved: stats.frontApproved[0]?.count || 0,
+        frontRejected: stats.frontRejected[0]?.count || 0,
         active: stats.active[0]?.count || 0,
         rejected: stats.rejected[0]?.count || 0,
         blocked: stats.blocked[0]?.count || 0,

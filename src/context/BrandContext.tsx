@@ -13,7 +13,7 @@ interface BrandContextType {
 }
 
 const BrandContext = createContext<BrandContextType>({
-  brandName: "Yukti Computer Education",
+  brandName: "",
   brandMobile: "",
   brandEmail: "",
   brandAddress: "",
@@ -22,40 +22,33 @@ const BrandContext = createContext<BrandContextType>({
   loading: true,
 });
 
-export const BrandProvider = ({ children }: { children: React.ReactNode }) => {
-  const [brandName, setBrandName] = useState("Yukti Computer Education");
-  const [brandMobile, setBrandMobile] = useState("");
-  const [brandEmail, setBrandEmail] = useState("");
-  const [brandAddress, setBrandAddress] = useState("");
-  const [brandUrl, setBrandUrl] = useState("");
-  const [brandLogo, setBrandLogo] = useState("");
-  const [loading, setLoading] = useState(true);
+export const BrandProvider = ({ 
+  children,
+  initialData = {}
+}: { 
+  children: React.ReactNode;
+  initialData?: Record<string, string>;
+}) => {
+  const [brandName, setBrandName] = useState(initialData.brand_name || "");
+  const [brandMobile, setBrandMobile] = useState(initialData.brand_mobile || "");
+  const [brandEmail, setBrandEmail] = useState(initialData.brand_email || "");
+  const [brandAddress, setBrandAddress] = useState(initialData.brand_address || "");
+  const [brandUrl, setBrandUrl] = useState(initialData.brand_url || "");
+  const [brandLogo, setBrandLogo] = useState(initialData.brand_logo || "");
+  const [loading, setLoading] = useState(!initialData.brand_name);
 
   const fetchBrand = async () => {
     try {
-      const bRes = await fetch("/api/admin/settings?key=brand_name");
-      const bData = await bRes.json();
-      if (bData.value) setBrandName(bData.value);
-
-      const bmRes = await fetch("/api/admin/settings?key=brand_mobile");
-      const bmData = await bmRes.json();
-      if (bmData.value) setBrandMobile(bmData.value);
-
-      const beRes = await fetch("/api/admin/settings?key=brand_email");
-      const beData = await beRes.json();
-      if (beData.value) setBrandEmail(beData.value);
-
-      const baRes = await fetch("/api/admin/settings?key=brand_address");
-      const baData = await baRes.json();
-      if (baData.value) setBrandAddress(baData.value);
-
-      const buRes = await fetch("/api/admin/settings?key=brand_url");
-      const buData = await buRes.json();
-      if (buData.value) setBrandUrl(buData.value);
-
-      const blRes = await fetch("/api/admin/settings?key=brand_logo");
-      const blData = await blRes.json();
-      if (blData.value) setBrandLogo(blData.value);
+      const res = await fetch("/api/public/brand", { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.brand_name) setBrandName(data.brand_name);
+        if (data.brand_mobile) setBrandMobile(data.brand_mobile);
+        if (data.brand_email) setBrandEmail(data.brand_email);
+        if (data.brand_address) setBrandAddress(data.brand_address);
+        if (data.brand_url) setBrandUrl(data.brand_url);
+        if (data.brand_logo) setBrandLogo(data.brand_logo);
+      }
     } catch (err) {
       console.error("Failed to fetch brand settings", err);
     } finally {

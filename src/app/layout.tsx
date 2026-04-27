@@ -20,17 +20,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
 import { BrandProvider } from "@/context/BrandContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { getFullBrandData } from "@/lib/settings";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const brandData = await getFullBrandData();
+
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <BrandProvider>
+          <BrandProvider initialData={brandData}>
             {children}
           </BrandProvider>
         </AuthProvider>

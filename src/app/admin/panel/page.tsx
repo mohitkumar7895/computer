@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
@@ -25,6 +26,7 @@ import {
   DISTRICTS_BY_STATE,
 } from "@/utils/atcSettings";
 import dynamic from "next/dynamic";
+import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 
 const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
   loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
@@ -70,7 +72,8 @@ interface Student {
   admissionFees: string;
   admissionDate?: string;
   highestQualification: string;
-  status: "pending" | "approved" | "rejected" | "active";
+  status: "pending" | "approved" | "rejected" | "active" | "pending_atc" | "pending_admin";
+  isDirectAdmission?: boolean;
   createdAt: string;
   photo?: string;
   qualificationDoc?: string;
@@ -107,8 +110,6 @@ const FormValue = ({ label, value, highlight = false, full = false }: any) => (
   </div>
 );
 
-import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
-
 type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds";
 
 const PrintField = ({ label, value }: any) => (
@@ -121,6 +122,7 @@ const PrintField = ({ label, value }: any) => (
 export default function AdminPanelPage() {
   usePageTitle("admin");
   const router = useRouter();
+  const { token, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,9 +217,12 @@ export default function AdminPanelPage() {
   const feeLabel = (value: string) => getFeeLabel(feePlans, value, FEE_LABEL);
 
   const fetchApplications = useCallback(async () => {
+    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/applications");
+      const res = await fetch("/api/admin/applications", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.status === 401) { router.push("/admin/login"); return; }
       const data = (await res.json()) as { applications: Application[] };
       setApplications(data.applications ?? []);
@@ -226,11 +231,14 @@ export default function AdminPanelPage() {
     } finally {
       setLoading(false);
     }
-    fetch("/api/admin/settings/backgrounds").then(res => res.json()).then(data => {
+    
+    fetch("/api/admin/settings/backgrounds", {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(res => res.json()).then(data => {
       setBgs(data);
       setBgLoading(false);
     });
-  }, [router]);
+  }, [router, token]);
 
   const openCenterEditor = (app: Application) => {
     setToastMsg(null);
@@ -271,7 +279,10 @@ export default function AdminPanelPage() {
     try {
       const res = await fetch(`/api/admin/applications/${editingCenter._id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
           update: {
             trainingPartnerName,
@@ -298,73 +309,68 @@ export default function AdminPanelPage() {
   };
 
   const fetchSettings = useCallback(async () => {
+    if (!token) return;
     setQrLoading(true);
     setSigLoading(true);
     try {
-      const qRes = await fetch("/api/admin/settings?key=qr_code");
+      const h = { Authorization: `Bearer ${token}` };
+      
+      const qRes = await fetch("/api/admin/settings?key=qr_code", { headers: h });
       const qData = (await qRes.json()) as { value: string | null };
       setQrPreview(qData.value ?? null);
 
-      const sRes = await fetch("/api/admin/settings?key=auth_signature");
+      const sRes = await fetch("/api/admin/settings?key=auth_signature", { headers: h });
       const sData = (await sRes.json()) as { value: string | null };
       setSigPreview(sData.value ?? null);
 
-      const fRes = await fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`);
+      const fRes = await fetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`, { headers: h });
       const fData = (await fRes.json()) as { value: string | null };
       setFeePlans(parseFeeOptions(fData.value));
 
-      const cfRes = await fetch("/api/admin/settings?key=reg_format_center");
+      const cfRes = await fetch("/api/admin/settings?key=reg_format_center", { headers: h });
       const cfData = await cfRes.json();
       if (cfData.value) setCenterFormat(JSON.parse(cfData.value));
 
-      const sfRes = await fetch("/api/admin/settings?key=reg_format_student");
+      const sfRes = await fetch("/api/admin/settings?key=reg_format_student", { headers: h });
       const sfData = await sfRes.json();
       if (sfData.value) setStudentFormat(JSON.parse(sfData.value));
 
-      const bRes = await fetch("/api/admin/settings?key=brand_name");
+      const bRes = await fetch("/api/admin/settings?key=brand_name", { headers: h });
       const bData = (await bRes.json()) as { value: string | null };
       if (bData.value) setBrandName(bData.value);
 
-      const bmRes = await fetch("/api/admin/settings?key=brand_mobile");
+      const bmRes = await fetch("/api/admin/settings?key=brand_mobile", { headers: h });
       const bmData = (await bmRes.json()) as { value: string | null };
       if (bmData.value) setBrandMobile(bmData.value);
 
-      const beRes = await fetch("/api/admin/settings?key=brand_email");
+      const beRes = await fetch("/api/admin/settings?key=brand_email", { headers: h });
       const beData = (await beRes.json()) as { value: string | null };
       if (beData.value) setBrandEmail(beData.value);
 
-      const baRes = await fetch("/api/admin/settings?key=brand_address");
+      const baRes = await fetch("/api/admin/settings?key=brand_address", { headers: h });
       const baData = (await baRes.json()) as { value: string | null };
       if (baData.value) setBrandAddress(baData.value);
 
-      const buRes = await fetch("/api/admin/settings?key=brand_url");
+      const buRes = await fetch("/api/admin/settings?key=brand_url", { headers: h });
       const buData = (await buRes.json()) as { value: string | null };
       if (buData.value) setBrandUrl(buData.value);
 
-      const blRes = await fetch("/api/admin/settings?key=brand_logo");
+      const blRes = await fetch("/api/admin/settings?key=brand_logo", { headers: h });
       const blData = (await blRes.json()) as { value: string | null };
       if (blData.value) setBrandLogo(blData.value);
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
     }
-  }, []);
-
-  useEffect(() => { void fetchApplications(); }, [fetchApplications]);
-  useEffect(() => { if (tab === "settings") void fetchSettings(); }, [tab, fetchSettings]);
-  useEffect(() => { 
-    if (tab === "dashboard") {
-      void fetchApplications();
-      void fetchStudents();
-    }
-  }, [tab, fetchApplications]);
-  useEffect(() => { if (tab === "students") void fetchStudents(); }, [tab]);
-useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [tab]);
-
-  const fetchStudents = async () => {
+  }, [token]);
+  
+  const fetchStudents = useCallback(async () => {
+    if (!token) return;
     setStudentLoading(true);
     try {
-      const res = await fetch("/api/admin/students");
+      const res = await fetch("/api/admin/students", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       setStudents(data.students || []);
     } catch {
@@ -372,7 +378,47 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     } finally {
       setStudentLoading(false);
     }
-  };
+  }, [token]);
+
+  const fetchPendingResults = useCallback(async () => {
+    if (!token) return;
+    setResultsLoading(true);
+    try {
+      const res = await fetch("/api/admin/exams/pending-results", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingResults(data);
+      }
+    } catch { showToast("error", "Failed to fetch pending results"); }
+    finally { setResultsLoading(false); }
+  }, [token]);
+
+  useEffect(() => { 
+    if (!authLoading && token) void fetchApplications(); 
+  }, [fetchApplications, authLoading, token]);
+
+  useEffect(() => { 
+    if (tab === "settings" && !authLoading && token) void fetchSettings(); 
+  }, [tab, fetchSettings, authLoading, token]);
+
+  useEffect(() => { 
+    if (tab === "dashboard" && !authLoading && token) {
+      void fetchApplications();
+      void fetchStudents();
+    }
+  }, [tab, fetchApplications, fetchStudents, authLoading, token]);
+
+  useEffect(() => { 
+    if (tab === "students" && !authLoading && token) void fetchStudents(); 
+  }, [tab, fetchStudents, authLoading, token]);
+
+  useEffect(() => { 
+    if (tab === "resultReview" && !authLoading && token) void fetchPendingResults(); 
+  }, [tab, fetchPendingResults, authLoading, token]);
+
+
 
   const handleStudentAction = async (id: string, action: "approved" | "rejected" | "toggleStatus") => {
     setStudentActionId(id + action);
@@ -380,7 +426,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
 
       const res = await fetch(`/api/admin/students/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ action }),
       });
       const data = await res.json();
@@ -395,37 +444,42 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleBrandSave = async () => {
-    if (!brandName.trim()) return showToast("error", "Brand name cannot be empty.");
+    if (!token || !brandName.trim()) return showToast("error", "Brand name cannot be empty.");
     setBrandSaving(true);
     try {
+      const h = { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      };
+      
       // Save Name
       await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: h,
         body: JSON.stringify({ key: "brand_name", value: brandName.trim() }),
       });
       // Save Mobile
       await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: h,
         body: JSON.stringify({ key: "brand_mobile", value: brandMobile.trim() }),
       });
       // Save URL
       await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: h,
         body: JSON.stringify({ key: "brand_url", value: brandUrl.trim() }),
       });
       // Save Email
       await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: h,
         body: JSON.stringify({ key: "brand_email", value: brandEmail.trim() }),
       });
       // Save Address
       await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: h,
         body: JSON.stringify({ key: "brand_address", value: brandAddress.trim() }),
       });
       
@@ -447,7 +501,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
       try {
         await fetch("/api/admin/settings", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({ key: "brand_logo", value: base64 }),
         });
         showToast("success", "Brand Logo updated globally!");
@@ -460,11 +517,14 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
 
   const handleResetPassword = async (id: string) => {
     const newPass = prompt("Enter new password for student:");
-    if (!newPass) return;
+    if (!newPass || !token) return;
     try {
       const res = await fetch(`/api/admin/students/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ action: "resetPassword", newPassword: newPass }),
       });
       if (!res.ok) throw new Error("Reset failed");
@@ -476,13 +536,16 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
 
   const handleBulkAction = async (type: "students" | "centers", action: string) => {
     const ids = type === "students" ? selectedStudents : selectedApps;
-    if (ids.length === 0) return;
+    if (ids.length === 0 || !token) return;
     if (!confirm(`Are you sure you want to ${action} ${ids.length} items?`)) return;
 
     try {
       const res = await fetch(`/api/admin/${type === "students" ? "students" : "applications"}/bulk`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ ids, action }),
       });
       const data = await res.json();
@@ -497,11 +560,15 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleAction = async (id: string, action: "approve" | "reject" | "toggleStatus") => {
+    if (!token) return;
     setActionLoading(id + action);
     try {
       const res = await fetch(`/api/admin/applications/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ action }),
       });
       const data = (await res.json()) as { message: string; tpCode?: string; defaultPassword?: string };
@@ -525,10 +592,13 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const openApplicationForCreateEdit = async (application: Application) => {
+    if (!token) return;
     setToastMsg(null);
     setActionLoading(application._id + "fetching");
     try {
-      const res = await fetch(`/api/admin/applications/${application._id}`);
+      const res = await fetch(`/api/admin/applications/${application._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error("Failed to fetch full application details.");
       const data = await res.json();
       setPrefillApplication(data.application);
@@ -615,12 +685,15 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleQrSave = async () => {
-    if (!qrPreview) return;
+    if (!qrPreview || !token) return;
     setQrSaving(true);
     try {
       const res = await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ key: "qr_code", value: qrPreview }),
       });
       const data = (await res.json()) as { message: string };
@@ -634,10 +707,14 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleQrRemove = async () => {
+    if (!token) return;
     setQrPreview(null);
     await fetch("/api/admin/settings", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
       body: JSON.stringify({ key: "qr_code", value: "" }),
     });
     showToast("success", "QR code removed.");
@@ -652,12 +729,15 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleSigSave = async () => {
-    if (!sigPreview) return;
+    if (!sigPreview || !token) return;
     setSigSaving(true);
     try {
       const res = await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ key: "auth_signature", value: sigPreview }),
       });
       const data = (await res.json()) as { message: string };
@@ -671,10 +751,14 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleSigRemove = async () => {
+    if (!token) return;
     setSigPreview(null);
     await fetch("/api/admin/settings", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
       body: JSON.stringify({ key: "auth_signature", value: "" }),
     });
     showToast("success", "Signature removed.");
@@ -682,7 +766,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
 
   const handleBgUpload = async (e: ChangeEvent<HTMLInputElement>, key: string) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !token) return;
     setBgSaving(key);
     const reader = new FileReader();
     reader.onload = async () => {
@@ -690,7 +774,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
       try {
         const res = await fetch("/api/admin/settings/backgrounds", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({ key, value: base64 })
         });
         const data = await res.json();
@@ -707,10 +794,13 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleBgRemove = async (key: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure?") || !token) return;
     setBgSaving(key);
     try {
-      const res = await fetch("/api/admin/settings/backgrounds?key=" + key, { method: "DELETE" });
+      const res = await fetch("/api/admin/settings/backgrounds?key=" + key, { 
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) {
         setBgs(prev => ({ ...prev, [key]: "" }));
         showToast("success", "Background removed.");
@@ -736,7 +826,7 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
       .map((plan) => ({ value: plan.value.trim(), label: plan.label.trim() }))
       .filter((plan) => plan.value && plan.label);
 
-    if (validPlans.length === 0) {
+    if (validPlans.length === 0 || !token) {
       setFeeSaveMsg({ type: "error", text: "Please add at least one valid fee plan." });
       return;
     }
@@ -746,7 +836,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     try {
       const res = await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ key: SETTINGS_PROCESS_FEE_KEY, value: JSON.stringify(validPlans) }),
       });
       const data = await res.json();
@@ -765,21 +858,11 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     }
   };
 
-  const fetchPendingResults = async () => {
-    setResultsLoading(true);
-    try {
-      const res = await fetch("/api/admin/exams/pending-results");
-      if (res.ok) {
-        const data = await res.json();
-        setPendingResults(data);
-      }
-    } catch { showToast("error", "Failed to fetch pending results"); }
-    finally { setResultsLoading(false); }
-  };
+
 
   const handlePasswordChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (!passData.old || !passData.new) { showToast("error", "All password fields are required."); return; }
+    if (!passData.old || !passData.new || !token) { showToast("error", "All password fields are required."); return; }
     if (passData.new !== passData.confirm) { showToast("error", "New passwords do not match."); return; }
     if (passData.new.length < 6) { showToast("error", "Password must be at least 6 characters."); return; }
     
@@ -787,7 +870,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     try {
       const res = await fetch("/api/admin/settings/password", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
       });
       const data = await res.json();
@@ -799,10 +885,14 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
   };
 
   const handleResultApproval = async (examId: string, status: "published" | "appeared") => {
+    if (!token) return;
     try {
       const res = await fetch("/api/admin/exams/approve-result", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ examId, status, marksheet: true, certificate: true })
       });
       if (res.ok) {
@@ -864,11 +954,12 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
     if (studentFilter === "all") return true;
     if (studentFilter === "disabled") return s.userStatus === "disabled";
     if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
+    if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_admin";
     return s.status === studentFilter;
   });
   const studentCounts = {
     all: students.length,
-    pending: students.filter((s) => s.status === "pending").length,
+    pending: students.filter((s) => s.status === "pending" || s.status === "pending_admin").length,
     approved: students.filter((s) => s.status === "approved" || s.status === "active").length,
     rejected: students.filter((s) => s.status === "rejected").length,
     disabled: students.filter((s) => s.userStatus === "disabled").length,
@@ -945,12 +1036,12 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
         <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a0a2e] to-[#0a0aa1] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <p className="font-bold text-sm leading-tight">Admin Panel</p>
-                <p className="text-blue-300 text-xs text-nowrap">ATC Management</p>
+              <div className="overflow-hidden">
+                <p className="font-bold text-sm leading-tight truncate">{brandName}</p>
+                <p className="text-blue-300 text-[10px] font-black uppercase tracking-widest">Admin Panel</p>
               </div>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition">
@@ -1364,8 +1455,11 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                for (const id of selectedResults) {
                                  await fetch("/api/admin/exams/approve-result", {
                                    method: "POST",
-                                   headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ examId: id, status: "published" }),
+                                   headers: { 
+                                     "Content-Type": "application/json",
+                                     Authorization: `Bearer ${token}`
+                                   },
+                                   body: JSON.stringify({ examId: id, status: "published" }),
                                  });
                                }
                                setSelectedResults([]);
@@ -1995,12 +2089,18 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                         try {
                           await fetch("/api/admin/settings", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: { 
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`
+                            },
                             body: JSON.stringify({ key: "reg_format_center", value: JSON.stringify(centerFormat) }),
                           });
                           await fetch("/api/admin/settings", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: { 
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`
+                            },
                             body: JSON.stringify({ key: "reg_format_student", value: JSON.stringify(studentFormat) }),
                           });
                           showToast("success", "ID Formats updated successfully!");
@@ -2191,7 +2291,12 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                     <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-200"><User className="w-5 h-5 text-slate-300" /></div>
                                   )}
                                   <div>
-                                    <p className="font-black text-slate-800 leading-none mb-1.5">{s.name}</p>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <p className="font-black text-slate-800 leading-none">{s.name}</p>
+                                      {s.isDirectAdmission && (
+                                        <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[8px] font-black uppercase border border-blue-200">Front</span>
+                                      )}
+                                    </div>
                                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
                                        S/o: {s.fatherName} • {s.mobile}
                                     </p>
@@ -2219,7 +2324,9 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                                   s.status === "rejected" ? "bg-red-50 text-red-600 border-red-100" : 
                                   "bg-amber-50 text-amber-600 border-amber-100"
                                 }`}>
-                                  {s.userStatus === "disabled" ? "Disabled Account" : (s.status === "active" || s.status === "approved" ? "Approved" : s.status)}
+                                  {s.userStatus === "disabled" ? "Disabled Account" : 
+                                   (s.status === "active" || s.status === "approved") ? "Approved" : 
+                                   s.status === "pending_admin" ? "Awaiting Final Approval" : s.status}
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-right">
@@ -2321,7 +2428,10 @@ useEffect(() => { if (tab === "resultReview") void fetchPendingResults(); }, [ta
                   try {
                     const res = await fetch(`/api/admin/students/${editingStudent._id}`, {
                       method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
+                      headers: { 
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                      },
                       body: JSON.stringify({ action: "updateDetails", updateData: studentEditValues }),
                     });
                     if (!res.ok) throw new Error("Update failed");

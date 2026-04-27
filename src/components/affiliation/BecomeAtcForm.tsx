@@ -161,8 +161,19 @@ export default function BecomeAtcForm() {
       if (!form.paidAmount.trim()) r.push("Please enter the paid amount.");
       if (!form.transactionNo.trim()) r.push("Please enter the transaction / UTR number.");
     }
+    if (photo && photo.size > 100 * 1024) r.push("Passport photo must be under 100 KB.");
+    if (signature && signature.size > 100 * 1024) r.push("Signature image must be under 100 KB.");
+    if (logo && logo.size > 100 * 1024) r.push("Logo image must be under 100 KB.");
+    if (screenshot && screenshot.type.startsWith("image/") && screenshot.size > 100 * 1024) r.push("Payment screenshot image must be under 100 KB.");
+    
+    if (aadharDoc && aadharDoc.size > 500 * 1024) r.push("Aadhar card document must be under 500 KB.");
+    if (marksheetDoc && marksheetDoc.size > 500 * 1024) r.push("Marksheet document must be under 500 KB.");
+    if (otherDocs && otherDocs.size > 500 * 1024) r.push("Other documents must be under 500 KB.");
+    if (instituteDocument && instituteDocument.size > 500 * 1024) r.push("Institute document must be under 500 KB.");
+    if (screenshot && screenshot.type === "application/pdf" && screenshot.size > 500 * 1024) r.push("Payment screenshot PDF must be under 500 KB.");
+
     return r;
-  }, [form, screenshot]);
+  }, [form, screenshot, photo, signature, logo, aadharDoc, marksheetDoc, otherDocs, instituteDocument]);
 
   const setField = (field: keyof FormState, value: string) =>
     setForm((c) => ({ ...c, [field]: value }));

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PlusCircle, Trash2, Video, FileText, Type, Search, Trash, Eye, Play, FileIcon, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Material {
   _id: string;
@@ -24,6 +25,7 @@ export default function StudyMaterialManager({ role }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
+  const { token, loading: authLoading } = useAuth();
   
   const [formData, setFormData] = useState({
     title: "",
@@ -34,20 +36,24 @@ export default function StudyMaterialManager({ role }: Props) {
   });
 
   const fetchMaterials = useCallback(async () => {
+    if (!token) return;
     try {
-      const res = await fetch(`/api/${role}/study-material`);
+      const res = await fetch(`/api/${role}/study-material`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
-      setMaterials(data);
+      setMaterials(Array.isArray(data) ? data : (data && Array.isArray(data.materials) ? data.materials : []));
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [role]);
+  }, [role, token]);
 
   useEffect(() => {
+    if (authLoading || !token) return;
     void fetchMaterials();
-  }, [fetchMaterials]);
+  }, [fetchMaterials, authLoading, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +61,10 @@ export default function StudyMaterialManager({ role }: Props) {
     try {
       const res = await fetch(`/api/${role}/study-material`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(formData),
       });
       if (res.ok) {
@@ -74,7 +83,10 @@ export default function StudyMaterialManager({ role }: Props) {
     try {
       const res = await fetch(`/api/${role}/study-material`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ id }),
       });
       if (res.ok) {
@@ -281,7 +293,7 @@ export default function StudyMaterialManager({ role }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {materials.map((m) => (
+          {Array.isArray(materials) && materials.map((m) => (
             <div key={m._id} className={`group bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-400 transition-all duration-300 overflow-hidden flex flex-col relative ${selectedMaterials.includes(m._id) ? 'border-blue-600 bg-blue-50/10' : ''}`}>
               <div className="absolute top-4 left-4 z-10">
                  <input 

@@ -45,14 +45,7 @@ export default function StudentZonePage() {
       color: "bg-blue-500",
       tag: "Process"
     },
-    {
-      title: "Direct Admission",
-      desc: "Instant enrollment portal for new students. Apply online today.",
-      icon: UserPlus,
-      link: "/admission",
-      color: "bg-emerald-500",
-      tag: "Apply Now"
-    },
+
     {
       title: "Examination Process",
       desc: "Understand the pattern, duration, and rules of our examination system.",

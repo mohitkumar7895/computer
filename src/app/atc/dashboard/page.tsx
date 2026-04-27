@@ -65,8 +65,11 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "directAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
-  const [stats, setStats] = useState({ total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0 });
+  const [tab, setTab] = useState<"dashboard" | "students" | "frontAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
+  const [stats, setStats] = useState({ 
+    total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0,
+    frontAll: 0, frontPending: 0, frontApproved: 0, frontRejected: 0
+  });
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -77,7 +80,7 @@ export default function AtcDashboardPage() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [passMsg, setPassMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const { user: authUser, loading: authLoading, logout } = useAuth();
+  const { user: authUser, loading: authLoading, logout, token } = useAuth();
 
   useEffect(() => {
     if (authLoading) return;
@@ -90,15 +93,15 @@ export default function AtcDashboardPage() {
     
     // Load stats only if not loading
     const loadStats = async () => {
+      if (!token) return;
       try {
         const res = await fetch("/api/atc/me", {
-          headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
+          headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
           if (data.stats) setStats(data.stats);
         }
-        // No logout() on 401 here! AuthContext will handle it if needed.
       } catch (err) {
         console.error("Dashboard stats error:", err);
       } finally {
@@ -149,7 +152,10 @@ export default function AtcDashboardPage() {
     try {
       const res = await fetch("/api/atc/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(centerInfo),
       });
       const data = await res.json();
@@ -186,7 +192,10 @@ export default function AtcDashboardPage() {
     try {
       const res = await fetch("/api/atc/settings/password", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ oldPassword: passData.old, newPassword: passData.new }),
       });
       const data = await res.json();
@@ -226,12 +235,12 @@ export default function AtcDashboardPage() {
       <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a2e1a] to-[#0a7a3b] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <p className="font-bold text-sm leading-tight">ATC Portal</p>
-              <p className="text-green-300 text-xs truncate max-w-[130px]">{user.tpCode}</p>
+            <div className="overflow-hidden">
+              <p className="font-bold text-sm leading-tight truncate">{brandName}</p>
+              <p className="text-green-300 text-[10px] font-black uppercase tracking-widest">{user.tpCode}</p>
             </div>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition">
@@ -247,13 +256,13 @@ export default function AtcDashboardPage() {
             <LayoutDashboard className="w-4 h-4" /> Dashboard
           </button>
           <button
-            onClick={() => { setTab("directAdmission"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "directAdmission" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            onClick={() => { setTab("frontAdmission"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "frontAdmission" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
-            <UserPlus className="w-4 h-4" /> Admission Request
-            {stats.directPending > 0 && (
+            <UserPlus className="w-4 h-4" /> Front Admission
+            {stats.frontPending > 0 && (
               <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
-                {stats.directPending}
+                {stats.frontPending}
               </span>
             )}
           </button>
@@ -329,7 +338,7 @@ export default function AtcDashboardPage() {
             <h1 className="text-xl font-bold text-slate-800">
               {tab === "dashboard" ? "Dashboard" : 
                tab === "students" ? "Student Management" : 
-               tab === "directAdmission" ? "Admission Requests" : 
+               tab === "frontAdmission" ? "Front Admission" : 
                tab === "exams" ? "Exam Requests" :
                tab === "certificates" ? "Certificate Requests" :
                tab === "examSets" ? "My Exam Sets" :
@@ -380,25 +389,52 @@ export default function AtcDashboardPage() {
               </div>
 
               {tab === "dashboard" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                  {[
-                    { label: "Total Students", value: stats.total || 0, icon: Users, bgColor: "bg-blue-50", textColor: "text-blue-600", dotColor: "bg-blue-100", labelColor: "text-blue-700" },
-                    { label: "Pending Review", value: stats.pendingReview || 0, icon: Clock, bgColor: "bg-amber-50", textColor: "text-amber-600", dotColor: "bg-amber-100", labelColor: "text-amber-700" },
-                    { label: "Active Students", value: stats.active || 0, icon: CheckCircle, bgColor: "bg-green-50", textColor: "text-green-600", dotColor: "bg-green-100", labelColor: "text-green-700" },
-                    { label: "Rejected Students", value: stats.rejected || 0, icon: XCircle, bgColor: "bg-rose-50", textColor: "text-rose-600", dotColor: "bg-rose-100", labelColor: "text-rose-700" },
-                    { label: "Disabled Students", value: stats.blocked || 0, icon: ShieldAlert, bgColor: "bg-slate-50", textColor: "text-slate-600", dotColor: "bg-slate-100", labelColor: "text-slate-700" },
-                  ].map((card) => (
-                    <div key={card.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition hover:shadow-md">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center`}>
-                          <card.icon className={`w-5 h-5 ${card.textColor}`} />
-                        </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${card.dotColor} ${card.labelColor} uppercase tracking-wider`}>Live</span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-tight">{card.label}</p>
-                      <p className="text-2xl font-black text-slate-800 mt-1">{card.value}</p>
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Front Admission Overview</h3>
+                      <button onClick={() => setTab("frontAdmission")} className="text-[10px] font-black text-green-600 uppercase hover:underline">View All</button>
                     </div>
-                  ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
+                      {[
+                        { label: "Total Requests", value: stats.frontAll, icon: Users, color: "text-blue-600" },
+                        { label: "Pending", value: stats.frontPending, icon: Clock, color: "text-amber-600" },
+                        { label: "Approved", value: stats.frontApproved, icon: CheckCircle, color: "text-green-600" },
+                        { label: "Rejected", value: stats.frontRejected, icon: XCircle, color: "text-rose-600" },
+                      ].map((card) => (
+                        <div key={card.label} className="p-6 flex items-center gap-4 group hover:bg-slate-50 transition">
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center group-hover:scale-110 transition">
+                            <card.icon className={`w-6 h-6 ${card.color}`} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{card.label}</p>
+                            <p className="text-2xl font-black text-slate-800">{card.value}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[
+                      { label: "Total Students", value: stats.total || 0, icon: Users, bgColor: "bg-blue-50", textColor: "text-blue-600", dotColor: "bg-blue-100", labelColor: "text-blue-700" },
+                      { label: "Pending Review", value: stats.pendingReview || 0, icon: Clock, bgColor: "bg-amber-50", textColor: "text-amber-600", dotColor: "bg-amber-100", labelColor: "text-amber-700" },
+                      { label: "Active Students", value: stats.active || 0, icon: CheckCircle, bgColor: "bg-green-50", textColor: "text-green-600", dotColor: "bg-green-100", labelColor: "text-green-700" },
+                      { label: "Rejected Students", value: stats.rejected || 0, icon: XCircle, bgColor: "bg-rose-50", textColor: "text-rose-600", dotColor: "bg-rose-100", labelColor: "text-rose-700" },
+                      { label: "Disabled Students", value: stats.blocked || 0, icon: ShieldAlert, bgColor: "bg-slate-50", textColor: "text-slate-600", dotColor: "bg-slate-100", labelColor: "text-slate-700" },
+                    ].map((card) => (
+                      <div key={card.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition hover:shadow-md">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center`}>
+                            <card.icon className={`w-5 h-5 ${card.textColor}`} />
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${card.dotColor} ${card.labelColor} uppercase tracking-wider`}>Live</span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-tight">{card.label}</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1">{card.value}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -655,8 +691,33 @@ export default function AtcDashboardPage() {
             <StudentManager />
           )}
 
-          {tab === "directAdmission" && (
-            <StudentManager isDirectAdmission={true} />
+          {tab === "frontAdmission" && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Front Admission Overview</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
+                  {[
+                    { label: "Total Requests", value: stats.frontAll, icon: Users, color: "text-blue-600" },
+                    { label: "Pending", value: stats.frontPending, icon: Clock, color: "text-amber-600" },
+                    { label: "Approved", value: stats.frontApproved, icon: CheckCircle, color: "text-green-600" },
+                    { label: "Rejected", value: stats.frontRejected, icon: XCircle, color: "text-rose-600" },
+                  ].map((card) => (
+                    <div key={card.label} className="p-6 flex items-center gap-4 group hover:bg-slate-50 transition">
+                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center group-hover:scale-110 transition">
+                        <card.icon className={`w-6 h-6 ${card.color}`} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{card.label}</p>
+                        <p className="text-2xl font-black text-slate-800">{card.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <StudentManager isDirectAdmission={true} />
+            </div>
           )}
 
           {tab === "exams" && (

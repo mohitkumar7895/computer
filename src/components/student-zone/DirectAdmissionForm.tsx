@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, type FormEvent } from "react";
 import { CheckCircle, FileText, User, MapPin, CreditCard, UserPlus, Building2 } from "lucide-react";
+import { useBrand } from "@/context/BrandContext";
 
 interface Course {
   _id: string;
@@ -14,6 +15,7 @@ interface Center {
 }
 
 export default function DirectAdmissionForm() {
+  const { brandName, brandLogo } = useBrand();
   const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -70,9 +72,28 @@ export default function DirectAdmissionForm() {
       }
     });
 
+    const fileInputs = formEl.querySelectorAll("input[type='file']");
+    let fileError = "";
+    fileInputs.forEach((input: any) => {
+      const file = input.files?.[0];
+      if (file) {
+        if (file.type.startsWith("image/")) {
+          if (file.size > 100 * 1024) {
+            invalid.add(input.name);
+            fileError = "Image files (Photo, Signature, etc) must be under 100 KB.";
+          }
+        } else if (file.type === "application/pdf") {
+          if (file.size > 500 * 1024) {
+            invalid.add(input.name);
+            fileError = "PDF documents (Aadhar, Marksheets, etc) must be under 500 KB.";
+          }
+        }
+      }
+    });
+
     if (invalid.size > 0) {
       setInvalidFields(invalid);
-      setMsg({ type: "error", text: "Please fill all required fields highlighted in red." });
+      setMsg({ type: "error", text: fileError || "Please fill all required fields highlighted in red." });
       return;
     }
     setInvalidFields(new Set());
@@ -117,9 +138,9 @@ export default function DirectAdmissionForm() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="mb-8 text-center">
-        <img src="/ygroup-logo.svg" alt="Logo" className="h-16 mx-auto mb-4" />
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-2">Direct Admission Form</h2>
-        <p className="text-slate-500 font-medium text-sm">Official enrollment portal for independent students</p>
+        <h1 className="text-4xl font-black text-blue-700 uppercase tracking-tighter mb-1">{brandName}</h1>
+        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">Direct Admission Portal</h2>
+        <p className="text-slate-500 font-medium text-sm italic">Official enrollment gateway for {brandName} students</p>
       </div>
 
       {msg && (
@@ -328,11 +349,16 @@ export default function DirectAdmissionForm() {
             <div><label className={labelCls("referredBy")}>Referred By</label><input name="referredBy" className={inputCls("referredBy")} placeholder="Staff or Partner name" /></div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
               {[
                 { label: "Student Photo *", name: "photo", required: true },
+                { label: "Student Signature *", name: "studentSignature", required: true },
                 { label: "Aadhar Card PDF *", name: "aadharDoc", required: true },
-                { label: "Marksheet (10th/12th) *", name: "qualificationDoc", required: true },
+                { label: "10th Marksheet *", name: "marksheet10th", required: true },
+                { label: "12th Marksheet", name: "marksheet12th", required: false },
+                { label: "Graduation Doc", name: "graduationDoc", required: false },
+                { label: "Highest Qual. Doc *", name: "highestQualDoc", required: true },
+                { label: "Other Documents", name: "otherDocs", required: false },
               ].map(doc => (
                 <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
                   <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-700" : "text-slate-400 group-hover:text-blue-500"}`}>

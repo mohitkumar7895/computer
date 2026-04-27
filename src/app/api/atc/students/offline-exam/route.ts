@@ -1,24 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-async function getAtcUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("atc_token")?.value;
-  if (!token) return null;
-  try {
-    return jwt.verify(token, JWT_SECRET) as { id: string; tpCode: string };
-  } catch {
-    return null;
-  }
-}
+import { verifyAtc } from "@/lib/auth";
 
 export async function POST(request: Request) {
-  const user = await getAtcUser();
+  const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {

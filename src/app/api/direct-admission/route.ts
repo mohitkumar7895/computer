@@ -65,8 +65,13 @@ export async function POST(request: Request) {
 
     // Process files
     const photo = await toBase64(formData.get("photo"));
+    const studentSignature = await toBase64(formData.get("studentSignature"));
     const aadharDoc = await toBase64(formData.get("aadharDoc"));
-    const qualificationDoc = await toBase64(formData.get("qualificationDoc"));
+    const marksheet10th = await toBase64(formData.get("marksheet10th"));
+    const marksheet12th = await toBase64(formData.get("marksheet12th"));
+    const graduationDoc = await toBase64(formData.get("graduationDoc"));
+    const highestQualDoc = await toBase64(formData.get("highestQualDoc"));
+    const otherDocs = await toBase64(formData.get("otherDocs"));
 
     const studentData: any = {
       atcId: atc._id,
@@ -101,25 +106,24 @@ export async function POST(request: Request) {
       duesAmount: 0
     };
 
-    // Save student (temporary clear heavy fields to stay within limit)
-    const photoContent = photo;
-    const aadharContent = aadharDoc;
-    const qualContent = qualificationDoc;
+    // Prepare media items for separate storage
+    const mediaToSave = [
+      { name: "photo", content: photo },
+      { name: "studentSignature", content: studentSignature },
+      { name: "aadharDoc", content: aadharDoc },
+      { name: "marksheet10th", content: marksheet10th },
+      { name: "marksheet12th", content: marksheet12th },
+      { name: "graduationDoc", content: graduationDoc },
+      { name: "highestQualDoc", content: highestQualDoc },
+      { name: "otherDocs", content: otherDocs }
+    ];
 
-    studentData.photo = "";
-    studentData.aadharDoc = "";
-    studentData.qualificationDoc = "";
-
+    // Important: Keep main student object light to avoid 16MB MongoDB limit
+    // We only store the basic info in AtcStudent, media goes to StudentMedia
     const student = await AtcStudent.create(studentData);
 
     // Save media separately
     const { StudentMedia } = await import("@/models/StudentMedia");
-    const mediaToSave = [
-      { name: "photo", content: photoContent },
-      { name: "aadharDoc", content: aadharContent },
-      { name: "qualificationDoc", content: qualContent }
-    ];
-
     for (const m of mediaToSave) {
       if (m.content && String(m.content).startsWith("data:")) {
         await StudentMedia.findOneAndUpdate(

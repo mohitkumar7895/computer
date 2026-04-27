@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, PlusCircle, Trash2, CheckCircle, ShieldCheck, RefreshCw } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface ExamSet {
   _id: string;
@@ -45,6 +46,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
   const [assignForm, setAssignForm] = useState({ date: "", time: "10:00 AM", mode: "online" });
   const [assigning, setAssigning] = useState(false);
   const [selectedStudentExams, setSelectedStudentExams] = useState<string[]>([]);
+  const { token, loading: authLoading } = useAuth();
 
   const apiBase = role === "admin" ? "/api/admin" : "/api/atc";
 
@@ -54,9 +56,12 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
   );
 
   const fetchSets = async () => {
+    if (!token) return;
     setLoadingSets(true);
     try {
-      const res = await fetch(`${apiBase}/question-sets`);
+      const res = await fetch(`${apiBase}/question-sets`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error("Unable to load exam sets.");
       const data = await res.json();
       setSets(data.sets ?? []);
@@ -68,9 +73,12 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
   };
 
   const fetchQuestions = async (setId: string) => {
+    if (!token) return;
     setLoadingQuestions(true);
     try {
-      const res = await fetch(`${apiBase}/questions?setId=${encodeURIComponent(setId)}`);
+      const res = await fetch(`${apiBase}/questions?setId=${encodeURIComponent(setId)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error("Unable to load questions.");
       const data = await res.json();
       setQuestions(data.questions ?? []);
@@ -82,16 +90,20 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
   };
 
   const fetchPendingStudents = async () => {
+    if (!token) return;
     try {
-      const res = await fetch(role === "atc" ? "/api/admin/exams/all?status=pending" : "/api/admin/exams/all?status=pending");
+      const res = await fetch(role === "atc" ? "/api/admin/exams/all?status=pending" : "/api/admin/exams/all?status=pending", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       setPendingStudents(data.exams || []);
     } catch { /* ignore */ }
   };
 
   useEffect(() => {
+    if (authLoading || !token) return;
     void fetchSets();
-  }, []);
+  }, [authLoading, token]);
 
   useEffect(() => {
     if (selectedSetId) {
@@ -111,7 +123,10 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
     try {
       const res = await fetch(`${apiBase}/question-sets`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
           title: newSet.title.trim(),
           questionCount: Number(newSet.questionCount) || 100,
@@ -135,7 +150,10 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
     try {
       await fetch(`${apiBase}/questions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
           setId: selectedSetId,
           questionText: questionForm.questionText.trim(),
@@ -153,7 +171,10 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
 
   const deleteQuestion = async (questionId: string) => {
     if (!confirm("Delete this question?")) return;
-    await fetch(`${apiBase}/questions?id=${encodeURIComponent(questionId)}`, { method: "DELETE" });
+    await fetch(`${apiBase}/questions?id=${encodeURIComponent(questionId)}`, { 
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
     if (selectedSetId) await fetchQuestions(selectedSetId);
   };
 
@@ -163,7 +184,10 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
       for (const id of studentExamIds) {
         await fetch("/api/admin/exams/approve", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({ 
             examId: id, 
             approvalStatus: "approved", 

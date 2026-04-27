@@ -4,7 +4,7 @@ import { AtcStudent } from "@/models/Student";
 import { verifyAtc } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const user = await verifyAtc();
+  const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
   await connectDB();
   try {
+    console.log("[GET /api/atc/students] tpCode:", user.tpCode, "isDirect:", isDirect);
     const query: any = { tpCode: user.tpCode };
 
     if (isDirect) {
@@ -22,17 +23,21 @@ export async function GET(request: Request) {
       // For My Students tab: Show regular students OR approved direct admissions
       query.$or = [
         { isDirectAdmission: { $ne: true } }, // Regular students
-        { isDirectAdmission: true, status: { $in: ["approved", "active"] } } // Approved direct admissions
+        { isDirectAdmission: true, status: { $in: ["approved", "active", "pending_admin"] } } // Approved direct admissions
       ];
     }
 
+    console.log("[GET /api/atc/students] Final Query:", JSON.stringify(query));
     const students = await AtcStudent.find(query)
       .select("-aadharDoc -studentSignature -qualificationDoc -idProof -marksheet12th -graduationDoc -highestQualDoc -otherDocs")
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
     
-    // Fetch and merge media (only photo to reduce payload)
+    console.log(`[GET /api/atc/students] Found ${students.length} students`);
+    if (students.length > 0) {
+      console.log("[GET /api/atc/students] Sample students:", students.slice(0, 3).map(s => ({ tpCode: s.tpCode, status: s.status, isDirect: s.isDirectAdmission })));
+    }
     const { StudentMedia } = await import("@/models/StudentMedia");
     // Fetch transactions and merge balances for each student
     const { FeeTransaction } = await import("@/models/FeeTransaction");
@@ -56,12 +61,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ students: studentsWithRealBalances });
   } catch (error: any) {
+    console.error("[GET /api/atc/students] Error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const user = await verifyAtc();
+  const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {
@@ -217,7 +223,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const user = await verifyAtc();
+  const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {

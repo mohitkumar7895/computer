@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PlusCircle, Trash2, Edit2, Check, X, BookOpen, Layers } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Course {
   _id: string;
@@ -15,6 +16,7 @@ interface Course {
 }
 
 export default function CourseManager() {
+  const { token, loading: authLoading } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -32,19 +34,24 @@ export default function CourseManager() {
   const zones = ["Software Zone", "Hardware Zone", "Vocational Zone", "Others"];
 
   const fetchCourses = async () => {
+    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/courses");
+      const res = await fetch("/api/admin/courses", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
-      setCourses(data);
+      setCourses(Array.isArray(data) ? data : []);
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void fetchCourses();
-  }, []);
+    if (!authLoading && token) {
+      void fetchCourses();
+    }
+  }, [authLoading, token]);
 
   const handleAddCourse = async () => {
     if (!name || !shortName || !duration || (zone === "Others" && !customZone)) return;
@@ -53,7 +60,10 @@ export default function CourseManager() {
       const finalZone = zone === "Others" ? customZone : zone;
       const res = await fetch("/api/admin/courses", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ 
           name, 
           shortName, 
@@ -75,7 +85,10 @@ export default function CourseManager() {
   const handleDeleteCourse = async (id: string) => {
     if (!confirm("Are you sure?")) return;
     try {
-      const res = await fetch(`/api/admin/courses/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/courses/${id}`, { 
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) void fetchCourses();
     } catch { /* ignore */ }
   };
@@ -85,7 +98,10 @@ export default function CourseManager() {
       const newStatus = currentStatus === "active" ? "inactive" : "active";
       await fetch(`/api/admin/courses/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ status: newStatus }),
       });
       void fetchCourses();
@@ -96,7 +112,10 @@ export default function CourseManager() {
     try {
       await fetch(`/api/admin/courses/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ [field]: !currentValue }),
       });
       void fetchCourses();
