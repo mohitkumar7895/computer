@@ -15,9 +15,9 @@ export async function POST(request: Request) {
     await connectDB();
 
     const updateData: Record<string, unknown> = { approvalStatus: status };
-    if (examDate) updateData.examDate = new Date(examDate);
+    if (examDate) updateData.examDate = examDate;
     if (examTime) updateData.examTime = examTime;
-    if (durationMinutes) updateData.durationMinutes = Number(durationMinutes);
+    if (durationMinutes !== undefined) updateData.durationMinutes = Number(durationMinutes);
     if (examMode) updateData.examMode = examMode;
     if (setId) updateData.setId = setId;
     if (admitCardReleased !== undefined) updateData.admitCardReleased = admitCardReleased;

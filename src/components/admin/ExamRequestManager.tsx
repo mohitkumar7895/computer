@@ -30,6 +30,7 @@ interface ExamRequest {
   };
   examDate?: string;
   examTime?: string;
+  durationMinutes?: number;
   setId?: string;
   approvalStatus: "pending" | "approved" | "rejected";
   status: "pending" | "completed";
@@ -65,7 +66,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     examDate: "",
     examTime: "",
     setId: "",
-    examMode: "online"
+    examMode: "online",
+    durationMinutes: 60
   });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
@@ -141,6 +143,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     fetchQuestionSets();
   }, [atcId, role, authLoading, authUser]);
 
+  const toDateInputValue = (value?: string) => {
+    if (!value) return "";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 10);
+  };
+
   const handleAction = async (requestId: string, status: string, details?: any) => {
     setActionLoading(requestId);
     try {
@@ -175,6 +185,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           examDate: approvalForm.examDate,
           examTime: approvalForm.examTime,
           setId: approvalForm.setId,
+          durationMinutes: approvalForm.durationMinutes,
         }),
       });
       if (res.ok) {
@@ -254,7 +265,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         headers: { 
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ examId, status, marksheet: true, certificate: true }),
+        body: JSON.stringify({ examId, status, marksheet: false, certificate: false }),
       });
       if (res.ok) {
         alert("Result Submitted Successfully");
@@ -304,10 +315,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const openApproveModal = (exam: ExamRequest) => {
     setSelectedExam(exam);
     setApprovalForm({
-      examDate: exam.examDate || "",
+      examDate: toDateInputValue(exam.examDate),
       examTime: exam.examTime || "",
       setId: exam.setId || "",
-      examMode: exam.examMode
+      examMode: exam.examMode,
+      durationMinutes: Number(exam.durationMinutes || 60),
     });
     setShowApproveModal(true);
   };
@@ -815,6 +827,23 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                       onChange={(e) => setApprovalForm({ ...approvalForm, examTime: e.target.value })}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className={labelCls}>Duration (Minutes)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={600}
+                    className={inputCls}
+                    value={approvalForm.durationMinutes}
+                    onChange={(e) =>
+                      setApprovalForm({
+                        ...approvalForm,
+                        durationMinutes: Number(e.target.value) || 60,
+                      })
+                    }
+                  />
                 </div>
 
 

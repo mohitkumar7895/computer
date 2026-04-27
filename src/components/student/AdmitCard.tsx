@@ -10,6 +10,10 @@ interface AdmitCardProps {
 export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
   const [background, setBackground] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const durationMinutes = Number(exam?.durationMinutes || 0);
+  const slotText = exam?.examTime
+    ? `${exam.examTime} (${durationMinutes > 0 ? `${durationMinutes} mins` : "Duration as per schedule"})`
+    : "Time to be announced";
 
   useEffect(() => {
     const fetchAssets = async () => {
@@ -157,7 +161,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
                         </div>
                         <div>
                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Examination Slot</p>
-                           <p className="text-lg font-bold">10:00 AM — 01:00 PM (Reporting: 09:15 AM)</p>
+                           <p className="text-lg font-bold">{slotText}</p>
                         </div>
                      </div>
                   </div>

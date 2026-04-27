@@ -234,7 +234,11 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     }
   };
 
-  const handleApproveResult = async (examId: string, status: "published" | "appeared" = "published") => {
+  const handleApproveResult = async (
+    examId: string,
+    status: "published" | "appeared" = "published",
+    release: { marksheet: boolean; certificate: boolean } = { marksheet: false, certificate: false },
+  ) => {
     setActionLoading(examId);
     try {
       const res = await apiFetch("/api/admin/exams/approve-result", {
@@ -242,7 +246,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         headers: { 
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ examId, status }),
+        body: JSON.stringify({ examId, status, marksheet: release.marksheet, certificate: release.certificate }),
       });
       if (res.ok) {
         await fetchRequests();
@@ -1034,7 +1038,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                  <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setShowReleaseModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
                     <button 
-                      onClick={() => handleApproveResult(selectedExam._id, "published")}
+                      onClick={() => handleApproveResult(selectedExam._id, "published", releaseForm)}
                       disabled={actionLoading === selectedExam._id || (!releaseForm.marksheet && !releaseForm.certificate)}
                       className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl disabled:opacity-50"
                     >

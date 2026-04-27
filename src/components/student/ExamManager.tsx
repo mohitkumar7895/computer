@@ -288,17 +288,16 @@ export default function ExamManager({ student }: ExamManagerProps) {
                          {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'online' && (
                            <div className="flex flex-col items-start gap-1">
                              {(() => {
-                                const isReleased = exam.admitCardReleased;
                                 const lifecycleStatus = lifecycleStatusForExam(exam);
                                 const { startsAt } = buildExamWindow(exam);
-                                if (!isReleased) {
-                                  return <span className="text-[9px] font-bold text-slate-400 italic">Admit Card Not Released</span>;
-                                }
                                 if (startsAt && isWithinCountdownWindow(exam)) {
                                   return <ExamCountdown targetAt={startsAt} />;
                                 }
                                 if (lifecycleStatus === "upcoming") {
                                   return <span className="text-[9px] font-bold text-slate-400 italic">Exam not started</span>;
+                                }
+                                if (lifecycleStatus === "completed") {
+                                  return <span className="text-[9px] font-bold text-red-500 italic">Exam window closed</span>;
                                 }
                                 return (
                                   <button onClick={() => setExamInProgress(exam)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition">Start Exam</button>

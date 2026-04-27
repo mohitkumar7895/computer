@@ -987,7 +987,7 @@ export default function AdminPanelPage() {
     settings: "General Configurations",
     registration: "ID Generation Logic",
     students: "Review and approve student registrations from all centers",
-    resultReview: "Authorize ATC submitted results and generate marksheet/certificate instantly",
+    resultReview: "Authorize ATC submitted results and release marksheet/certificate after review",
     fees: "Collect or return fees, view transaction history, and generate receipts for students",
     backgrounds: "Upload backgrounds for ID Cards, Certificates, and Marksheets",
   };

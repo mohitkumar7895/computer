@@ -4,7 +4,7 @@ import { StudentExam } from '@/models/StudentExam';
 import { ExamQuestion } from '@/models/ExamQuestion';
 import '@/models/QuestionSet';
 import '@/models/AtcUser';
-import { lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { buildExamWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +26,18 @@ export async function POST(request: Request) {
     if (examRecord.status === "completed") {
       return NextResponse.json({ message: "Reattempt not allowed." }, { status: 409 });
     }
-    // Allow submission for any non-completed approved online attempt.
+    const lifecycleStatus = lifecycleStatusForExam(examRecord);
+    if (lifecycleStatus === "upcoming") {
+      return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
+    }
+    if (lifecycleStatus === "completed") {
+      const { endsAt } = buildExamWindow(examRecord);
+      const now = Date.now();
+      const allowedUntil = endsAt ? endsAt.getTime() + 5000 : now;
+      if (now > allowedUntil) {
+        return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+      }
+    }
     const questions = await ExamQuestion.find({ setId: examRecord.setId, isActive: true });
     let totalScore = 0;
     const maxScore = questions.reduce((sum: number, q) => sum + (q.marks || 1), 0);

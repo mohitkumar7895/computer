@@ -5,7 +5,7 @@ import { StudentExam } from "@/models/StudentExam";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { examId, approvalStatus, examDate, examTime, setId, examMode, admitCardReleased } = body;
+    const { examId, approvalStatus, examDate, examTime, setId, examMode, durationMinutes, admitCardReleased } = body;
 
     if (!examId || !approvalStatus) {
       return NextResponse.json({ message: "examId and approvalStatus are required." }, { status: 400 });
@@ -14,11 +14,18 @@ export async function POST(request: Request) {
     await connectDB();
 
     const updateData: any = { approvalStatus };
-    if (examDate) updateData.examDate = new Date(examDate);
+    if (examDate) updateData.examDate = examDate;
     if (examTime) updateData.examTime = examTime;
     if (examMode) updateData.examMode = examMode;
     if (setId) updateData.setId = setId;
+    if (durationMinutes !== undefined) updateData.durationMinutes = Number(durationMinutes);
     if (admitCardReleased !== undefined) updateData.admitCardReleased = admitCardReleased;
+    if (examDate && examTime) {
+      const dt = new Date(`${examDate}T${examTime}:00`);
+      if (!Number.isNaN(dt.getTime())) {
+        updateData.examDateTime = dt;
+      }
+    }
 
     const updatedExam = await StudentExam.findByIdAndUpdate(
       examId,

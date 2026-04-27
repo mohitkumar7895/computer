@@ -9,7 +9,7 @@ import { Course } from "@/models/Course";
 
 export async function POST(request: Request) {
   try {
-    const { examId, status } = await request.json(); 
+    const { examId, status, marksheet = false, certificate = false } = await request.json();
 
     await connectDB();
 
@@ -34,12 +34,22 @@ export async function POST(request: Request) {
     }
 
     if (status === "published") {
+      if (exam.examMode === "offline" && exam.offlineExamStatus !== "review_pending") {
+        return NextResponse.json({ message: "Offline result is not in admin review queue." }, { status: 400 });
+      }
+      if (exam.examMode === "online" && exam.status !== "completed") {
+        return NextResponse.json({ message: "Online exam is not completed yet." }, { status: 400 });
+      }
+
+      const releaseMarksheet = Boolean(marksheet) && courseSettings.hasMarksheet;
+      const releaseCertificate = Boolean(certificate) && courseSettings.hasCertificate;
+
       // 1. Update Exam record
       exam.offlineExamStatus = "published";
       exam.status = "completed";
       exam.resultDeclared = true;
-      exam.marksheetReleased = courseSettings.hasMarksheet;
-      exam.certificateReleased = courseSettings.hasCertificate;
+      exam.marksheetReleased = releaseMarksheet;
+      exam.certificateReleased = releaseCertificate;
       await exam.save();
 
       // 2. Update Student Profile
@@ -51,7 +61,7 @@ export async function POST(request: Request) {
       const atc = await AtcUser.findById(exam.atcId);
 
       // 3. Conditional Marksheet
-      if (courseSettings.hasMarksheet) {
+      if (releaseMarksheet) {
         await Marksheet.findOneAndUpdate(
           { examId: exam._id },
           {
@@ -81,7 +91,7 @@ export async function POST(request: Request) {
       }
 
       // 4. Conditional Certificate
-      if (courseSettings.hasCertificate) {
+      if (releaseCertificate) {
         const session = exam.session || student?.session || "2024-25";
         const count = await Certificate.countDocuments();
         const serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;

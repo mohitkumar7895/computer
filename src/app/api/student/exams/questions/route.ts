@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { ExamQuestion } from "@/models/ExamQuestion";
 import { StudentExam } from "@/models/StudentExam";
 import "@/models/QuestionSet"; // Register model dependency
-import { lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { buildExamWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -34,10 +34,16 @@ export async function GET(request: Request) {
     if (lifecycleStatus === "upcoming") {
       return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
     }
-    // Allow late start for pending attempts (business hotfix).
-    // We still block only when exam is already completed.
+    if (lifecycleStatus === "completed") {
+      return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+    }
+    const { endsAt, now } = buildExamWindow(exam);
+    const timeLeftSeconds = endsAt ? Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000)) : 0;
+    if (timeLeftSeconds <= 0) {
+      return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+    }
     const questions = await ExamQuestion.find({ setId, isActive: true }).lean();
-    return NextResponse.json({ questions });
+    return NextResponse.json({ questions, timeLeftSeconds });
   } catch (error) {
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }

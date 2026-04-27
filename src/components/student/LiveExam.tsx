@@ -35,7 +35,7 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
 
   useEffect(() => {
     fetchQuestions();
-    setTimeLeft((exam.setId?.durationMinutes || 60) * 60);
+    setTimeLeft((exam.durationMinutes || exam.setId?.durationMinutes || 60) * 60);
   }, [exam]);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
       handleSubmit(true);
       return;
     }
-    const timer = setInterval(() => setTimeLeft(p => p - 1), 1000);
+    const timer = setInterval(() => setTimeLeft((p) => Math.max(0, p - 1)), 1000);
     return () => clearInterval(timer);
   }, [timeLeft, loading, isSubmitting]);
 
@@ -58,6 +58,9 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
         return;
       }
       setQuestions(data.questions || []);
+      if (typeof data.timeLeftSeconds === "number") {
+        setTimeLeft(Math.max(0, data.timeLeftSeconds));
+      }
     } catch (err) {
       console.error(err);
     } finally {
