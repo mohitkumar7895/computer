@@ -64,6 +64,7 @@ interface Student {
   email?: string;
   currentAddress: string;
   permanentAddress: string;
+  aadharNo?: string;
   courseType?: string;
   session: string;
   category: string;
