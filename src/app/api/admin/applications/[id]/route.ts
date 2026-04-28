@@ -54,7 +54,6 @@ export async function GET(
     ...application,
     tpCode: application.tpCode || user?.tpCode || null,
     userStatus: user?.status || "active",
-    password: user?.password || null,
   };
 
   return NextResponse.json({ application: enrichedApp });
@@ -194,7 +193,7 @@ export async function PATCH(
         
         const newPass = String(formData.get("password") || formData.get("customPassword") || "").trim();
         if (newPass) {
-          user.password = newPass;
+          user.password = await bcrypt.hash(newPass, 10);
         }
         
         await user.save();
@@ -241,7 +240,7 @@ export async function PATCH(
           trainingPartnerName: application.trainingPartnerName,
           email: application.email,
           mobile: application.mobile,
-          password: application.mobile,
+          password: await bcrypt.hash(application.mobile, 10),
           applicationId: application._id,
           zones: application.zones,
           status: "active",

@@ -58,7 +58,11 @@ export async function PATCH(
       const allowedFields = [
         "name", "fatherName", "motherName", "mobile", "email", "course", 
         "currentAddress", "permanentAddress", "parentsMobile", "aadharNo",
-        "photo", "studentSignature", "qualificationDoc", "aadharDoc", "otherDocs"
+        "photo", "studentSignature", "qualificationDoc", "highestQualDoc", "marksheet10th", "marksheet12th",
+        "graduationDoc", "aadharDoc", "otherDocs",
+        "dob", "gender", "category", "religion", "nationality", "session",
+        "maritalStatus", "courseType", "highestQualification", "admissionFees",
+        "admissionDate", "referredBy", "examMode", "totalFee"
       ];
       
       Object.keys(updateData).forEach(key => {

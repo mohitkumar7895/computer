@@ -57,7 +57,7 @@ interface Course {
 
 interface StudentManagerProps {
   isDirectAdmission?: boolean;
-  initialFilter?: "all" | "pending" | "approved" | "rejected";
+  initialFilter?: "all" | "pending" | "approved" | "rejected" | "disabled";
 }
 
 export default function StudentManager({ isDirectAdmission = false, initialFilter }: StudentManagerProps) {
@@ -71,7 +71,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   const [disability, setDisability] = useState("No");
   const [selectedQual, setSelectedQual] = useState("");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected">(
+  const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">(
     initialFilter || (isDirectAdmission ? "pending" : "all")
   );
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
@@ -605,6 +605,13 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   const sectionCls = "bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5";
   const basicLabelCls = "block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5";
   const basicInputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400";
+  const pickValue = (...values: Array<unknown>) => {
+    for (const value of values) {
+      const text = String(value ?? "").trim();
+      if (text) return text;
+    }
+    return "N/A";
+  };
 
   // Modal Input Styles with validation
   const modalInputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${modalInvalidFields.has(name || "") ? "border-red-700 ring-4 ring-red-50" : "border-slate-200"} rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400`;
@@ -615,6 +622,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       if (studentFilter === "all") return true; 
       if (studentFilter === "pending") return s.status === "pending_atc";
       if (studentFilter === "approved") return s.status === "pending_admin";
+      if (studentFilter === "disabled") return s.status === "disabled" || s.status === "blocked";
       return s.status === studentFilter;
     } 
     
@@ -624,6 +632,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_admin";
       if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
       if (studentFilter === "rejected") return s.status === "rejected";
+      if (studentFilter === "disabled") return s.status === "disabled" || s.status === "blocked";
       return s.status === studentFilter;
     }
   });
@@ -661,7 +670,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
           <div className="animate-in fade-in duration-300">
             {/* Status Filter Bar */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
-              {(["all", "pending", "approved", "rejected"] as const).map((s) => {
+              {((isDirectAdmission
+                ? ["all", "pending", "approved", "rejected"]
+                : ["all", "pending", "approved", "rejected", "disabled"]) as const).map((s) => {
 
                 return (
                   <button
@@ -1051,6 +1062,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
               <h4 className="flex items-center gap-2 text-sm font-black text-slate-800 uppercase tracking-wide border-l-4 border-purple-500 pl-3">
                 <FileText className="w-4 h-4 text-purple-500" /> Credentials & Documentation
               </h4>
+              <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Upload Limit: JPG/PNG up to 100KB, PDF up to 500KB</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className={labelCls("highestQualification")}>Highest Qualification *</label>
@@ -1086,14 +1098,14 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
                   {[
-                    { label: "Student Photo (jpg) *", name: "photo", required: true },
-                    { label: "Student Signature (jpg) *", name: "studentSignature", required: true },
-                    { label: "10th Marksheet (Compulsory) *", name: "marksheet10th", required: true },
-                    { label: "12th Marksheet (jpg/pdf)", name: "marksheet12th", required: false },
-                    { label: "Graduation (jpg/pdf)", name: "graduationDoc", required: false },
-                    { label: "Highest Qualification (jpg/pdf)", name: "highestQualDoc", required: false },
-                    { label: "Aadhar Card PDF *", name: "aadharDoc", required: true },
-                    { label: "Additional Docs / Admission Form (pdf)", name: "otherDocs", required: false },
+                    { label: "Student Photo (JPG/PNG) * - Max 100KB", name: "photo", required: true },
+                    { label: "Student Signature (JPG/PNG) * - Max 100KB", name: "studentSignature", required: true },
+                    { label: "10th Marksheet (Compulsory) * - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: true },
+                    { label: "12th Marksheet (JPG/PNG/PDF) - Max 500KB", name: "marksheet12th", required: false },
+                    { label: "Graduation (JPG/PNG/PDF) - Max 500KB", name: "graduationDoc", required: false },
+                    { label: "Highest Qualification (JPG/PNG/PDF) - Max 500KB", name: "highestQualDoc", required: false },
+                    { label: "Aadhar Card PDF * - Max 500KB", name: "aadharDoc", required: true },
+                    { label: "Additional Docs / Admission Form (PDF) - Max 500KB", name: "otherDocs", required: false },
                   ].map(doc => (
                     <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
                       <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-700" : "text-slate-400 group-hover:text-blue-500"}`}>
@@ -1244,7 +1256,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                               <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">
                                  {item.key === 'dob' 
                                    ? (selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A') 
-                                   : (selectedStudent as any)[item.key] || 'Not Provided'}
+                                   : pickValue(
+                                       (selectedStudent as any)[item.key],
+                                       item.key === "aadharNo" ? (selectedStudent as any).aadhaarNo : "",
+                                     )}
                               </p>
                             )}
                          </div>
@@ -1284,7 +1299,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                  className={modalInputCls("parentsMobile")}
                                />
                              ) : (
-                               <p className="text-lg font-black text-slate-800 tracking-tighter">{selectedStudent.parentsMobile || 'N/A'}</p>
+                              <p className="text-lg font-black text-slate-800 tracking-tighter">{pickValue(selectedStudent.parentsMobile, (selectedStudent as any).parentMobile, (selectedStudent as any).emergencyMobile)}</p>
                              )}
                           </div>
                           <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-200 transition-colors">
@@ -1297,7 +1312,20 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                  className={modalInputCls("email")}
                                />
                              ) : (
-                               <p className="text-sm font-bold text-slate-800 lowercase tracking-tight">{selectedStudent.email || 'N/A'}</p>
+                              <p className="text-sm font-bold text-slate-800 lowercase tracking-tight">{pickValue(selectedStudent.email)}</p>
+                             )}
+                          </div>
+                          <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-200 transition-colors">
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Referred By</p>
+                             {isEditing ? (
+                               <input
+                                 type="text"
+                                 value={editForm.referredBy}
+                                 onChange={e => setEditForm({...editForm, referredBy: e.target.value})}
+                                 className={modalInputCls("referredBy")}
+                               />
+                             ) : (
+                               <p className="text-base font-black text-slate-800 tracking-tight">{pickValue(selectedStudent.referredBy, (selectedStudent as any).referenceBy)}</p>
                              )}
                           </div>
                        </div>

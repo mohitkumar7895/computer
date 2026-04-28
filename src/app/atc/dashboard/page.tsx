@@ -67,7 +67,7 @@ export default function AtcDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [tab, setTab] = useState<"dashboard" | "students" | "frontAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
-  const [studentInitialFilter, setStudentInitialFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [studentInitialFilter, setStudentInitialFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [stats, setStats] = useState({ 
     total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0,
     frontAll: 0, frontPending: 0, frontApproved: 0, frontRejected: 0
@@ -419,23 +419,15 @@ export default function AtcDashboardPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     {[
-                      { label: "Total Students", value: stats.total || 0, icon: Users, bgColor: "bg-blue-50", textColor: "text-blue-600", dotColor: "bg-blue-100", labelColor: "text-blue-700", tab: "students" },
-                      { label: "Pending Review", value: stats.pendingReview || 0, icon: Clock, bgColor: "bg-amber-50", textColor: "text-amber-600", dotColor: "bg-amber-100", labelColor: "text-amber-700", tab: "review" },
-                      { label: "Active Students", value: stats.active || 0, icon: CheckCircle, bgColor: "bg-green-50", textColor: "text-green-600", dotColor: "bg-green-100", labelColor: "text-green-700", tab: "students" },
-                      { label: "Rejected Students", value: stats.rejected || 0, icon: XCircle, bgColor: "bg-rose-50", textColor: "text-rose-600", dotColor: "bg-rose-100", labelColor: "text-rose-700", tab: "students" },
-                      { label: "Disabled Students", value: stats.blocked || 0, icon: ShieldAlert, bgColor: "bg-slate-50", textColor: "text-slate-600", dotColor: "bg-slate-100", labelColor: "text-slate-700", tab: "students" },
+                      { label: "Total Students", value: stats.total || 0, icon: Users, bgColor: "bg-blue-50", textColor: "text-blue-600", dotColor: "bg-blue-100", labelColor: "text-blue-700" },
+                      { label: "Pending Review", value: stats.pendingReview || 0, icon: Clock, bgColor: "bg-amber-50", textColor: "text-amber-600", dotColor: "bg-amber-100", labelColor: "text-amber-700" },
+                      { label: "Active Students", value: stats.active || 0, icon: CheckCircle, bgColor: "bg-green-50", textColor: "text-green-600", dotColor: "bg-green-100", labelColor: "text-green-700" },
+                      { label: "Rejected Students", value: stats.rejected || 0, icon: XCircle, bgColor: "bg-rose-50", textColor: "text-rose-600", dotColor: "bg-rose-100", labelColor: "text-rose-700" },
+                      { label: "Disabled Students", value: stats.blocked || 0, icon: ShieldAlert, bgColor: "bg-slate-50", textColor: "text-slate-600", dotColor: "bg-slate-100", labelColor: "text-slate-700" },
                     ].map((card) => (
-                      <div 
-                        key={card.label} 
-                        onClick={() => {
-                          if (card.tab === "students") {
-                            setTab("students");
-                            setStudentInitialFilter(card.label === "Pending Review" ? "pending" : "all");
-                          } else if (card.tab) {
-                            setTab(card.tab as any);
-                          }
-                        }}
-                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition hover:shadow-md cursor-pointer hover:border-green-200"
+                      <div
+                        key={card.label}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm cursor-default select-none pointer-events-none"
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center`}>

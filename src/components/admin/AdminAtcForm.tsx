@@ -1,13 +1,14 @@
 "use client";
 
 import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import {
   Building2, User, Layers, CreditCard, ChevronDown,
   Send, RotateCcw, CheckCircle, MapPin, Phone, Mail,
   BookOpen, Briefcase, Calendar, Camera, ShieldCheck, FileText, X, QrCode,
-  Eye, EyeOff, ExternalLink, Trash2
+  Eye, EyeOff, ExternalLink
 } from "lucide-react";
 import {
   FeeOption,
@@ -136,7 +137,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
-  const [showPass, setShowPass] = useState(false);
+  const [showPass, setShowPass] = useState(true);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [viewingDoc, setViewingDoc] = useState<{ url: string; title: string; type: "image" | "pdf" } | null>(null);
 
@@ -181,7 +182,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       paymentMode: initialData.paymentMode ?? current.paymentMode,
       paidAmount: initialData.paidAmount ?? current.paidAmount,
       transactionNo: initialData.transactionNo ?? current.transactionNo,
-      password: initialData.password ?? current.password,
+      password: initialData.mobile ?? "",
     }));
 
     setPhotoPreview(initialData.photo ?? null);
@@ -318,7 +319,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         paymentMode: initialData.paymentMode ?? current.paymentMode,
         paidAmount: initialData.paidAmount ?? current.paidAmount,
         transactionNo: initialData.transactionNo ?? current.transactionNo,
-        password: initialData.password ?? current.password,
+        password: initialData.mobile ?? "",
       }));
       setInfra(initialData.infrastructure ? JSON.parse(initialData.infrastructure) : emptyInfra);
       setPhoto(null);
@@ -341,6 +342,14 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     setScreenshot(null); setInstituteDocument(null); setMessage(null);
     setPhotoPreview(null); setLogoPreview(null); setSigPreview(null); setAadharPreview(null); setMarksheetPreview(null); setOtherPreview(null);
     setScreenshotPreview(null); setDocPreview(null);
+  };
+
+  const handleCancelClick = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+    onReset();
   };
 
   const selectedFee = feeOptions.find((fee) => fee.value === form.processFee) ?? null;
@@ -461,7 +470,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         onSuccess();
       }, 2000);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setMessage({ type: "error", text: "Network error while submitting form." });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -473,6 +482,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
   return (
     <form onSubmit={onSubmit} onReset={onReset} className="space-y-5">
+      <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Upload Limit: JPG/PNG up to 100KB, PDF up to 500KB</p>
       
       {/* ── SECTION 1: Training Partner Info ─────────────────────── */}
       <SectionCard icon={Building2} title="Information About Training Partner" subtitle="All fields are mandatory">
@@ -640,7 +650,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div className="sm:col-span-2">
-            <Label>Institute Document (Optional)</Label>
+            <Label>Institute Document (Optional) - Max 500KB (PDF/JPG/PNG)</Label>
             <div className="space-y-3">
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
@@ -756,7 +766,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Passport Size Photo *</Label>
+            <Label>Passport Size Photo * - Max 100KB (JPG/PNG)</Label>
             <div className="space-y-2">
               <label 
                 className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
@@ -777,7 +787,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               {(photo || photoPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-50/50 border border-blue-100 w-full animate-in fade-in slide-in-from-top-1">
                    <div className="w-16 h-16 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md">
-                      <img src={photo ? URL.createObjectURL(photo) : photoPreview!} alt="Preview" className="w-full h-full object-cover" />
+                      <Image src={photo ? URL.createObjectURL(photo) : photoPreview!} alt="Preview" width={64} height={64} unoptimized className="w-full h-full object-cover" />
                    </div>
                    <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Photo Preview</p>
@@ -794,7 +804,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Logo (Optional)</Label>
+            <Label>Logo (Optional) - Max 100KB (JPG/PNG)</Label>
             <div className="space-y-2">
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
@@ -806,7 +816,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               {(logo || logoPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 w-full animate-in fade-in slide-in-from-top-1">
                    <div className="w-16 h-16 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md flex items-center justify-center p-1">
-                      <img src={logo ? URL.createObjectURL(logo) : logoPreview!} alt="Logo" className="max-w-full max-h-full object-contain" />
+                      <Image src={logo ? URL.createObjectURL(logo) : logoPreview!} alt="Logo" width={64} height={64} unoptimized className="max-w-full max-h-full object-contain" />
                    </div>
                    <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Logo Preview</p>
@@ -821,7 +831,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Signature *</Label>
+            <Label>Signature * - Max 100KB (JPG/PNG)</Label>
             <div className="space-y-2">
               <label 
                 className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
@@ -842,7 +852,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               {(signature || sigPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50/50 border border-amber-100 w-full animate-in fade-in slide-in-from-top-1">
                    <div className="w-20 h-12 rounded-lg border-2 border-white bg-white overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
-                      <img src={signature ? URL.createObjectURL(signature) : sigPreview!} alt="Signature" className="max-w-full max-h-full object-contain contrast-125" />
+                      <Image src={signature ? URL.createObjectURL(signature) : sigPreview!} alt="Signature" width={80} height={48} unoptimized className="max-w-full max-h-full object-contain contrast-125" />
                    </div>
                    <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Signature</p>
@@ -857,7 +867,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Aadhar Card (PDF) *</Label>
+            <Label>Aadhar Card (PDF) * - Max 500KB</Label>
             <div className="space-y-2">
               <label 
                 className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
@@ -893,7 +903,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Marksheet (Optional)</Label>
+            <Label>Marksheet (Optional) - Max 500KB (PDF)</Label>
             <div className="space-y-2">
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
@@ -920,7 +930,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           </div>
 
           <div>
-            <Label>Other Docs (Optional)</Label>
+            <Label>Other Docs (Optional) - Max 500KB (PDF)</Label>
             <div className="space-y-2">
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
@@ -1039,7 +1049,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             )}
             
             <div>
-              <Label>Payment Screenshot (Optional)</Label>
+              <Label>Payment Screenshot (Optional) - Max 100KB (JPG/PNG)</Label>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-amber-400 hover:bg-amber-50/10 transition">
                   <Camera className="w-4 h-4 text-slate-400 shrink-0" />
@@ -1052,7 +1062,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 {(screenshot || screenshotPreview) && (
                   <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm animate-in fade-in slide-in-from-top-1">
                     <div className="w-12 h-12 rounded-xl bg-white border border-amber-200 flex items-center justify-center shrink-0 shadow-sm p-1">
-                      <img src={screenshot ? URL.createObjectURL(screenshot) : screenshotPreview!} alt="Payment" className="max-w-full max-h-full object-contain" />
+                      <Image src={screenshot ? URL.createObjectURL(screenshot) : screenshotPreview!} alt="Payment" width={48} height={48} unoptimized className="max-w-full max-h-full object-contain" />
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5">Payment Record</p>
@@ -1067,13 +1077,20 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             </div>
 
             <div className="border-t border-slate-100 pt-4 mt-2">
-              <Label>Portal Password {mode === "edit" ? "(Plain Text)" : "(Default is Mobile Number)"}</Label>
+            <Label>Portal Password {mode === "edit" ? "(You can edit before saving)" : "(Default is Mobile Number)"}</Label>
               <div className="relative">
                 <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => setShowPass((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
                 <input 
-                  type="text" 
-                  className={inputCls + " pl-9"} 
-                  placeholder="Set custom password"
+                type={showPass ? "text" : "password"}
+                className={inputCls + " pl-9 pr-9"} 
+                placeholder={mode === "edit" ? "Enter new password (optional)" : "Set custom password"}
                   value={form.password} 
                   onChange={(e) => setField("password", e.target.value)} 
                 />
@@ -1088,16 +1105,23 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       <SectionCard icon={ShieldCheck} title="Center Credentials" subtitle="Login information for the ATC portal" color="#6366f1">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
-            <Label>Portal Password (Visible)</Label>
+            <Label>Portal Password</Label>
             <div className="relative">
               <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => setShowPass((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
               <input 
-                type="text"
-                className={`${inputCls} pl-9`} 
-                placeholder="Set login password"
+                type={showPass ? "text" : "password"}
+                className={`${inputCls} pl-9 pr-9`} 
+                placeholder={mode === "edit" ? "Enter new password (optional)" : "Set login password"}
                 value={form.password} onChange={(e) => setField("password", e.target.value)} />
             </div>
-            <p className="text-[10px] text-slate-400 mt-1.5 font-medium uppercase tracking-wider">Password used by center for dashboard login</p>
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium uppercase tracking-wider">Shown value is editable. Save to apply as new login password.</p>
           </div>
         </div>
       </SectionCard>
@@ -1125,15 +1149,13 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           }
         </button>
         <div className="flex flex-col gap-3 sm:flex-row">
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition"
-            >
-              <X className="w-4 h-4" /> Cancel
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleCancelClick}
+            className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition"
+          >
+            <X className="w-4 h-4" /> Cancel
+          </button>
           <button
             type="reset"
             className="flex items-center gap-2 px-6 py-3.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition"
@@ -1174,7 +1196,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       )}
       {/* ── Document Preview Modal ─────────────────────────────── */}
       {viewingDoc && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 md:p-8 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 md:p-8 animate-in fade-in duration-300">
           <div className="relative w-full max-w-5xl h-full flex flex-col bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/20">
              <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 bg-slate-50/50">
                 <div>

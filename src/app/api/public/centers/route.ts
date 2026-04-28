@@ -2,30 +2,52 @@ import { NextResponse } from "next/server";
 export const dynamic = 'force-dynamic';
 import { connectDB } from "@/lib/mongodb";
 import { AtcUser } from "@/models/AtcUser";
+import { AtcApplication } from "@/models/AtcApplication";
 
 export async function GET() {
   try {
     await connectDB();
-    // Fetch active centers and cross-check with approved applications
-    const centers = await AtcUser.find({ 
-      status: "active",
+    // Source 1: ATC users (active/disabled both, for visibility in public form)
+    const users = await AtcUser.find({
       tpCode: { $exists: true, $ne: "" },
-      trainingPartnerName: { $exists: true, $ne: "" }
+      trainingPartnerName: { $exists: true, $ne: "" },
     })
-    .populate({
-      path: "applicationId",
-      select: "status"
+      .select("tpCode trainingPartnerName")
+      .lean();
+
+    // Source 2: approved applications (fallback for centers not provisioned in AtcUser yet)
+    const applications = await AtcApplication.find({
+      status: "approved",
+      tpCode: { $exists: true, $ne: "" },
+      trainingPartnerName: { $exists: true, $ne: "" },
     })
-    .lean();
-    
-    // Filter to ensure associated application is also 'approved'
-    const validCenters = centers.filter(c => {
-      const app = c.applicationId as any;
-      return app && app.status === "approved";
-    });
-      
-    return NextResponse.json(validCenters);
+      .select("tpCode trainingPartnerName")
+      .lean();
+
+    const uniqueByCode = new Map<string, { tpCode: string; trainingPartnerName: string }>();
+    for (const c of users) {
+      uniqueByCode.set(String(c.tpCode), {
+        tpCode: String(c.tpCode),
+        trainingPartnerName: String(c.trainingPartnerName),
+      });
+    }
+    for (const c of applications) {
+      const code = String(c.tpCode);
+      if (!uniqueByCode.has(code)) {
+        uniqueByCode.set(code, {
+          tpCode: code,
+          trainingPartnerName: String(c.trainingPartnerName),
+        });
+      }
+    }
+
+    const normalizedCenters = Array.from(uniqueByCode.values()).sort((a, b) =>
+      a.trainingPartnerName.localeCompare(b.trainingPartnerName),
+    );
+
+    return NextResponse.json(normalizedCenters);
   } catch (error: any) {
+    console.error("[api/public/centers GET]", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

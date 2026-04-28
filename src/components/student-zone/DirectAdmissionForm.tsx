@@ -54,7 +54,7 @@ export default function DirectAdmissionForm() {
       const res = await fetch("/api/public/centers");
       if (res.ok) {
         const data = await res.json();
-        setAvailableCenters(data);
+        setAvailableCenters(Array.isArray(data) ? data : (data.centers || []));
       }
     } catch (err) {
       console.error("Failed to fetch centers", err);
@@ -336,6 +336,7 @@ export default function DirectAdmissionForm() {
           <h4 className="flex items-center gap-2 text-sm font-black text-slate-800 uppercase tracking-wide border-l-4 border-purple-500 pl-3">
             <FileText className="w-4 h-4 text-purple-500" /> Credentials & Documentation
           </h4>
+          <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Upload Limit: JPG/PNG up to 100KB, PDF up to 500KB</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
               <label className={labelCls("highestQualification")}>Highest Qualification *</label>
@@ -371,14 +372,14 @@ export default function DirectAdmissionForm() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
               {[
-                { label: "Student Photo *", name: "photo", required: true },
-                { label: "Student Signature *", name: "studentSignature", required: true },
-                { label: "Aadhar Card PDF *", name: "aadharDoc", required: true },
-                { label: "10th Marksheet *", name: "marksheet10th", required: true },
-                { label: "12th Marksheet", name: "marksheet12th", required: false },
-                { label: "Graduation Doc", name: "graduationDoc", required: false },
-                { label: "Highest Qual. Doc *", name: "highestQualDoc", required: true },
-                { label: "Other Documents", name: "otherDocs", required: false },
+                { label: "Student Photo (JPG/PNG) * - Max 100KB", name: "photo", required: true },
+                { label: "Student Signature (JPG/PNG) * - Max 100KB", name: "studentSignature", required: true },
+                { label: "Aadhar Card PDF * - Max 500KB", name: "aadharDoc", required: true },
+                { label: "10th Marksheet * - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: true },
+                { label: "12th Marksheet (JPG/PNG/PDF) - Max 500KB", name: "marksheet12th", required: false },
+                { label: "Graduation Doc (JPG/PNG/PDF) - Max 500KB", name: "graduationDoc", required: false },
+                { label: "Highest Qual. Doc * (JPG/PNG/PDF) - Max 500KB", name: "highestQualDoc", required: true },
+                { label: "Other Documents (PDF) - Max 500KB", name: "otherDocs", required: false },
               ].map(doc => (
                 <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
                   <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-700" : "text-slate-400 group-hover:text-blue-500"}`}>

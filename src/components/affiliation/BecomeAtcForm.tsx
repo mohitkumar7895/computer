@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Building2, User, Layers, CreditCard, ChevronDown,
   Send, RotateCcw, CheckCircle, MapPin, Phone, Mail,
@@ -258,6 +259,7 @@ export default function BecomeAtcForm() {
       </div>
 
       <form onSubmit={onSubmit} onReset={onReset} className="space-y-5">
+        <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Upload Limit: JPG/PNG up to 100KB, PDF up to 500KB</p>
 
         {/* ── SECTION 1: Training Partner Info ─────────────────────── */}
         <SectionCard icon={Building2} title="Information About Training Partner" subtitle="All fields are mandatory">
@@ -414,7 +416,7 @@ export default function BecomeAtcForm() {
 
             {/* Institute Document */}
             <div className="sm:col-span-2">
-              <Label>Institute Document (Optional)</Label>
+              <Label>Institute Document (Optional) - Max 500KB (PDF/JPG/PNG)</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -511,7 +513,7 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Passport Size Photo *</Label>
+              <Label>Passport Size Photo * - Max 100KB (JPG/PNG)</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <Camera className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -522,7 +524,7 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Logo (Optional)</Label>
+              <Label>Logo (Optional) - Max 100KB (JPG/PNG)</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -533,7 +535,7 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Signature *</Label>
+              <Label>Signature * - Max 100KB (JPG/PNG)</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -544,7 +546,7 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Aadhar Card (PDF) *</Label>
+              <Label>Aadhar Card (PDF) * - Max 500KB</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -555,7 +557,7 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Marksheet (Optional)</Label>
+              <Label>Marksheet (Optional) - Max 500KB (PDF)</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -566,7 +568,7 @@ export default function BecomeAtcForm() {
             </div>
 
             <div>
-              <Label>Other Docs (Optional)</Label>
+              <Label>Other Docs (Optional) - Max 500KB (PDF)</Label>
               <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
@@ -584,7 +586,7 @@ export default function BecomeAtcForm() {
             <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold animate-pulse">Drag right →</span>
           </div>
           <div className="overflow-x-auto -mx-1">
-            <table className="w-full text-sm min-w-[480px]">
+            <table className="w-full text-sm min-w-120">
               <thead>
                 <tr>
                   {["Particulars", "No. of Rooms", "Seating Capacity", "Total Area (Sq.Ft.)"].map((h, i) => (
@@ -717,7 +719,7 @@ export default function BecomeAtcForm() {
 
           {/* Screenshot Upload */}
           <div className="mt-6 border-t border-slate-100 pt-6">
-            <Label>Upload Payment Screenshot {form.paymentMode === "gpay" && "*"}</Label>
+            <Label>Upload Payment Screenshot {form.paymentMode === "gpay" && "*"} - Max 100KB (JPG/PNG)</Label>
             <p className="text-[10px] text-slate-500 mb-3 italic">Please upload a screenshot of your successful transaction for verification.</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -777,9 +779,9 @@ export default function BecomeAtcForm() {
             className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition">
             <RotateCcw className="w-4 h-4" /> Reset
           </button>
-          <a href="/" className="ml-auto flex items-center gap-1.5 text-slate-500 hover:text-slate-700 text-sm transition">
+          <Link href="/" className="ml-auto flex items-center gap-1.5 text-slate-500 hover:text-slate-700 text-sm transition">
             <Home className="w-4 h-4" /> Home
-          </a>
+          </Link>
         </div>
       </form>
 
@@ -812,7 +814,7 @@ export default function BecomeAtcForm() {
       )}
       {/* SUCCESS POPUP MODAL */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-[#0a0a2e]/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-110 flex items-center justify-center p-4 bg-[#0a0a2e]/60 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300 text-center p-10 relative">
              <div className="absolute top-0 left-0 w-full h-2 bg-[#0a0aa1]"></div>
              <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">

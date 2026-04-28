@@ -78,9 +78,19 @@ interface Student {
   createdAt: string;
   photo?: string;
   qualificationDoc?: string;
+  marksheet10th?: string;
+  marksheet12th?: string;
+  graduationDoc?: string;
+  highestQualDoc?: string;
   aadharDoc?: string;
   studentSignature?: string;
   otherDocs?: string;
+  parentsMobile?: string;
+  nationality?: string;
+  maritalStatus?: string;
+  referredBy?: string;
+  examMode?: string;
+  userId?: string;
   password?: string;
   userStatus?: "active" | "disabled";
   totalFee?: number;
@@ -213,6 +223,51 @@ export default function AdminPanelPage() {
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
     setTimeout(() => setToastMsg(null), 5000);
+  };
+
+  const openStudentDoc = (url: string) => {
+    if (!url) return;
+    const isPdf = url.includes("application/pdf") || url.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      window.open(url, "_blank");
+      return;
+    }
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<iframe src="${url}" frameborder="0" style="border:0;top:0;left:0;bottom:0;right:0;width:100%;height:100%;" allowfullscreen></iframe>`);
+  };
+
+  const getStudentFieldValue = (values: Record<string, any>, key: string) => {
+    if (key === "aadharNo") return values.aadharNo || values.aadhaarNo || "";
+    if (key === "parentsMobile") return values.parentsMobile || values.parentMobile || values.emergencyMobile || "";
+    if (key === "referredBy") return values.referredBy || values.referenceBy || "";
+    return values[key] || "";
+  };
+
+  const openStudentEditor = async (student: Student) => {
+    try {
+      const mediaRes = await apiFetch(`/api/admin/students/media?studentId=${student._id}`);
+      const mediaData = mediaRes.ok ? await mediaRes.json() : { media: {} };
+      const mergedStudent = { ...student, ...(mediaData.media || {}) };
+      const normalizedStudent = {
+        ...mergedStudent,
+        aadharNo: mergedStudent.aadharNo || (mergedStudent as any).aadhaarNo || "",
+        parentsMobile: mergedStudent.parentsMobile || (mergedStudent as any).parentMobile || (mergedStudent as any).emergencyMobile || "",
+        referredBy: mergedStudent.referredBy || (mergedStudent as any).referenceBy || "",
+      };
+      setEditingStudent(normalizedStudent);
+      setStudentEditValues(normalizedStudent);
+    } catch {
+      const normalizedStudent = {
+        ...student,
+        aadharNo: student.aadharNo || (student as any).aadhaarNo || "",
+        parentsMobile: student.parentsMobile || (student as any).parentMobile || (student as any).emergencyMobile || "",
+        referredBy: student.referredBy || (student as any).referenceBy || "",
+      };
+      setEditingStudent(normalizedStudent);
+      setStudentEditValues(normalizedStudent);
+      showToast("error", "Could not load full document set. Showing available details.");
+    }
   };
 
   const feeLabel = (value: string) => getFeeLabel(feePlans, value, FEE_LABEL);
@@ -607,57 +662,96 @@ export default function AdminPanelPage() {
     const printWindow = window.open("", "_blank", "width=900,height=700");
     if (!printWindow) return;
 
+    const esc = (value: unknown) =>
+      String(value ?? "—")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const renderDocBlock = (title: string, src?: string) => {
+      if (!src) return "";
+      const isPdf = src.startsWith("data:application/pdf");
+      if (isPdf) {
+        return `
+          <div style="border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;">
+            <h3 style="margin:0 0 10px 0;font-size:13px;">${esc(title)} (PDF)</h3>
+            <embed src="${src}" type="application/pdf" style="width:100%;height:480px;border:1px solid #e5e7eb;border-radius:8px;" />
+          </div>
+        `;
+      }
+      return `
+        <div style="border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;">
+          <h3 style="margin:0 0 10px 0;font-size:13px;">${esc(title)}</h3>
+          <img src="${src}" style="max-width:100%; max-height:420px; object-fit:contain; border:1px solid #e5e7eb; border-radius:8px;" />
+        </div>
+      `;
+    };
+
     const formattedZones = (application.zones ?? []).join(", ");
     const infra = parseInfra(application.infrastructure || "{}");
 
     const rows = Object.entries(infra).map(([key, val]) => `
       <tr>
-        <td style="padding:8px;border:1px solid #ddd;">${key}</td>
-        <td style="padding:8px;border:1px solid #ddd;">${val.rooms}</td>
-        <td style="padding:8px;border:1px solid #ddd;">${val.seats}</td>
-        <td style="padding:8px;border:1px solid #ddd;">${val.area}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${esc(key)}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${esc(val.rooms)}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${esc(val.seats)}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${esc(val.area)}</td>
       </tr>`).join("");
 
     printWindow.document.write(`
       <html><head><title>Print Application</title>
       <style>body{font-family:Arial,sans-serif;margin:20px;color:#111}h1{font-size:22px;margin-bottom:10px}h2{font-size:16px;margin:20px 0 8px}table{border-collapse:collapse;width:100%;margin-top:10px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f8fafc;font-weight:700}</style>
       </head><body>
-      <h1>Application Form - ${application.trainingPartnerName}</h1>
-      <p><strong>TP Code:</strong> ${application.tpCode || "N/A"}</p>
-      <p><strong>Status:</strong> ${application.status}</p>
+      <h1>Application Form - ${esc(application.trainingPartnerName)}</h1>
+      <p><strong>TP Code:</strong> ${esc(application.tpCode || "N/A")}</p>
+      <p><strong>Status:</strong> ${esc(application.status)}</p>
       <h2>Basic Information</h2>
       <table><tbody>
-        <tr><th>Training Partner Name</th><td>${application.trainingPartnerName}</td></tr>
-        <tr><th>Training Partner Address</th><td>${application.trainingPartnerAddress}</td></tr>
-        <tr><th>Postal Address</th><td>${application.postalAddressOffice || "—"}</td></tr>
-        <tr><th>Zones</th><td>${formattedZones || "—"}</td></tr>
-        <tr><th>District</th><td>${application.district}</td></tr>
-        <tr><th>State</th><td>${application.state}</td></tr>
-        <tr><th>PIN</th><td>${application.pin ?? "—"}</td></tr>
-        <tr><th>Mobile</th><td>${application.mobile}</td></tr>
-        <tr><th>Email</th><td>${application.email}</td></tr>
+        <tr><th>Training Partner Name</th><td>${esc(application.trainingPartnerName)}</td></tr>
+        <tr><th>Training Partner Address</th><td>${esc(application.trainingPartnerAddress)}</td></tr>
+        <tr><th>Postal Address</th><td>${esc(application.postalAddressOffice || "—")}</td></tr>
+        <tr><th>Zones</th><td>${esc(formattedZones || "—")}</td></tr>
+        <tr><th>District</th><td>${esc(application.district)}</td></tr>
+        <tr><th>State</th><td>${esc(application.state)}</td></tr>
+        <tr><th>PIN</th><td>${esc(application.pin ?? "—")}</td></tr>
+        <tr><th>Country</th><td>${esc(application.country ?? "INDIA")}</td></tr>
+        <tr><th>Tehsil / Taluka</th><td>${esc(application.totalName ?? "—")}</td></tr>
+        <tr><th>Mobile</th><td>${esc(application.mobile)}</td></tr>
+        <tr><th>Email</th><td>${esc(application.email)}</td></tr>
       </tbody></table>
       <h2>Institution Details</h2>
       <table><tbody>
-        <tr><th>Type</th><td>${application.statusOfInstitution}</td></tr>
-        <tr><th>Establishment Year</th><td>${application.yearOfEstablishment}</td></tr>
-        <tr><th>Chief Name</th><td>${application.chiefName}</td></tr>
-        <tr><th>Designation</th><td>${application.designation}</td></tr>
-        <tr><th>Education</th><td>${application.educationQualification}</td></tr>
-        <tr><th>Experience</th><td>${application.professionalExperience}</td></tr>
-        <tr><th>Date of Birth</th><td>${application.dob}</td></tr>
-        <tr><th>Payment Mode</th><td>${application.paymentMode === "gpay" ? "Google Pay" : "Online"}</td></tr>
-        <tr><th>Application Fee</th><td>${feeLabel(application.processFee)}</td></tr>
+        <tr><th>Type</th><td>${esc(application.statusOfInstitution)}</td></tr>
+        <tr><th>Establishment Year</th><td>${esc(application.yearOfEstablishment)}</td></tr>
+        <tr><th>Chief Name</th><td>${esc(application.chiefName)}</td></tr>
+        <tr><th>Designation</th><td>${esc(application.designation)}</td></tr>
+        <tr><th>Education</th><td>${esc(application.educationQualification)}</td></tr>
+        <tr><th>Experience</th><td>${esc(application.professionalExperience)}</td></tr>
+        <tr><th>Date of Birth</th><td>${esc(application.dob)}</td></tr>
+        <tr><th>Application Fee Plan</th><td>${esc(feeLabel(application.processFee))}</td></tr>
       </tbody></table>
+
+      <h2>Payment Details</h2>
+      <table><tbody>
+        <tr><th>Payment Mode</th><td>${esc(application.paymentMode === "gpay" ? "Google Pay" : "Online")}</td></tr>
+        <tr><th>Paid Amount</th><td>${esc(application.paidAmount || "—")}</td></tr>
+        <tr><th>Transaction / UTR No.</th><td>${esc(application.transactionNo || "—")}</td></tr>
+      </tbody></table>
+
       <h2>Infrastructure</h2>
       <table><thead><tr><th>Particulars</th><th>Rooms</th><th>Seats</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>
       
-      ${application.paymentScreenshot ? `
-        <h2>Payment Proof</h2>
-        <div style="text-align:center; margin-top:20px; border:1px solid #ddd; padding:10px; border-radius:8px;">
-          <img src="${application.paymentScreenshot}" style="max-width:100%; max-height:500px; object-contain:contain;" />
-        </div>
-      ` : ""}
+      <h2>Uploaded Documents</h2>
+      ${renderDocBlock("Payment Slip / Screenshot", application.paymentScreenshot)}
+      ${renderDocBlock("Institute Document", application.instituteDocument)}
+      ${renderDocBlock("Aadhar Card", application.aadharDoc)}
+      ${renderDocBlock("Marksheet", application.marksheetDoc)}
+      ${renderDocBlock("Other Documents", application.otherDocs)}
+      ${renderDocBlock("Director Photo", application.photo)}
+      ${renderDocBlock("Institute Logo", application.logo)}
+      ${renderDocBlock("Signature", application.signature)}
 
       <script>window.onload=()=>{ window.print(); window.onafterprint=()=>window.close(); }</script>
       </body></html>
@@ -1195,7 +1289,13 @@ export default function AdminPanelPage() {
                   mode={prefillApplication ? "edit" : "create"}
                   applicationId={prefillApplication?._id}
                   initialData={prefillApplication ?? undefined}
-                  onCancel={() => setPrefillApplication(null)}
+                  onCancel={() => {
+                    if (prefillApplication) {
+                      setPrefillApplication(null);
+                      return;
+                    }
+                    setTab("centers");
+                  }}
                   onSuccess={() => {
                     setPrefillApplication(null);
                     setTab("centers");
@@ -2342,12 +2442,7 @@ export default function AdminPanelPage() {
 
                                        <button 
                                           onClick={() => {
-                                            const studentData = { ...s };
-                                            if (false) {
-                                              studentData.password = "";
-                                            }
-                                            setEditingStudent(s);
-                                            setStudentEditValues(studentData);
+                                            void openStudentEditor(s);
                                           }} 
                                           className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
                                           title="Edit Details"
@@ -2372,41 +2467,43 @@ export default function AdminPanelPage() {
 
         {/* ── STUDENT EDIT MODAL ── */}
         {editingStudent && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl animate-in zoom-in duration-300">
-               <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5 bg-slate-50/50">
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Student Command Center</h3>
-                  <p className="text-[10px] text-blue-600 uppercase tracking-widest font-black mt-1">Reg No: {editingStudent.registrationNo}</p>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-white rounded-[2.5rem] w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-white/20 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-500">
+              <div className={`shrink-0 px-10 py-8 flex items-center justify-between border-b border-slate-100 ${
+                (editingStudent.status === "active" || editingStudent.status === "approved")
+                  ? "bg-gradient-to-r from-emerald-50 to-white"
+                  : "bg-gradient-to-r from-blue-50 to-white"
+              }`}>
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 rounded-3xl overflow-hidden bg-white border-4 border-white shadow-2xl">
+                    {studentEditValues.photo ? (
+                      <img src={studentEditValues.photo} alt={editingStudent.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-50"><User className="w-8 h-8 text-slate-300" /></div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{editingStudent.name}</h3>
+                    <p className="text-[10px] text-blue-600 uppercase tracking-widest font-black mt-1">Reg No: {editingStudent.registrationNo}</p>
+                  </div>
                 </div>
                 <div className="flex gap-3">
-                   <button 
-                     type="button" 
-                     onClick={() => {
-                        window.print();
-                     }}
-                     className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-black transition no-print"
-                   >
-                     <Printer className="w-4 h-4" /> Print Profile
-                   </button>
-                   <button type="button" onClick={() => setEditingStudent(null)} className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 transition shadow-sm">
-                     <XCircle className="w-6 h-6" />
-                   </button>
+                  <button type="button" onClick={() => window.print()} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-black transition no-print">
+                    <Printer className="w-4 h-4" /> Print Profile
+                  </button>
+                  <button type="button" onClick={() => setEditingStudent(null)} className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 transition shadow-sm">
+                    <XCircle className="w-6 h-6" />
+                  </button>
                 </div>
               </div>
-              <div className="p-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                {/* Printable Profile hidden here, moved to root for better print handling */}
 
-
-
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={async (e) => {
+              <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-8">
+                <form className="grid grid-cols-1 lg:grid-cols-12 gap-8" onSubmit={async (e) => {
                   e.preventDefault();
                   try {
                     const res = await apiFetch(`/api/admin/students/${editingStudent._id}`, {
                       method: "PATCH",
-                      headers: { 
-                        "Content-Type": "application/json",
-                      },
+                      headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ action: "updateDetails", updateData: studentEditValues }),
                     });
                     if (!res.ok) throw new Error("Update failed");
@@ -2417,117 +2514,101 @@ export default function AdminPanelPage() {
                     showToast("error", "Failed to update student");
                   }
                 }}>
-                  {[
-                    { label: "Full Name", key: "name" },
-                    { label: "Father Name", key: "fatherName" },
-                    { label: "Mother Name", key: "motherName" },
-                    { label: "Email Address", key: "email" },
-                    { label: "Mobile Number", key: "mobile" },
-                    { label: "Parents/Emergency Mobile", key: "parentsMobile" },
-                    { label: "Aadhar Number", key: "aadharNo" },
-                    { label: "Course Name", key: "course" },
-                    { label: "Date of Birth", key: "dob" },
-                    { label: "Gender", key: "gender" },
-                    { label: "Category", key: "category" },
-                    { label: "Religion", key: "religion" },
-                    { label: "Nationality", key: "nationality" },
-                    { label: "Session", key: "session" },
-                    { label: "Marital Status", key: "maritalStatus" },
-                    { label: "Course Type", key: "courseType" },
-                    { label: "Highest Qualification", key: "highestQualification" },
-                    { label: "Total Fee", key: "admissionFees" },
-                    { label: "Admission Date", key: "admissionDate" },
-                    { label: "Referred By", key: "referredBy" },
-                  ].map((field) => (
-                    <div key={field.key}>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
-                      <input 
-                        type="text" 
-                        value={studentEditValues[field.key] || ""} 
-                        onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
-                      />
-                    </div>
-                  ))}
-
-                  <div className="relative">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Student Password</label>
-                    <input 
-                      type="text" 
-                      value={studentEditValues.password || ""} 
-                      onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, password: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
-                      placeholder="Enter student password"
-                    />
-                  </div>
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Address</label>
-                        <textarea 
-                          value={studentEditValues.currentAddress || ""} 
-                          onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, currentAddress: e.target.value }))}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24"
-                        />
-                     </div>
-                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Permanent Address</label>
-                        <textarea 
-                          value={studentEditValues.permanentAddress || ""} 
-                          onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, permanentAddress: e.target.value }))}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24"
-                        />
-                     </div>
-                  </div>
-
-                  <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
-                     <p className="text-xs font-black uppercase tracking-widest text-slate-800 mb-4 flex items-center gap-2">
-                       <FileText className="w-4 h-4 text-blue-600" /> Documents & Uploads
-                     </p>
-                     <div className="flex flex-wrap gap-4">
+                  <div className="lg:col-span-8 space-y-8">
+                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Personal Identity</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {[
-                          { label: "Photo", key: "photo", val: editingStudent.photo },
-                          { label: "Signature", key: "studentSignature", val: editingStudent.studentSignature },
-                          { label: "Qualification", key: "qualificationDoc", val: editingStudent.qualificationDoc },
-                          { label: "Aadhar", key: "aadharDoc", val: editingStudent.aadharDoc },
-                          { label: "Other Docs", key: "otherDocs", val: editingStudent.otherDocs },
-                        ].map(d => (
-                          <div key={d.label} className="flex flex-col gap-1.5">
-                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">{d.label}</p>
-                            <label className="w-24 h-32 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative group shadow-sm hover:border-blue-400 transition cursor-pointer">
-                              {studentEditValues[d.key]?.includes("data:") || studentEditValues[d.key]?.startsWith("http") ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={studentEditValues[d.key]} alt={d.label} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1 p-2">
-                                    <Upload className="w-5 h-5" />
-                                    <span className="text-[7px] font-black uppercase text-center">Click to Upload</span>
-                                </div>
-                              )}
-                              <input 
-                                type="file" 
-                                accept="image/*,application/pdf" 
-                                className="hidden" 
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  const reader = new FileReader();
-                                  reader.readAsDataURL(file);
-                                  reader.onload = () => {
-                                    setStudentEditValues((prev: any) => ({ ...prev, [d.key]: reader.result }));
-                                  };
-                                }} 
-                              />
-                              <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-all pointer-events-none" />
-                            </label>
-                            {studentEditValues[d.key] && (
-                               <a href={studentEditValues[d.key]} target="_blank" className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View Full</a>
-                            )}
+                          { label: "Full Name", key: "name" }, { label: "Father Name", key: "fatherName" }, { label: "Mother Name", key: "motherName" },
+                          { label: "Date of Birth", key: "dob" }, { label: "Gender", key: "gender" }, { label: "Category", key: "category" },
+                          { label: "Religion", key: "religion" }, { label: "Nationality", key: "nationality" }, { label: "Marital Status", key: "maritalStatus" },
+                          { label: "Aadhar Number", key: "aadharNo" }, { label: "Parents/Emergency Mobile", key: "parentsMobile" }, { label: "Referred By", key: "referredBy" },
+                        ].map((field) => (
+                          <div key={field.key}>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
+                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
                           </div>
                         ))}
-                     </div>
-                   </div>
+                      </div>
+                    </div>
 
-                  <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
+                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Academic & Contact</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          { label: "Email Address", key: "email" }, { label: "Mobile Number", key: "mobile" }, { label: "Course Name", key: "course" },
+                          { label: "Session", key: "session" }, { label: "Course Type", key: "courseType" }, { label: "Highest Qualification", key: "highestQualification" },
+                          { label: "Admission Date", key: "admissionDate" }, { label: "Total Fee", key: "admissionFees" },
+                        ].map((field) => (
+                          <div key={field.key}>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
+                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
+                          </div>
+                        ))}
+                        <div className="md:col-span-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Student Password</label>
+                          <input type="text" value={studentEditValues.password || ""} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, password: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" placeholder="Enter student password" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Address</label>
+                          <textarea value={studentEditValues.currentAddress || ""} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, currentAddress: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Permanent Address</label>
+                          <textarea value={studentEditValues.permanentAddress || ""} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, permanentAddress: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-4 space-y-6">
+                    <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl">
+                      <h4 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-5">Financial Overview</h4>
+                      <div className="space-y-4">
+                        <p className="text-xs font-bold text-white/70">Total Fee: <span className="text-white font-black">₹{studentEditValues.admissionFees || 0}</span></p>
+                        <p className="text-xs font-bold text-emerald-400">Paid: <span className="font-black">₹{editingStudent.paidAmount || 0}</span></p>
+                        <p className="text-xs font-bold text-red-400">Dues: <span className="font-black">₹{(Number(studentEditValues.admissionFees || 0)) - (editingStudent.paidAmount || 0)}</span></p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-800 mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600" /> Documents & Uploads</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-3">Upload Limit: JPG/PNG up to 100KB, PDF up to 500KB</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: "Photo", key: "photo" }, { label: "Signature", key: "studentSignature" }, { label: "10th", key: "marksheet10th" },
+                          { label: "12th", key: "marksheet12th" }, { label: "Grad", key: "graduationDoc" }, { label: "Highest", key: "highestQualDoc" },
+                          { label: "Qual", key: "qualificationDoc" }, { label: "Aadhar", key: "aadharDoc" }, { label: "Other", key: "otherDocs" },
+                        ].map((d) => (
+                          <div key={d.key} className="flex flex-col gap-1">
+                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">{d.label}</p>
+                            <label className="w-full h-24 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative group shadow-sm hover:border-blue-400 transition cursor-pointer">
+                              {(() => {
+                                const docUrl = studentEditValues[d.key];
+                                const isPdf = typeof docUrl === "string" && (docUrl.includes("application/pdf") || docUrl.toLowerCase().endsWith(".pdf"));
+                                const isImage = typeof docUrl === "string" && !isPdf && (docUrl.includes("image/") || docUrl.toLowerCase().endsWith(".jpg") || docUrl.toLowerCase().endsWith(".jpeg") || docUrl.toLowerCase().endsWith(".png") || docUrl.toLowerCase().endsWith(".webp"));
+                                if (isImage) return <img src={docUrl} alt={d.label} className="w-full h-full object-cover" />;
+                                if (isPdf) return <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-1 p-2 bg-red-50"><FileText className="w-4 h-4" /><span className="text-[7px] font-black uppercase text-center">PDF</span></div>;
+                                return <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1 p-2"><Upload className="w-4 h-4" /><span className="text-[7px] font-black uppercase text-center">Upload</span></div>;
+                              })()}
+                              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.readAsDataURL(file);
+                                reader.onload = () => {
+                                  setStudentEditValues((prev: any) => ({ ...prev, [d.key]: reader.result }));
+                                };
+                              }} />
+                            </label>
+                            {studentEditValues[d.key] && <button type="button" onClick={() => openStudentDoc(studentEditValues[d.key])} className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View</button>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-12 flex justify-end gap-3 pt-4 border-t border-slate-100 mt-2">
                     <button type="button" onClick={() => setEditingStudent(null)} className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition">Cancel</button>
                     <button type="submit" className="px-8 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100">Save Changes</button>
                   </div>
@@ -2625,6 +2706,7 @@ export default function AdminPanelPage() {
                                   <PrintField label="Full Name" value={studentEditValues.name} />
                                   <PrintField label="Father's Name" value={studentEditValues.fatherName} />
                                   <PrintField label="Mother's Name" value={studentEditValues.motherName} />
+                                  <PrintField label="Aadhar Number" value={studentEditValues.aadharNo} />
                                   <div className="grid grid-cols-2 gap-4">
                                       <PrintField label="Date of Birth" value={studentEditValues.dob} />
                                       <PrintField label="Gender" value={studentEditValues.gender} />
@@ -2632,6 +2714,10 @@ export default function AdminPanelPage() {
                                   <div className="grid grid-cols-2 gap-4">
                                       <PrintField label="Category" value={studentEditValues.category} />
                                       <PrintField label="Religion" value={studentEditValues.religion} />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <PrintField label="Nationality" value={studentEditValues.nationality} />
+                                      <PrintField label="Marital Status" value={studentEditValues.maritalStatus} />
                                   </div>
                               </div>
                           </section>
@@ -2642,8 +2728,9 @@ export default function AdminPanelPage() {
                               </h2>
                               <div className="space-y-3 px-2">
                                   <PrintField label="Mobile Number" value={studentEditValues.mobile} />
-                                  <PrintField label="Emergency Contact" value={studentEditValues.parentsMobile} />
+                                  <PrintField label="Parents / Emergency Mobile" value={studentEditValues.parentsMobile} />
                                   <PrintField label="Email Address" value={studentEditValues.email} />
+                                  <PrintField label="Referred By" value={studentEditValues.referredBy} />
                               </div>
                           </section>
                       </div>
@@ -2659,6 +2746,7 @@ export default function AdminPanelPage() {
                                   <PrintField label="Center Code" value={editingStudent.tpCode} />
                                   <PrintField label="Academic Session" value={studentEditValues.session} />
                                   <PrintField label="Course Type" value={studentEditValues.courseType} />
+                                  <PrintField label="Highest Qualification" value={studentEditValues.highestQualification} />
                                   <PrintField label="Admission Date" value={studentEditValues.admissionDate} />
                                   <PrintField label="Total Fee" value={studentEditValues.admissionFees} />
                               </div>
