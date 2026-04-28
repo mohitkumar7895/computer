@@ -37,6 +37,8 @@ const FeeManager = dynamic(() => import("@/components/common/FeeManager"), {
 interface Application {
   _id: string; trainingPartnerName: string; trainingPartnerAddress: string;
   email: string; mobile: string; district: string; state: string; pin?: string;
+  country?: string;
+  totalName?: string;
   chiefName: string; designation: string; status: "pending" | "approved" | "rejected";
   submittedByAdmin: boolean; processFee: string; yearOfEstablishment: string;
   paymentMode: string; statusOfInstitution: string; educationQualification: string;
