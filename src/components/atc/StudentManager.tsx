@@ -670,9 +670,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
           <div className="animate-in fade-in duration-300">
             {/* Status Filter Bar */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
-              {((isDirectAdmission
-                ? ["all", "pending", "approved", "rejected"]
-                : ["all", "pending", "approved", "rejected", "disabled"]) as const).map((s) => {
+              {(isDirectAdmission
+                ? (["all", "pending", "approved", "rejected"] as const)
+                : (["all", "pending", "approved", "rejected", "disabled"] as const)).map((s) => {
 
                 return (
                   <button
