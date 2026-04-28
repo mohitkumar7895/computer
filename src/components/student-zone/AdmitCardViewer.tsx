@@ -17,6 +17,13 @@ interface QuestionSet {
   durationMinutes: number;
 }
 
+interface AdmitExamData {
+  _id: string;
+  examDate?: string;
+  examTime?: string;
+  durationMinutes?: number;
+}
+
 export default function AdmitCardViewer() {
   const [identifier, setIdentifier] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +31,7 @@ export default function AdmitCardViewer() {
   const [student, setStudent] = useState<StudentData | null>(null);
   const [assignment, setAssignment] = useState<{ examDate?: string; notes?: string } | null>(null);
   const [sets, setSets] = useState<QuestionSet[]>([]);
+  const [exam, setExam] = useState<AdmitExamData | null>(null);
 
   const fetchAdmitCard = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -36,23 +44,41 @@ export default function AdmitCardViewer() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/student/exams?identifier=${encodeURIComponent(value)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || "Unable to find admit card.");
+      const admitRes = await fetch(`/api/public/admit-card?identifier=${encodeURIComponent(value)}`);
+      const admitData = await admitRes.json();
+      if (admitRes.ok) {
+        setExam(admitData.exam ?? null);
+        setStudent(admitData.student ?? null);
+      } else {
+        setError(admitData.message || "Unable to find admit card.");
+        setExam(null);
         setStudent(null);
         setAssignment(null);
         setSets([]);
-      } else {
-        setStudent(data.student ?? null);
-        setAssignment(data.assignment ?? null);
-        setSets(data.sets ?? []);
+        return;
+      }
+
+      // Optional details panel: if this fails, admit card should still work.
+      try {
+        const res = await fetch(`/api/student/exams?identifier=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        if (res.ok) {
+          setAssignment(data.assignment ?? null);
+          setSets(data.sets ?? []);
+        } else {
+          setAssignment(null);
+          setSets([]);
+        }
+      } catch {
+        setAssignment(null);
+        setSets([]);
       }
     } catch {
       setError("Unable to fetch admit card details.");
       setStudent(null);
       setAssignment(null);
       setSets([]);
+      setExam(null);
     } finally {
       setLoading(false);
     }
@@ -91,7 +117,7 @@ export default function AdmitCardViewer() {
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
       </div>
 
-      {student && assignment && (
+      {student && (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -115,9 +141,32 @@ export default function AdmitCardViewer() {
             </div>
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Exam Date</p>
-              <p className="mt-2 text-sm font-semibold text-slate-800">{assignment.examDate || "Not scheduled"}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-800">{exam?.examDate ? new Date(exam.examDate).toLocaleDateString("en-IN") : (assignment?.examDate || "Not scheduled")}</p>
             </div>
           </div>
+
+          {exam?._id ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href={`/admit-card/${exam._id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                View Admit Card
+              </a>
+              <a
+                href={`/admit-card/${exam._id}?print=1`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Download / Print Admit Card
+              </a>
+            </div>
+          ) : (
+            <p className="mt-6 text-xs font-semibold text-amber-700">Admit card is not released yet.</p>
+          )}
 
           <div className="mt-6 rounded-3xl border border-slate-200 p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -138,7 +187,7 @@ export default function AdmitCardViewer() {
             </div>
           </div>
 
-          {assignment.notes && (
+          {assignment?.notes && (
             <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Notes</p>
               <p className="mt-2 text-sm text-slate-700">{assignment.notes}</p>

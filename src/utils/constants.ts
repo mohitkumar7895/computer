@@ -28,8 +28,6 @@ export const NAV_LINKS: NavLink[] = [
       { label: "Registration Process", href: "/student-zone/registration-process" },
       { label: "Direct Admission", href: "/direct-admission" },
       { label: "Examination Process", href: "/student-zone/examination-process" },
-      { label: "Online Exam", href: "/online-exam" },
-      { label: "Student Login", href: "/student/login" },
       { label: "Download Admit Card", href: "/student-zone/download-admit-card" },
       { label: "Registered Student", href: "/student-zone/registered-student" },
       { label: "Certificate Verification", href: "/student-zone/certification-verification" },
@@ -52,7 +50,6 @@ export const NAV_LINKS: NavLink[] = [
     children: [
       { label: "Affiliation Process", href: "/affiliation-process" },
       { label: "Become ATC", href: "/become-atc" },
-      { label: "ATC Login", href: "/atc/login" },
     ],
   },
   { label: "GALLERY", href: "/gallery" },
