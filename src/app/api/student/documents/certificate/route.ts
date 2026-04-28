@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Certificate } from "@/models/Certificate";
+import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -19,6 +20,11 @@ export async function GET(request: Request) {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
 
     await connectDB();
+    const exam = await StudentExam.findOne({ _id: examId, studentId: decoded.id }).select("resultDeclared certificateReleased");
+    if (!exam || !exam.resultDeclared || !exam.certificateReleased) {
+      return NextResponse.json({ message: "Certificate not released yet." }, { status: 403 });
+    }
+
     const cert = await Certificate.findOne({ examId, studentId: decoded.id })
       .populate({
         path: "studentId",

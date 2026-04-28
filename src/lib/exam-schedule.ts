@@ -16,11 +16,20 @@ export type ExamWindow = {
 
 export function buildExamWindow(exam: ExamLike, now = new Date()): ExamWindow {
   let startsAt: Date | null = null;
-  if (exam.examDateTime) {
+  // Prefer explicit date + time entered by admin (local wall-clock intent).
+  // examDateTime can be shifted when created on UTC servers.
+  if (exam.examDate && exam.examTime) {
+    // Build local datetime directly from provided date + time (avoid UTC date shift).
+    const dateSource = new Date(exam.examDate);
+    const y = dateSource.getFullYear();
+    const m = String(dateSource.getMonth() + 1).padStart(2, "0");
+    const d = String(dateSource.getDate()).padStart(2, "0");
+    const hhmm = String(exam.examTime).slice(0, 5);
+    const parsed = new Date(`${y}-${m}-${d}T${hhmm}:00`);
+    const dObj = Number.isNaN(parsed.getTime()) ? null : parsed;
+    startsAt = dObj;
+  } else if (exam.examDateTime) {
     startsAt = new Date(exam.examDateTime);
-  } else if (exam.examDate && exam.examTime) {
-    const d = new Date(`${new Date(exam.examDate).toISOString().slice(0, 10)}T${exam.examTime}:00`);
-    startsAt = Number.isNaN(d.getTime()) ? null : d;
   } else if (exam.examDate) {
     const d = new Date(exam.examDate);
     startsAt = Number.isNaN(d.getTime()) ? null : d;

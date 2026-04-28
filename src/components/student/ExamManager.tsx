@@ -9,7 +9,7 @@ import {
 import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
 import ExamCountdown from "@/components/common/ExamCountdown";
-import { buildExamWindow, isWithinCountdownWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { buildExamWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
 import { apiFetch } from "@/utils/api";
 
 interface ExamManagerProps {
@@ -247,11 +247,17 @@ export default function ExamManager({ student }: ExamManagerProps) {
                       </span>
                     </td>
                     <td className="px-6 py-5 bg-slate-50/50">
-                      <p className="text-sm font-bold text-slate-800">
-                        {exam.examDate ? new Date(exam.examDate).toLocaleDateString() : 'TBD'}
-                      </p>
-                      {exam.examTime && (
-                        <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{exam.examTime}</p>
+                      {exam.approvalStatus === "approved" ? (
+                        <>
+                          <p className="text-sm font-bold text-slate-800">
+                            {exam.examDate ? new Date(exam.examDate).toLocaleDateString() : "TBD"}
+                          </p>
+                          {exam.examTime && (
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{exam.examTime}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Visible after admin approval</p>
                       )}
                       {exam.examMode === "offline" && (
                         <p className="text-[10px] font-bold text-slate-500 mt-1">
@@ -290,11 +296,11 @@ export default function ExamManager({ student }: ExamManagerProps) {
                              {(() => {
                                 const lifecycleStatus = lifecycleStatusForExam(exam);
                                 const { startsAt } = buildExamWindow(exam);
-                                if (startsAt && isWithinCountdownWindow(exam)) {
-                                  return <ExamCountdown targetAt={startsAt} />;
+                                if (!startsAt) {
+                                  return <span className="text-[9px] font-bold text-red-500 italic">Exam date/time not assigned</span>;
                                 }
                                 if (lifecycleStatus === "upcoming") {
-                                  return <span className="text-[9px] font-bold text-slate-400 italic">Exam not started</span>;
+                                  return <ExamCountdown targetAt={startsAt} />;
                                 }
                                 if (lifecycleStatus === "completed") {
                                   return <span className="text-[9px] font-bold text-red-500 italic">Exam window closed</span>;

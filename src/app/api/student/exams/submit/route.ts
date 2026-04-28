@@ -50,6 +50,9 @@ export async function POST(request: Request) {
     examRecord.maxScore = maxScore;
     examRecord.status = 'completed';
     examRecord.lifecycleStatus = "completed";
+    examRecord.resultDeclared = false;
+    examRecord.marksheetReleased = false;
+    examRecord.certificateReleased = false;
     examRecord.submittedAt = new Date();
     await examRecord.save();
     return NextResponse.json({ message: 'Exam submitted successfully', score: totalScore, max: maxScore });

@@ -21,22 +21,17 @@ export async function POST(request: Request) {
 
     await dbConnect();
 
-    // Enforce one request per student per day (ATC-wise)
+    // Enforce one request per student in last 24 hours
     const now = new Date();
-    const dayStart = new Date(now);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(now);
-    dayEnd.setHours(23, 59, 59, 999);
-
-    const todayRequest = await StudentExam.findOne({
+    const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const recentRequest = await StudentExam.findOne({
       studentId,
-      atcId: atc.id,
-      createdAt: { $gte: dayStart, $lte: dayEnd },
+      createdAt: { $gte: windowStart },
     });
 
-    if (todayRequest) {
+    if (recentRequest) {
       return NextResponse.json(
-        { message: "Only one exam request per student is allowed in a day" },
+        { message: "Only one exam request per student is allowed in a day." },
         { status: 400 },
       );
     }

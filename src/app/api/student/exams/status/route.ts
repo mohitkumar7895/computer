@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
 import { StudentExam } from "@/models/StudentExam";
 import { CenterSetAssignment } from "@/models/CenterSetAssignment";
+import "@/models/QuestionSet";
 import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 
 export async function GET(request: Request) {

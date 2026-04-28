@@ -37,8 +37,12 @@ export async function POST(request: Request) {
       if (exam.examMode === "offline" && exam.offlineExamStatus !== "review_pending") {
         return NextResponse.json({ message: "Offline result is not in admin review queue." }, { status: 400 });
       }
-      if (exam.examMode === "online" && exam.status !== "completed") {
-        return NextResponse.json({ message: "Online exam is not completed yet." }, { status: 400 });
+      if (
+        exam.examMode === "online" &&
+        exam.status !== "completed" &&
+        exam.offlineExamStatus !== "review_pending"
+      ) {
+        return NextResponse.json({ message: "Online result is not ready for admin approval." }, { status: 400 });
       }
 
       const releaseMarksheet = Boolean(marksheet) && courseSettings.hasMarksheet;
