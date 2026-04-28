@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, Fragment, type FormEvent, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
-  LogOut, ShieldCheck, ChevronDown, ChevronUp, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, RotateCcw, CreditCard, Download, EyeOff, Hash, Save, Printer,
+  LogOut, ShieldCheck, ChevronDown, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, CreditCard, EyeOff, Hash, Save, Printer,
   Layout, Type, Mail
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
@@ -16,15 +16,12 @@ import ExamSetManager from "@/components/admin/ExamSetManager";
 import ExamRequestManager from "@/components/admin/ExamRequestManager";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { toPng } from "html-to-image";
 import {
   DEFAULT_FEE_OPTIONS,
   FeeOption,
   getFeeLabel,
   parseFeeOptions,
   SETTINGS_PROCESS_FEE_KEY,
-  INDIAN_STATES,
-  DISTRICTS_BY_STATE,
 } from "@/utils/atcSettings";
 import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
@@ -43,6 +40,8 @@ interface Application {
   submittedByAdmin: boolean; processFee: string; yearOfEstablishment: string;
   paymentMode: string; statusOfInstitution: string; educationQualification: string;
   professionalExperience: string; dob: string; createdAt: string;
+  paidAmount?: string;
+  transactionNo?: string;
   tpCode?: string; photo?: string; paymentScreenshot?: string;
   signature?: string; logo?: string; aadharDoc?: string; marksheetDoc?: string; otherDocs?: string;
   instituteDocument?: string;
@@ -101,6 +100,27 @@ interface Student {
   duesAmount?: number;
 }
 
+type StudentLooseFields = {
+  aadhaarNo?: string;
+  parentMobile?: string;
+  emergencyMobile?: string;
+  referenceBy?: string;
+};
+
+type StudentEditValues = Partial<Student> &
+  StudentLooseFields & {
+    [key: string]: unknown;
+  };
+
+type PendingResult = {
+  _id: string;
+  studentId?: Student;
+  atcId?: Partial<Application>;
+  totalScore?: number;
+  grade?: string;
+  offlineExamCopy?: string;
+};
+
 
 // Helper to parse infrastructure
 const parseInfra = (infraStr: string | undefined): Record<string, { rooms: string; seats: string; area: string }> => {
@@ -117,16 +137,9 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-const FormValue = ({ label, value, highlight = false, full = false }: any) => (
-  <div className={`${full ? 'col-span-2' : ''} border-b border-slate-100 pb-1`}>
-      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-      <p className={`text-[11px] font-black uppercase ${highlight ? 'text-blue-700' : 'text-slate-900'}`}>{value || "---"}</p>
-  </div>
-);
-
 type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds";
 
-const PrintField = ({ label, value }: any) => (
+const PrintField = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
   <div>
     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
     <p className="text-[11px] font-black text-slate-900 uppercase">{value || "---"}</p>
@@ -135,31 +148,18 @@ const PrintField = ({ label, value }: any) => (
 
 export default function AdminPanelPage() {
   usePageTitle("admin");
-  const router = useRouter();
   const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
-  const [centerFilter, setCenterFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(["settings"]);
 
   const toggleMenu = (menu: string) => {
     setExpandedMenus(prev => prev.includes(menu) ? prev.filter(m => m !== menu) : [...prev, menu]);
   }; // New state
-  const [editingCenter, setEditingCenter] = useState<Application | null>(null);
-  const [editValues, setEditValues] = useState({
-    trainingPartnerName: "",
-    district: "",
-    state: "",
-    zones: "",
-    mobile: "",
-    email: "",
-  });
-  const [editSaving, setEditSaving] = useState(false);
   const [editingApplication, setEditingApplication] = useState<Application | null>(null);
   const [prefillApplication, setPrefillApplication] = useState<Application | null>(null);
   const [toastMsg, setToastMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -168,8 +168,7 @@ export default function AdminPanelPage() {
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrSaving, setQrSaving] = useState(false);
-  const [bgLoading, setBgLoading] = useState(true);
-  const [bgs, setBgs] = useState({ id_front: "", id_back: "", certificate: "", marksheet: "", admit_card: "" });
+  const [bgs, setBgs] = useState<Record<"id_front" | "id_back" | "certificate" | "marksheet" | "admit_card", string>>({ id_front: "", id_back: "", certificate: "", marksheet: "", admit_card: "" });
   const [bgSaving, setBgSaving] = useState<string | null>(null);
 
   // Signature Settings
@@ -188,28 +187,24 @@ export default function AdminPanelPage() {
 
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [viewIdCard, setViewIdCard] = useState<any>(null);
+  const [viewIdCard, setViewIdCard] = useState<Student | null>(null);
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   
   // Result Review
-  const [pendingResults, setPendingResults] = useState<any[]>([]);
+  const [pendingResults, setPendingResults] = useState<PendingResult[]>([]);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [selectedResults, setSelectedResults] = useState<string[]>([]);
-  const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<any>(null);
-  const [releaseForm, setReleaseForm] = useState({ marksheet: true, certificate: true });
 
   // Application Filters
-  const [appSearch, setAppSearch] = useState("");
-  const [appStateFilter, setAppStateFilter] = useState("");
-  const [appDistrictFilter, setAppDistrictFilter] = useState("");
+  const [appSearch] = useState("");
+  const [appStateFilter] = useState("");
+  const [appDistrictFilter] = useState("");
 
-  const [studentEditValues, setStudentEditValues] = useState<any>({});
+  const [studentEditValues, setStudentEditValues] = useState<StudentEditValues>({});
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
   const [passSaving, setPassSaving] = useState(false);
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
-  const [showStudentPass, setShowStudentPass] = useState(false);
 
   // ID Format States
   const [centerFormat, setCenterFormat] = useState({ prefix: "ATC-", counter: 1, padding: 4 });
@@ -240,11 +235,12 @@ export default function AdminPanelPage() {
     win.document.write(`<iframe src="${url}" frameborder="0" style="border:0;top:0;left:0;bottom:0;right:0;width:100%;height:100%;" allowfullscreen></iframe>`);
   };
 
-  const getStudentFieldValue = (values: Record<string, any>, key: string) => {
+  const getStudentFieldValue = (values: StudentEditValues, key: string) => {
     if (key === "aadharNo") return values.aadharNo || values.aadhaarNo || "";
     if (key === "parentsMobile") return values.parentsMobile || values.parentMobile || values.emergencyMobile || "";
     if (key === "referredBy") return values.referredBy || values.referenceBy || "";
-    return values[key] || "";
+    const value = values[key];
+    return value === null || value === undefined ? "" : String(value);
   };
 
   const openStudentEditor = async (student: Student) => {
@@ -252,23 +248,25 @@ export default function AdminPanelPage() {
       const mediaRes = await apiFetch(`/api/admin/students/media?studentId=${student._id}`);
       const mediaData = mediaRes.ok ? await mediaRes.json() : { media: {} };
       const mergedStudent = { ...student, ...(mediaData.media || {}) };
-      const normalizedStudent = {
+      const mergedLoose = mergedStudent as StudentLooseFields;
+      const normalizedStudent: Student = {
         ...mergedStudent,
-        aadharNo: mergedStudent.aadharNo || (mergedStudent as any).aadhaarNo || "",
-        parentsMobile: mergedStudent.parentsMobile || (mergedStudent as any).parentMobile || (mergedStudent as any).emergencyMobile || "",
-        referredBy: mergedStudent.referredBy || (mergedStudent as any).referenceBy || "",
+        aadharNo: mergedStudent.aadharNo || mergedLoose.aadhaarNo || "",
+        parentsMobile: mergedStudent.parentsMobile || mergedLoose.parentMobile || mergedLoose.emergencyMobile || "",
+        referredBy: mergedStudent.referredBy || mergedLoose.referenceBy || "",
       };
       setEditingStudent(normalizedStudent);
-      setStudentEditValues(normalizedStudent);
+      setStudentEditValues(normalizedStudent as StudentEditValues);
     } catch {
-      const normalizedStudent = {
+      const studentLoose = student as unknown as StudentLooseFields;
+      const normalizedStudent: Student = {
         ...student,
-        aadharNo: student.aadharNo || (student as any).aadhaarNo || "",
-        parentsMobile: student.parentsMobile || (student as any).parentMobile || (student as any).emergencyMobile || "",
-        referredBy: student.referredBy || (student as any).referenceBy || "",
+        aadharNo: student.aadharNo || studentLoose.aadhaarNo || "",
+        parentsMobile: student.parentsMobile || studentLoose.parentMobile || studentLoose.emergencyMobile || "",
+        referredBy: student.referredBy || studentLoose.referenceBy || "",
       };
       setEditingStudent(normalizedStudent);
-      setStudentEditValues(normalizedStudent);
+      setStudentEditValues(normalizedStudent as StudentEditValues);
       showToast("error", "Could not load full document set. Showing available details.");
     }
   };
@@ -296,77 +294,9 @@ export default function AdminPanelPage() {
       .then((res) => res.json())
       .then((data) => {
         setBgs(data);
-        setBgLoading(false);
       })
-      .catch(() => setBgLoading(false));
+      .catch(() => undefined);
   }, [authLogout, sessionReady, authLoading, authUser]);
-
-  const openCenterEditor = (app: Application) => {
-    setToastMsg(null);
-    setEditingCenter(app);
-    setEditValues({
-      trainingPartnerName: app.trainingPartnerName,
-      district: app.district,
-      state: app.state,
-      zones: (app.zones ?? []).join(", "),
-      mobile: app.mobile,
-      email: app.email,
-    });
-  };
-
-  const closeCenterEditor = () => {
-    setEditingCenter(null);
-    setEditSaving(false);
-  };
-
-  const handleCenterSave = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editingCenter) return;
-
-    const trainingPartnerName = editValues.trainingPartnerName.trim();
-    const district = editValues.district.trim();
-    const state = editValues.state.trim();
-    const zones = editValues.zones.split(",").map((zone) => zone.trim()).filter(Boolean);
-    const mobile = editValues.mobile.trim();
-    const email = editValues.email.trim();
-
-    if (!trainingPartnerName) { showToast("error", "Center name is required."); return; }
-    if (!district) { showToast("error", "District is required."); return; }
-    if (!state) { showToast("error", "State is required."); return; }
-    if (!/^[0-9]{10}$/.test(mobile)) { showToast("error", "Mobile number must be 10 digits."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("error", "Enter a valid email address."); return; }
-
-    setEditSaving(true);
-    try {
-      const res = await apiFetch(`/api/admin/applications/${editingCenter._id}`, {
-        method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          update: {
-            trainingPartnerName,
-            district,
-            state,
-            zones,
-            mobile,
-            email,
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) { showToast("error", data.message || "Failed to update center."); return; }
-
-      showToast("success", data.message || "Center updated successfully.");
-      closeCenterEditor();
-      await fetchApplications();
-    } catch {
-      showToast("error", "Unable to save center changes. Please try again.");
-    } finally {
-      setEditSaving(false);
-    }
-  };
 
   const fetchSettings = useCallback(async () => {
     if (!sessionReady || authLoading || !authUser) return;
@@ -566,24 +496,6 @@ export default function AdminPanelPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleResetPassword = async (id: string) => {
-    const newPass = prompt("Enter new password for student:");
-    if (!newPass || !authUser) return;
-    try {
-      const res = await apiFetch(`/api/admin/students/${id}`, {
-        method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ action: "resetPassword", newPassword: newPass }),
-      });
-      if (!res.ok) throw new Error("Reset failed");
-      showToast("success", "Password reset successfully");
-    } catch {
-      showToast("error", "Failed to reset password");
-    }
-  };
-
   const handleBulkAction = async (type: "students" | "centers", action: string) => {
     const ids = type === "students" ? selectedStudents : selectedApps;
     if (ids.length === 0 || !authUser) return;
@@ -603,8 +515,8 @@ export default function AdminPanelPage() {
       setSelectedStudents([]);
       setSelectedApps([]);
       if (type === "students") await fetchStudents(); else await fetchApplications();
-    } catch (err: any) {
-      showToast("error", err.message);
+    } catch (err: unknown) {
+      showToast("error", err instanceof Error ? err.message : "Bulk action failed.");
     }
   };
 
@@ -634,11 +546,6 @@ export default function AdminPanelPage() {
     }
   };
 
-  const openApplicationEditor = (application: Application) => {
-    setToastMsg(null);
-    setEditingApplication(application);
-  };
-
   const openApplicationForCreateEdit = async (application: Application) => {
     if (!sessionReady || authLoading || !authUser) return;
     setToastMsg(null);
@@ -650,8 +557,8 @@ export default function AdminPanelPage() {
       const data = await res.json();
       setPrefillApplication(data.application);
       setTab("create");
-    } catch (err: any) {
-      showToast("error", err.message);
+    } catch (err: unknown) {
+      showToast("error", err instanceof Error ? err.message : "Failed to fetch full application details.");
     } finally {
       setActionLoading(null);
     }
@@ -868,7 +775,7 @@ export default function AdminPanelPage() {
         } else {
           showToast("error", data.message || "Upload failed");
         }
-      } catch (err) { showToast("error", "Failed to save background"); }
+      } catch { showToast("error", "Failed to save background"); }
       finally { setBgSaving(null); }
     };
     reader.readAsDataURL(file);
@@ -885,7 +792,7 @@ export default function AdminPanelPage() {
         setBgs(prev => ({ ...prev, [key]: "" }));
         showToast("success", "Background removed.");
       }
-    } catch (err) { showToast("error", "Failed to remove background"); }
+    } catch { showToast("error", "Failed to remove background"); }
     finally { setBgSaving(null); }
   };
 
@@ -974,7 +881,6 @@ export default function AdminPanelPage() {
       });
       if (res.ok) {
         alert("Result Submitted Successfully");
-        setShowReleaseModal(false);
         void fetchPendingResults();
       }
     } catch { showToast("error", "Action failed"); }
@@ -983,8 +889,6 @@ export default function AdminPanelPage() {
   const handleLogout = async () => {
     await authLogout();
   };
-
-  const districts = appStateFilter ? DISTRICTS_BY_STATE[appStateFilter] || [] : [];
 
   const filtered = applications.filter((app) => {
     // Status Filter
@@ -1019,13 +923,6 @@ export default function AdminPanelPage() {
     disabled: applications.filter((a) => a.status === "approved" && a.userStatus === "disabled").length,
   };
 
-  const filteredCenters = applications.filter((a) => {
-    if (centerFilter === "all") return true;
-    if (centerFilter === "disabled") return a.userStatus === "disabled";
-    return a.status === centerFilter;
-  });
-  const centerCounts = counts; // They follow the same logic as dashboard counts for applications
-
   const filteredStudents = students.filter((s) => {
     if (studentFilter === "all") return true;
     if (studentFilter === "disabled") return s.userStatus === "disabled";
@@ -1039,22 +936,6 @@ export default function AdminPanelPage() {
     approved: students.filter((s) => s.status === "approved" || s.status === "active").length,
     rejected: students.filter((s) => s.status === "rejected").length,
     disabled: students.filter((s) => s.userStatus === "disabled").length,
-  };
-
-  const statusBadge = (status: Application["status"]) => {
-    const map = {
-      pending: "bg-amber-100 text-amber-700 border-amber-200",
-      approved: "bg-green-100 text-green-700 border-green-200",
-      rejected: "bg-red-900/10 text-red-900 border-red-800",
-    };
-    return (
-      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${map[status]}`}>
-        {status === "pending" && <Clock className="w-3 h-3" />}
-        {status === "approved" && <CheckCircle className="w-3 h-3" />}
-        {status === "rejected" && <XCircle className="w-3 h-3" />}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
   };
 
   const tabLabel: Record<Tab, string> = {
@@ -1109,7 +990,7 @@ export default function AdminPanelPage() {
         )}
 
         {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a0a2e] to-[#0a0aa1] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <aside className={`fixed inset-y-0 left-0 w-72 bg-linear-to-b from-[#0a0a2e] to-[#0a0aa1] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -1240,7 +1121,7 @@ export default function AdminPanelPage() {
                       { label: "Rejected ATC", count: counts.rejected, icon: XCircle, color: "red" },
                       { label: "Disabled ATC", count: counts.disabled, icon: ShieldAlert, color: "slate" },
                     ].map((stat) => (
-                      <div key={stat.label} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
+                      <div key={stat.label} className="bg-white rounded-4xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color === 'red' ? 'bg-red-900/10' : `bg-${stat.color}-50`} group-hover:scale-110 transition-transform`}>
                           <stat.icon className={`w-6 h-6 ${stat.color === 'red' ? 'text-red-900' : `text-${stat.color}-600`}`} />
                         </div>
@@ -1267,7 +1148,7 @@ export default function AdminPanelPage() {
                       { label: "Rejected Students", count: studentCounts.rejected, icon: XCircle, color: "red" },
                       { label: "Disabled Students", count: studentCounts.disabled, icon: ShieldAlert, color: "slate" },
                     ].map((stat) => (
-                      <div key={stat.label} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
+                      <div key={stat.label} className="bg-white rounded-4xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all group">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color === 'red' ? 'bg-red-900/10' : `bg-${stat.color}-50`} group-hover:scale-110 transition-transform`}>
                           <stat.icon className={`w-6 h-6 ${stat.color === 'red' ? 'text-red-900' : `text-${stat.color}-600`}`} />
                         </div>
@@ -1407,7 +1288,7 @@ export default function AdminPanelPage() {
                              />
                           </div>
                           <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0 border border-blue-100">
-                            {app.logo ? <img src={app.logo} alt="" className="w-10 h-10 object-contain" /> : <ShieldCheck className="w-7 h-7 text-blue-600" />}
+                            {app.logo ? <Image src={app.logo} alt="" width={40} height={40} unoptimized className="w-10 h-10 object-contain" /> : <ShieldCheck className="w-7 h-7 text-blue-600" />}
                           </div>
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center gap-3 flex-wrap">
@@ -1602,9 +1483,9 @@ export default function AdminPanelPage() {
                             />
                          </div>
                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0">
-                            {res.studentId?.photo ? <img src={res.studentId.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-8 h-8 m-4 text-slate-300" />}
+                            {res.studentId?.photo ? <Image src={res.studentId.photo} alt="" width={64} height={64} unoptimized className="w-full h-full object-cover" /> : <User className="w-8 h-8 m-4 text-slate-300" />}
                          </div>
-                         <div className="flex-grow space-y-1">
+                         <div className="grow space-y-1">
                             <div className="flex items-center gap-3">
                                <h4 className="font-bold text-slate-800 text-lg">{res.studentId?.name || "Unknown Student"}</h4>
                                <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase border border-blue-100">{res.studentId?.registrationNo}</span>
@@ -1630,13 +1511,13 @@ export default function AdminPanelPage() {
                          <div className="flex items-center gap-3 w-full md:w-auto">
                             <button 
                               onClick={() => handleResultApproval(res._id, "appeared")}
-                              className="flex-grow md:flex-none px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase hover:bg-red-50 hover:text-red-600 transition"
+                              className="grow md:flex-none px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase hover:bg-red-50 hover:text-red-600 transition"
                             >
                               Reject
                             </button>
                             <button 
                               onClick={() => handleResultApproval(res._id, "published")}
-                              className="flex-grow md:flex-none px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100"
+                              className="grow md:flex-none px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100"
                             >
                               Approve & Generate
                             </button>
@@ -1652,7 +1533,7 @@ export default function AdminPanelPage() {
               <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* Global Brand Identity */}
-                <div className="md:col-span-2 bg-white rounded-[2rem] border border-slate-100 shadow-xl p-8 space-y-6">
+                <div className="md:col-span-2 bg-white rounded-4xl border border-slate-100 shadow-xl p-8 space-y-6">
                   <div className="flex items-center gap-5">
                     <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
                       <Layout className="w-7 h-7 text-indigo-600" />
@@ -1761,10 +1642,10 @@ export default function AdminPanelPage() {
 
                     <div className="space-y-4">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 block">Institution Logo (PNG/SVG)</label>
-                        <div className="relative aspect-square max-w-[240px] mx-auto bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group hover:border-indigo-300 transition">
+                        <div className="relative aspect-square max-w-60 mx-auto bg-slate-50 rounded-4xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group hover:border-indigo-300 transition">
                             {brandLogo ? (
                                 <div className="relative w-full h-full p-8">
-                                    <img src={brandLogo} alt="Logo" className="w-full h-full object-contain" />
+                                    <Image src={brandLogo} alt="Logo" width={240} height={240} unoptimized className="w-full h-full object-contain" />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                                         <label className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition">
                                             Change Logo
@@ -1804,8 +1685,7 @@ export default function AdminPanelPage() {
                     </div>
                   ) : qrPreview ? (
                     <div className="flex flex-col items-center gap-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={qrPreview} alt="Payment QR Code" className="w-48 h-48 object-contain border-2 border-slate-200 rounded-xl shadow-sm" />
+                      <Image src={qrPreview} alt="Payment QR Code" width={192} height={192} unoptimized className="w-48 h-48 object-contain border-2 border-slate-200 rounded-xl shadow-sm" />
                       <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
                         <CheckCircle className="w-3.5 h-3.5" /> QR Code is set and active
                       </span>
@@ -1951,8 +1831,7 @@ export default function AdminPanelPage() {
                     </div>
                   ) : sigPreview ? (
                     <div className="flex flex-col items-center gap-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={sigPreview} alt="Signature Preview" className="w-48 h-24 object-contain border-2 border-slate-200 rounded-xl shadow-sm bg-slate-50" />
+                      <Image src={sigPreview} alt="Signature Preview" width={192} height={96} unoptimized className="w-48 h-24 object-contain border-2 border-slate-200 rounded-xl shadow-sm bg-slate-50" />
                       <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
                         <CheckCircle className="w-3.5 h-3.5" /> Signature is set and active
                       </span>
@@ -2214,18 +2093,18 @@ export default function AdminPanelPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                  {[
+                  {([
                     { id: "id_front", label: "ID Front" },
                     { id: "id_back", label: "ID Back" },
                     { id: "certificate", label: "Certificate" },
                     { id: "marksheet", label: "Marksheet" },
                     { id: "admit_card", label: "Admit Card" },
-                  ].map((item) => (
+                  ] as const).map((item) => (
                     <div key={item.id} className="space-y-3">
-                      <div className="relative aspect-[3.5/2] bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden group shadow-sm transition hover:border-purple-200">
-                        {(bgs as any)[item.id] ? (
+                      <div className="relative aspect-3.5/2 bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden group shadow-sm transition hover:border-purple-200">
+                        {bgs[item.id] ? (
                           <>
-                            <img src={(bgs as any)[item.id]} alt={item.label} className="w-full h-full object-cover" />
+                            <Image src={bgs[item.id]} alt={item.label} width={350} height={200} unoptimized className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
                               <button onClick={() => handleBgRemove(item.id)} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                                 <Trash2 className="w-4 h-4" />
@@ -2275,7 +2154,7 @@ export default function AdminPanelPage() {
                   {(["all", "pending", "active", "rejected", "disabled"] as const).map((s) => (
                     <button
                       key={s}
-                      onClick={() => setStudentFilter(s as any)}
+                      onClick={() => setStudentFilter(s === "active" ? "approved" : s)}
                       className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
                         studentFilter === s
                           ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-lg shadow-blue-100 scale-105"
@@ -2365,7 +2244,7 @@ export default function AdminPanelPage() {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   {s.photo ? (
-                                    <img src={s.photo} alt={s.name} className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm ring-1 ring-slate-100" />
+                                    <Image src={s.photo} alt={s.name} width={40} height={40} unoptimized className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm ring-1 ring-slate-100" />
                                   ) : (
                                     <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-200"><User className="w-5 h-5 text-slate-300" /></div>
                                   )}
@@ -2470,17 +2349,17 @@ export default function AdminPanelPage() {
 
         {/* ── STUDENT EDIT MODAL ── */}
         {editingStudent && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
             <div className="bg-white rounded-[2.5rem] w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-white/20 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-500">
               <div className={`shrink-0 px-10 py-8 flex items-center justify-between border-b border-slate-100 ${
                 (editingStudent.status === "active" || editingStudent.status === "approved")
-                  ? "bg-gradient-to-r from-emerald-50 to-white"
-                  : "bg-gradient-to-r from-blue-50 to-white"
+                  ? "bg-linear-to-r from-emerald-50 to-white"
+                  : "bg-linear-to-r from-blue-50 to-white"
               }`}>
                 <div className="flex items-center gap-6">
                   <div className="w-20 h-20 rounded-3xl overflow-hidden bg-white border-4 border-white shadow-2xl">
                     {studentEditValues.photo ? (
-                      <img src={studentEditValues.photo} alt={editingStudent.name} className="w-full h-full object-cover" />
+                      <Image src={String(studentEditValues.photo)} alt={editingStudent.name} width={64} height={64} unoptimized className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-50"><User className="w-8 h-8 text-slate-300" /></div>
                     )}
@@ -2518,7 +2397,7 @@ export default function AdminPanelPage() {
                   }
                 }}>
                   <div className="lg:col-span-8 space-y-8">
-                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                    <div className="bg-white rounded-4xl border border-slate-100 shadow-sm p-6">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Personal Identity</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {[
@@ -2529,13 +2408,13 @@ export default function AdminPanelPage() {
                         ].map((field) => (
                           <div key={field.key}>
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
-                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
+                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                    <div className="bg-white rounded-4xl border border-slate-100 shadow-sm p-6">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Academic & Contact</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
@@ -2545,27 +2424,27 @@ export default function AdminPanelPage() {
                         ].map((field) => (
                           <div key={field.key}>
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
-                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
+                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
                           </div>
                         ))}
                         <div className="md:col-span-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Student Password</label>
-                          <input type="text" value={studentEditValues.password || ""} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, password: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" placeholder="Enter student password" />
+                          <input type="text" value={String(studentEditValues.password || "")} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, password: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" placeholder="Enter student password" />
                         </div>
                         <div>
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Current Address</label>
-                          <textarea value={studentEditValues.currentAddress || ""} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, currentAddress: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24" />
+                          <textarea value={String(studentEditValues.currentAddress || "")} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, currentAddress: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24" />
                         </div>
                         <div>
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Permanent Address</label>
-                          <textarea value={studentEditValues.permanentAddress || ""} onChange={(e) => setStudentEditValues((prev: any) => ({ ...prev, permanentAddress: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24" />
+                          <textarea value={String(studentEditValues.permanentAddress || "")} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, permanentAddress: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-24" />
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl">
+                    <div className="bg-slate-900 rounded-4xl p-6 text-white shadow-2xl">
                       <h4 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-5">Financial Overview</h4>
                       <div className="space-y-4">
                         <p className="text-xs font-bold text-white/70">Total Fee: <span className="text-white font-black">₹{studentEditValues.admissionFees || 0}</span></p>
@@ -2574,7 +2453,7 @@ export default function AdminPanelPage() {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                    <div className="bg-white rounded-4xl border border-slate-100 shadow-sm p-6">
                       <p className="text-xs font-black uppercase tracking-widest text-slate-800 mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600" /> Documents & Uploads</p>
                       <p className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-3">Upload Limit: JPG/PNG up to 100KB, PDF up to 500KB</p>
                       <div className="grid grid-cols-3 gap-3">
@@ -2590,7 +2469,7 @@ export default function AdminPanelPage() {
                                 const docUrl = studentEditValues[d.key];
                                 const isPdf = typeof docUrl === "string" && (docUrl.includes("application/pdf") || docUrl.toLowerCase().endsWith(".pdf"));
                                 const isImage = typeof docUrl === "string" && !isPdf && (docUrl.includes("image/") || docUrl.toLowerCase().endsWith(".jpg") || docUrl.toLowerCase().endsWith(".jpeg") || docUrl.toLowerCase().endsWith(".png") || docUrl.toLowerCase().endsWith(".webp"));
-                                if (isImage) return <img src={docUrl} alt={d.label} className="w-full h-full object-cover" />;
+                                if (isImage) return <Image src={docUrl} alt={d.label} width={160} height={96} unoptimized className="w-full h-full object-cover" />;
                                 if (isPdf) return <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-1 p-2 bg-red-50"><FileText className="w-4 h-4" /><span className="text-[7px] font-black uppercase text-center">PDF</span></div>;
                                 return <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1 p-2"><Upload className="w-4 h-4" /><span className="text-[7px] font-black uppercase text-center">Upload</span></div>;
                               })()}
@@ -2600,11 +2479,14 @@ export default function AdminPanelPage() {
                                 const reader = new FileReader();
                                 reader.readAsDataURL(file);
                                 reader.onload = () => {
-                                  setStudentEditValues((prev: any) => ({ ...prev, [d.key]: reader.result }));
+                                  const result = reader.result;
+                                  if (typeof result === "string") {
+                                    setStudentEditValues((prev) => ({ ...prev, [d.key]: result }));
+                                  }
                                 };
                               }} />
                             </label>
-                            {studentEditValues[d.key] && <button type="button" onClick={() => openStudentDoc(studentEditValues[d.key])} className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View</button>}
+                            {typeof studentEditValues[d.key] === "string" && <button type="button" onClick={() => openStudentDoc(studentEditValues[d.key] as string)} className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View</button>}
                           </div>
                         ))}
                       </div>
@@ -2625,7 +2507,7 @@ export default function AdminPanelPage() {
         {/* ID CARD VIEW MODAL */}
 
         {viewIdCard && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-100 flex items-center justify-center p-4">
              <div className="relative w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
                 {/* Header with Close */}
                 <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -2648,7 +2530,6 @@ export default function AdminPanelPage() {
                         student={{
                           ...viewIdCard,
                           registrationNo: viewIdCard.registrationNo || "PENDING",
-                          tpCode: viewIdCard.tpCode || "PENDING",
                           dob: viewIdCard.dob || "N/A",
                           admissionDate: viewIdCard.createdAt ? new Date(viewIdCard.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: '2-digit', year: 'numeric' }) : "N/A",
                           centerName: applications.find(a => a.tpCode === viewIdCard.tpCode)?.trainingPartnerName || "N/A",
@@ -2689,7 +2570,7 @@ export default function AdminPanelPage() {
                       </div>
                       <div className="w-28 h-36 bg-slate-50 border-2 border-slate-900 p-0.5">
                           {studentEditValues.photo ? (
-                              <img src={studentEditValues.photo} className="w-full h-full object-cover" />
+                              <Image src={String(studentEditValues.photo)} alt="Student photo" width={112} height={144} unoptimized className="w-full h-full object-cover" />
                           ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-[6px] font-black uppercase text-center p-2 border border-dashed border-slate-200">
                                   Photo Not Provided
