@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { 
   GraduationCap, BookOpen, ScrollText, User, 
@@ -21,7 +22,7 @@ import { cookieFetch } from "@/lib/auth-client";
 import { apiFetch } from "@/utils/api";
 
 export default function StudentDashboardPage() {
-  const { brandName } = useBrand();
+  const { brandName, brandLogo } = useBrand();
   usePageTitle("student");
   const router = useRouter();
   const [student, setStudent] = useState<any>(null);
@@ -140,11 +141,15 @@ export default function StudentDashboardPage() {
         <div className="flex flex-col h-full p-6">
           {/* Logo Section */}
           <div className="flex items-center gap-4 mb-10 px-2 lg:mt-0">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-xl transform group transition-transform hover:rotate-6">
-              <GraduationCap className="text-blue-400 w-7 h-7" />
+            <div className="h-12 w-12 overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl flex items-center justify-center shadow-xl transform transition-transform group hover:rotate-6">
+              {brandLogo ? (
+                <Image src={brandLogo} alt={brandName} width={48} height={48} unoptimized className="h-full w-full object-contain p-1" />
+              ) : (
+                <GraduationCap className="text-blue-400 w-7 h-7" />
+              )}
             </div>
             <div>
-              <p className="font-black text-lg leading-tight tracking-tight uppercase">{brandName.split(' ')[0]} Portal</p>
+              <p className="font-black text-lg leading-tight tracking-tight uppercase">{brandName || "Institution Brand"}</p>
               <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-0.5">Student Access</p>
             </div>
           </div>

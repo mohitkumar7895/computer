@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { CreditCard, History, Printer, CheckCircle, AlertCircle, FileText, Plus, Minus } from "lucide-react";
 import { apiFetch } from "@/utils/api";
+import { useBrand } from "@/context/BrandContext";
+import type { SVGProps } from "react";
 
 interface Transaction {
   _id: string;
@@ -14,9 +16,20 @@ interface Transaction {
   type: "collect" | "return";
 }
 
-export default function StudentFeeView({ student }: { student: any }) {
+type FeeStudent = {
+  _id: string;
+  name: string;
+  registrationNo: string;
+  duesAmount?: number;
+  totalFee?: number;
+  admissionFees?: number | string;
+  paidAmount?: number;
+};
+
+export default function StudentFeeView({ student }: { student: FeeStudent }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const { brandName } = useBrand();
 
   useEffect(() => {
     apiFetch(`/api/fee/history/${student._id}`)
@@ -54,7 +67,7 @@ export default function StudentFeeView({ student }: { student: any }) {
         <body>
           <div class="header">
             <div class="receipt-title">FEE RECEIPT</div>
-            <div>Yukti Computer Education</div>
+            <div>${brandName || "Institution"}</div>
           </div>
           <div class="grid">
             <div>
@@ -235,7 +248,7 @@ export default function StudentFeeView({ student }: { student: any }) {
             <div>
                <h4 className="text-2xl font-black uppercase tracking-tight mb-2">Automated Fee Tracking</h4>
                <p className="text-blue-100 font-medium opacity-80 leading-relaxed max-w-xl">
-                 Your fee details are synchronized in real-time with the institution's financial core. If you notice any discrepancy in your paid amounts, please contact your study center head immediately.
+                 Your fee details are synchronized in real-time with the institution&apos;s financial core. If you notice any discrepancy in your paid amounts, please contact your study center head immediately.
                </p>
             </div>
          </div>
@@ -245,7 +258,7 @@ export default function StudentFeeView({ student }: { student: any }) {
   );
 }
 
-function ReceiptText(props: any) {
+function ReceiptText(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}

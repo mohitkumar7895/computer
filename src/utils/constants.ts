@@ -30,7 +30,6 @@ export const NAV_LINKS: NavLink[] = [
       { label: "Examination Process", href: "/student-zone/examination-process" },
       { label: "Download Admit Card", href: "/student-zone/download-admit-card" },
       { label: "Registered Student", href: "/student-zone/registered-student" },
-      { label: "Certificate Verification", href: "/student-zone/certification-verification" },
     ],
   },
   { label: "COURSES OFFERED", href: "/courses-offered" },
@@ -66,15 +65,15 @@ export const NAV_LINKS: NavLink[] = [
 ];
 
 export const SITE_INFO = {
-  name: "Yukti Computer Institute",
-  tagline: "Learn industry-ready skills from experts.",
-  email: "info@yukticomputer.com",
-  phone: "+91 9272638590",
-  address: "Shop No 208 above Bank of Baroda Mahavir market Ostwal Empire Boisar, Boisar, Maharashtra 401501",
+  name: "Institution",
+  tagline: "Official education portal.",
+  email: "",
+  phone: "",
+  address: "",
   hours: "Mon - Sat : 09:00 A.M. - 5:00 P.M.",
-  designer: "WEBTECH IT SOLUTIONS",
+  designer: "Provisioningtech",
   mapEmbedUrl:
-    "https://www.google.com/maps?q=Yukti%20Computer%20Institute%20Boisar&z=15&output=embed",
+    "https://www.google.com/maps?q=India&z=5&output=embed",
 };
 
 export const SOCIAL_LINKS = [

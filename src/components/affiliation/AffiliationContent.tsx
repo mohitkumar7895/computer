@@ -1,3 +1,5 @@
+import { getBrandName } from "@/lib/settings";
+
 const minimumRequirements = [
   "3 Computers",
   "200 sq/ft Covered Area",
@@ -21,7 +23,8 @@ const whoCanApply = [
   "Should be willing to invest required amount of money in setting up a center with proper infrastructure and man power",
 ];
 
-export default function AffiliationContent() {
+export default async function AffiliationContent() {
+  const brandName = await getBrandName();
   return (
     <div className="mx-auto w-full max-w-6xl text-slate-700">
       <div className="max-w-5xl space-y-10">
@@ -30,8 +33,8 @@ export default function AffiliationContent() {
             Computer Education Franchise, Computer Training Institute Affiliation
           </h2>
           <p className="mt-4 text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
-            For the first time Yukti GroupEducation launching offer to provide franchise all over India
-            without taking any franchise fees. Yukti GroupEducation is the One of the best institution to
+            For the first time {brandName} launching offer to provide franchise all over India
+            without taking any franchise fees. {brandName} is one of the best institutions to
             provide computer education in India.
           </p>
         </section>
@@ -50,13 +53,13 @@ export default function AffiliationContent() {
 
         <section>
           <h3 className="text-2xl font-bold leading-tight text-slate-800 sm:text-3xl lg:text-[2.6rem]">
-            Start your own IT Education & Training Franchise with Yukti GroupComputer Center
+            Start your own IT Education & Training Franchise with {brandName}
           </h3>
           <p className="mt-3 text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
-            If you are looking for business opportunity in the education sector then Yukti Groupfranchise
-            will be the perfect platform to achieve your business goals. Yukti Grouphas been one of the fast
-            growing computer education providers in the India. Yukti GroupComputer Center is Govt. Registered
-            organization. You can start Yukti Groupfranchisee if you meet minimum requirements mentioned below.
+            If you are looking for business opportunity in the education sector then {brandName} franchise
+            will be the perfect platform to achieve your business goals. {brandName} has been one of the fast
+            growing computer education providers in India. {brandName} is a Govt. Registered
+            organization. You can start {brandName} franchisee if you meet minimum requirements mentioned below.
           </p>
         </section>
 

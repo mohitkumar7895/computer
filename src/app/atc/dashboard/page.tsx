@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Building2, LayoutDashboard, LogOut, CheckCircle,
@@ -60,7 +61,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
 export default function AtcDashboardPage() {
-  const { brandName } = useBrand();
+  const { brandName, brandLogo, brandMobile, brandEmail } = useBrand();
   usePageTitle("atc");
   const router = useRouter();
   const [user, setUser] = useState<AtcUser | null>(null);
@@ -237,11 +238,15 @@ export default function AtcDashboardPage() {
       <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a2e1a] to-[#0a7a3b] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-              <Building2 className="w-5 h-5 text-white" />
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/10 flex items-center justify-center">
+              {brandLogo ? (
+                <Image src={brandLogo} alt={brandName} width={40} height={40} unoptimized className="h-full w-full object-contain p-1" />
+              ) : (
+                <Building2 className="w-5 h-5 text-white" />
+              )}
             </div>
             <div className="overflow-hidden">
-              <p className="font-bold text-sm leading-tight truncate">{brandName}</p>
+              <p className="font-bold text-sm leading-tight truncate">{brandName || "Institution Brand"}</p>
               <p className="text-green-300 text-[10px] font-black uppercase tracking-widest">{user.tpCode}</p>
             </div>
           </div>
@@ -679,10 +684,10 @@ export default function AtcDashboardPage() {
                       <p className="text-slate-300 text-sm mt-0.5">Contact our support team for any assistance.</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                      <a href="tel:+919272638590" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
-                        <Phone className="w-4 h-4" /> +91 9272638590
+                      <a href={brandMobile ? `tel:${brandMobile.replace(/\s+/g, "")}` : "#"} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
+                        <Phone className="w-4 h-4" /> {brandMobile || "Support Mobile"}
                       </a>
-                      <a href="mailto:info@yukticomputer.com" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
+                      <a href={brandEmail ? `mailto:${brandEmail}` : "#"} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/20 transition">
                         <Mail className="w-4 h-4" /> Email Support
                       </a>
                     </div>

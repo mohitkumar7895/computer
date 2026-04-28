@@ -1,7 +1,14 @@
 import SectionWrapper from "@/components/SectionWrapper";
-import { SITE_INFO } from "@/utils/constants";
+import { getFullBrandData } from "@/lib/settings";
 
-export default function Contact() {
+export default async function Contact() {
+  const brand = await getFullBrandData();
+  const brandName = brand.brand_name || "Institution";
+  const brandEmail = brand.brand_email || "Not available";
+  const brandMobile = brand.brand_mobile || "Not available";
+  const brandAddress = brand.brand_address || "Not available";
+  const brandTagline = brand.brand_url || "Official website";
+
   return (
     <SectionWrapper
       id="contact"
@@ -11,17 +18,17 @@ export default function Contact() {
     >
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4 rounded-2xl bg-white p-6 shadow-md ring-1 ring-slate-200">
-          <h3 className="text-2xl font-semibold text-slate-900">{SITE_INFO.name}</h3>
-          <p className="text-slate-600">{SITE_INFO.tagline}</p>
+          <h3 className="text-2xl font-semibold text-slate-900">{brandName}</h3>
+          <p className="text-slate-600">{brandTagline}</p>
           <div className="space-y-2 text-sm text-slate-700">
             <p>
-              <span className="font-semibold">Email:</span> {SITE_INFO.email}
+              <span className="font-semibold">Email:</span> {brandEmail}
             </p>
             <p>
-              <span className="font-semibold">Phone:</span> {SITE_INFO.phone}
+              <span className="font-semibold">Phone:</span> {brandMobile}
             </p>
             <p>
-              <span className="font-semibold">Address:</span> {SITE_INFO.address}
+              <span className="font-semibold">Address:</span> {brandAddress}
             </p>
           </div>
         </div>

@@ -17,6 +17,7 @@ import {
   SETTINGS_PROCESS_FEE_KEY,
 } from "@/utils/atcSettings";
 import { apiFetch } from "@/utils/api";
+import { useBrand } from "@/context/BrandContext";
 
 type FormState = {
   processFee: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -91,6 +92,7 @@ const SelectWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function BecomeAtcForm() {
+  const { brandName } = useBrand();
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
   const [logo, setLogo] = useState<File | null>(null);
@@ -214,6 +216,7 @@ export default function BecomeAtcForm() {
         refNumber: newRef,
         submitDate: new Date().toLocaleString("en-IN"),
         ...form,
+        paymentScreenshot: screenshot ? URL.createObjectURL(screenshot) : "",
         infrastructure: infra as Record<string, InfraRow>,
       });
       setShowSuccessModal(true);
@@ -253,7 +256,7 @@ export default function BecomeAtcForm() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
               Application Form
             </h1>
-            <p className="text-white/70 text-sm mt-1">Apply to become an Authorized Training Center partner with Yukti Computer Institute</p>
+            <p className="text-white/70 text-sm mt-1">Apply to become an Authorized Training Center partner with {brandName || "our institution"}</p>
           </div>
         </div>
       </div>
@@ -798,7 +801,7 @@ export default function BecomeAtcForm() {
             </button>
             <div className="text-center mb-4">
               <h3 className="text-lg font-bold text-slate-800">Scan to Pay</h3>
-              <p className="text-sm text-slate-500">Yukti Computer Institute Official Payment QR</p>
+              <p className="text-sm text-slate-500">{brandName || "Institution"} Official Payment QR</p>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
                {/* eslint-disable-next-line @next/next/no-img-element */}

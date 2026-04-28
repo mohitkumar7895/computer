@@ -10,7 +10,7 @@ export default function AtcMarksheetPage() {
   const { examId } = useParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
-  const { brandName: rawBrandName } = useBrand();
+  const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function AtcMarksheetPage() {
               </div>
               <div className="leading-tight">
                  <h1 className="text-2xl font-black text-slate-900 uppercase">{brandName}</h1>
-                 <p className="text-[8px] font-black text-slate-400 tracking-[0.3em] uppercase">An ISO 9001:2015 Certified Institution</p>
+                 <p className="text-[8px] font-black text-slate-400 tracking-[0.1em] uppercase">{brandEmail || brandMobile || brandUrl || brandAddress || "Official Institution"}</p>
                  <div className="mt-2 inline-block px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase rounded">Statement of Marks</div>
               </div>
            </div>
@@ -103,7 +103,7 @@ export default function AtcMarksheetPage() {
            {[
              { label: 'Issue Date', val: new Date(data.issueDate).toLocaleDateString('en-GB') },
              { label: 'Session', val: data.studentId?.session || '2024-25' },
-             { label: 'Center Code', val: 'YCE-024' },
+             { label: 'Center Code', val: data.centerCode || data.centerName || brandName },
              { label: 'Status', val: data.result || 'Pass' },
            ].map((item, i) => (
              <div key={i} className="p-3 border border-slate-100 rounded-xl">

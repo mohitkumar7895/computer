@@ -18,6 +18,7 @@ import {
   parseFeeOptions,
   SETTINGS_PROCESS_FEE_KEY,
 } from "@/utils/atcSettings";
+import { useBrand } from "@/context/BrandContext";
 
 type InfrastructureRow = { rooms: string; seats: string; area: string };
 type FormState = {
@@ -112,6 +113,7 @@ interface Props {
 }
 
 export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", applicationId, initialData }: Props) {
+  const { brandName } = useBrand();
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<FormState>(initialFormState);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -1179,7 +1181,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             </button>
             <div className="text-center mb-4">
               <h3 className="text-lg font-bold text-slate-800">Scan to Pay</h3>
-              <p className="text-sm text-slate-500">Yukti Computer Institute Official Payment QR</p>
+              <p className="text-sm text-slate-500">{brandName || "Institution"} Official Payment QR</p>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
                {/* eslint-disable-next-line @next/next/no-img-element */}

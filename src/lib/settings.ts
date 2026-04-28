@@ -7,6 +7,7 @@ const SettingSchema = new mongoose.Schema({
 });
 
 const Setting = mongoose.models.Setting || mongoose.model("Setting", SettingSchema);
+type SettingRecord = { key: string; value: string };
 
 export async function getSetting(key: string, defaultValue: string = ""): Promise<string> {
   try {
@@ -20,7 +21,7 @@ export async function getSetting(key: string, defaultValue: string = ""): Promis
 }
 
 export async function getBrandName(): Promise<string> {
-  return getSetting("brand_name", "Yukti Computer Education");
+  return getSetting("brand_name", "Institution");
 }
 
 export async function getFullBrandData() {
@@ -38,8 +39,9 @@ export async function getFullBrandData() {
     ];
     const settings = await Setting.find({ key: { $in: keys } }).lean();
     const data: Record<string, string> = {};
-    settings.forEach((s: any) => {
-      data[s.key] = s.value;
+    settings.forEach((s) => {
+      const setting = s as SettingRecord;
+      data[setting.key] = setting.value;
     });
     return data;
   } catch (err) {

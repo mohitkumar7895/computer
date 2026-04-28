@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { 
   UserPlus, LogIn, FileText, Search, 
-  ShieldCheck, Monitor, GraduationCap, 
+  Monitor, GraduationCap, 
   Download, ListChecks, ArrowRight, ExternalLink
 } from "lucide-react";
 import Link from "next/link";
@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useBrand } from "@/context/BrandContext";
 
 export default function StudentZonePage() {
-  const { brandName } = useBrand();
+  const { brandName, brandEmail } = useBrand();
   const [regNo, setRegNo] = useState("");
   const [searchResult, setSearchResult] = useState<any>(null);
   const [searching, setSearching] = useState(false);
@@ -86,14 +86,6 @@ export default function StudentZonePage() {
       color: "bg-teal-500",
       tag: "Directory"
     },
-    {
-      title: "Certificate Verification",
-      desc: "Verify the authenticity of certificates issued by our authorized centers.",
-      icon: ShieldCheck,
-      link: "/verify-certificate",
-      color: "bg-rose-500",
-      tag: "Official"
-    }
   ];
 
   return (
@@ -229,7 +221,7 @@ export default function StudentZonePage() {
             <h5 className="text-2xl font-black text-slate-800 mb-2 uppercase">Any Issues / Doubts?</h5>
             <p className="text-slate-500 font-medium mb-8">Our support team is available from 10:00 AM to 06:00 PM (Mon-Sat).</p>
             <div className="flex flex-wrap justify-center gap-4">
-               <a href="mailto:support@yukticomputer.com" className="px-6 py-3 bg-white border border-blue-200 rounded-full text-sm font-bold text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center gap-2">
+               <a href={brandEmail ? `mailto:${brandEmail}` : "#"} className="px-6 py-3 bg-white border border-blue-200 rounded-full text-sm font-bold text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center gap-2">
                   <FileText size={16} /> Contact Support
                </a>
                <Link href="/help" className="px-6 py-3 bg-white border border-blue-200 rounded-full text-sm font-bold text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center gap-2">

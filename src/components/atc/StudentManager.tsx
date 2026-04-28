@@ -637,6 +637,86 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     }
   });
 
+  const selectedDirectStudents = isDirectAdmission
+    ? students.filter((student) => selectedStudents.includes(student._id))
+    : [];
+  const hasApprovedSelected = selectedDirectStudents.some((student) =>
+    ["approved", "active", "pending_admin"].includes(student.status),
+  );
+  const hasRejectedSelected = selectedDirectStudents.some((student) => student.status === "rejected");
+  const hasPendingSelected = selectedDirectStudents.some((student) =>
+    ["pending", "pending_atc"].includes(student.status),
+  );
+  const showBulkApprove = isDirectAdmission && (hasRejectedSelected || hasPendingSelected);
+  const showBulkReject = isDirectAdmission && (hasApprovedSelected || hasPendingSelected);
+
+  const handleBulkDirectAction = async (action: "approved" | "rejected") => {
+    if (!isDirectAdmission || selectedDirectStudents.length === 0) return;
+
+    const targetStudents = selectedDirectStudents.filter((student) => {
+      if (action === "approved") return ["rejected", "pending", "pending_atc"].includes(student.status);
+      return ["approved", "active", "pending_admin", "pending", "pending_atc"].includes(student.status);
+    });
+
+    if (targetStudents.length === 0) {
+      setMsg({ type: "error", text: `No eligible students found for ${action}.` });
+      return;
+    }
+
+    let totalFee = 0;
+    if (action === "approved") {
+      const feeInput = prompt("Enter Total Course Fee for selected students:");
+      if (feeInput === null) return;
+      const parsedFee = Number(feeInput);
+      if (!feeInput || Number.isNaN(parsedFee)) {
+        setMsg({ type: "error", text: "Please enter a valid fee amount." });
+        return;
+      }
+      totalFee = parsedFee;
+    } else if (!confirm("Are you sure you want to reject selected applications?")) {
+      return;
+    }
+
+    setUpdating(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const student of targetStudents) {
+        const res = await apiFetch("/api/atc/students/direct-action", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(
+            action === "approved"
+              ? { studentId: student._id, action, totalFee }
+              : { studentId: student._id, action },
+          ),
+        });
+
+        if (res.ok) successCount += 1;
+        else failCount += 1;
+      }
+
+      if (successCount > 0) {
+        setMsg({
+          type: "success",
+          text: `${successCount} application(s) ${action === "approved" ? "approved" : "rejected"} successfully${failCount > 0 ? `, ${failCount} failed` : ""}.`,
+        });
+      } else {
+        setMsg({ type: "error", text: `Failed to ${action} selected applications.` });
+      }
+
+      setSelectedStudents([]);
+      void fetchStudents();
+    } catch {
+      setMsg({ type: "error", text: "Bulk action failed due to network error." });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px]">
       {/* Tabs */}
@@ -705,6 +785,28 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                        <span className="uppercase tracking-widest">Students Selected</span>
                     </div>
                     <div className="flex items-center gap-3">
+                       {isDirectAdmission && (
+                         <>
+                           {showBulkApprove && (
+                             <button
+                               disabled={updating}
+                               onClick={() => void handleBulkDirectAction("approved")}
+                               className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition disabled:opacity-50"
+                             >
+                               Approve
+                             </button>
+                           )}
+                           {showBulkReject && (
+                             <button
+                               disabled={updating}
+                               onClick={() => void handleBulkDirectAction("rejected")}
+                               className="px-4 py-1.5 rounded-lg bg-red-100 text-red-600 text-[10px] font-black uppercase hover:bg-red-200 transition disabled:opacity-50"
+                             >
+                               Reject
+                             </button>
+                           )}
+                         </>
+                       )}
                        <button onClick={() => void fetchStudents()} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Refresh</button>
                        <button onClick={() => setSelectedStudents([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">Cancel</button>
                     </div>

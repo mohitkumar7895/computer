@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Fragment, type FormEvent, type ChangeEvent } from "react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { useBrand } from "@/context/BrandContext";
 import { apiFetch } from "@/utils/api";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
@@ -148,6 +149,7 @@ const PrintField = ({ label, value }: { label: string; value: string | number | 
 
 export default function AdminPanelPage() {
   usePageTitle("admin");
+  const { brandName: globalBrandName, brandLogo: globalBrandLogo } = useBrand();
   const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [applications, setApplications] = useState<Application[]>([]);
@@ -210,7 +212,7 @@ export default function AdminPanelPage() {
   const [centerFormat, setCenterFormat] = useState({ prefix: "ATC-", counter: 1, padding: 4 });
   const [studentFormat, setStudentFormat] = useState({ prefix: "ATC-ST-", counter: 1, padding: 4 });
   const [idFormatSaving, setIdFormatSaving] = useState(false);
-  const [brandName, setBrandName] = useState("Brand Name");
+  const [brandName, setBrandName] = useState("Institution Brand");
   const [brandMobile, setBrandMobile] = useState("");
   const [brandEmail, setBrandEmail] = useState("");
   const [brandAddress, setBrandAddress] = useState("");
@@ -325,7 +327,7 @@ export default function AdminPanelPage() {
 
       const bRes = await apiFetch("/api/admin/settings?key=brand_name");
       const bData = (await bRes.json()) as { value: string | null };
-      if (bData.value) setBrandName(bData.value);
+      setBrandName(bData.value?.trim() || "Institution Brand");
 
       const bmRes = await apiFetch("/api/admin/settings?key=brand_mobile");
       const bmData = (await bmRes.json()) as { value: string | null };
@@ -972,7 +974,7 @@ export default function AdminPanelPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <title>Admin Panel | {brandName}</title>
+      <title>Admin Panel | {globalBrandName || brandName}</title>
       {/* Toast */}
       {toastMsg && (
         <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 sm:max-w-md px-5 py-4 rounded-2xl shadow-2xl text-sm font-semibold transition-all ${toastMsg.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
@@ -993,11 +995,15 @@ export default function AdminPanelPage() {
         <aside className={`fixed inset-y-0 left-0 w-72 bg-linear-to-b from-[#0a0a2e] to-[#0a0aa1] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-5 h-5 text-white" />
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/10 flex items-center justify-center">
+                {globalBrandLogo || brandLogo ? (
+                  <Image src={globalBrandLogo || brandLogo} alt={globalBrandName || brandName} width={40} height={40} unoptimized className="h-full w-full object-contain p-1" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-white" />
+                )}
               </div>
               <div className="overflow-hidden">
-                <p className="font-bold text-sm leading-tight truncate">{brandName}</p>
+                <p className="font-bold text-sm leading-tight truncate">{globalBrandName || brandName}</p>
                 <p className="text-blue-300 text-[10px] font-black uppercase tracking-widest">Admin Panel</p>
               </div>
             </div>
@@ -1554,7 +1560,7 @@ export default function AdminPanelPage() {
                               value={brandName}
                               onChange={(e) => setBrandName(e.target.value)}
                               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
-                              placeholder="e.g. Yukti Computer Education"
+                              placeholder="e.g. Your Institution Name"
                             />
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
                               <Type className="w-5 h-5 text-slate-900" />
@@ -1618,7 +1624,7 @@ export default function AdminPanelPage() {
                               value={brandUrl}
                               onChange={(e) => setBrandUrl(e.target.value)}
                               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition group-hover:border-slate-300"
-                              placeholder="e.g. www.yukti.in"
+                              placeholder="e.g. www.institution.com"
                             />
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-40 transition">
                               <Monitor className="w-5 h-5 text-slate-900" />

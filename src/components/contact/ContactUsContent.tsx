@@ -1,25 +1,26 @@
 import { Mail, MapPin, Phone } from "lucide-react";
-import { SITE_INFO } from "@/utils/constants";
+import { getFullBrandData } from "@/lib/settings";
 
-const contactCards = [
-  {
-    title: "Write a mail",
-    value: `Email: ${SITE_INFO.email}`,
-    Icon: Mail,
-  },
-  {
-    title: "Contact Number",
-    value: `Phone: ${SITE_INFO.phone}`,
-    Icon: Phone,
-  },
-  {
-    title: "Visit Us",
-    value: `Address: ${SITE_INFO.address}`,
-    Icon: MapPin,
-  },
-];
+export default async function ContactUsContent() {
+  const brand = await getFullBrandData();
+  const contactCards = [
+    {
+      title: "Write a mail",
+      value: `Email: ${brand.brand_email || "Not available"}`,
+      Icon: Mail,
+    },
+    {
+      title: "Contact Number",
+      value: `Phone: ${brand.brand_mobile || "Not available"}`,
+      Icon: Phone,
+    },
+    {
+      title: "Visit Us",
+      value: `Address: ${brand.brand_address || "Not available"}`,
+      Icon: MapPin,
+    },
+  ];
 
-export default function ContactUsContent() {
   return (
     <div className="mx-auto w-full max-w-6xl">
       <section className="text-center">

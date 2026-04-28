@@ -25,7 +25,7 @@ export const teamMembers: TeamMember[] = [
     name: "Rahul Upadhyay",
     role: "Director",
     description:
-      "Rahul Upadhyay is founder of Yukti Group Yukti group is founded in the year of 2018.He is Mechanical Engineer ,He is completed his mechanical Engineering degree form NMU Jalgaon Maharashtra in the year",
+      "Rahul Upadhyay is founder of the institution. The organization was founded in 2018. He is a Mechanical Engineer and completed his engineering degree from NMU Jalgaon, Maharashtra.",
     image:
       "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80",
   },
@@ -33,7 +33,7 @@ export const teamMembers: TeamMember[] = [
     name: "Sakshi Mandal",
     role: "Admin",
     description:
-      "Sakshi Mandal is admin of Yukti Group, She is graduated in B.Com .She has 12 years of working experience in admin department .She worked in well reputed company as admin.",
+      "Sakshi Mandal is an admin professional and a B.Com graduate. She has 12 years of administrative experience and has worked with well-reputed organizations.",
     image: "/team-placeholder.svg",
   },
 ];

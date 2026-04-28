@@ -10,6 +10,7 @@ import {
   SETTINGS_PROCESS_FEE_KEY,
 } from "@/utils/atcSettings";
 import { apiFetch } from "@/utils/api";
+import { useBrand } from "@/context/BrandContext";
 
 export type InfraRow = { rooms: string; seats: string; area: string };
 
@@ -37,6 +38,7 @@ export interface ReceiptData {
   infrastructure: Record<string, InfraRow>;
   paidAmount: string;
   transactionNo: string;
+  paymentScreenshot?: string;
   postalAddressOffice: string;
   zones: string[];
 }
@@ -55,6 +57,7 @@ interface Props {
 }
 
 export default function PaymentReceipt({ data, onBack }: Props) {
+  const { brandName, brandLogo } = useBrand();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [authSignature, setAuthSignature] = useState<string | null>(null);
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
@@ -142,10 +145,17 @@ export default function PaymentReceipt({ data, onBack }: Props) {
            </span>
         </div>
         <div className="receipt-wrapper overflow-x-auto bg-white border border-slate-300 shadow-lg rounded-sm scrollbar-thin scrollbar-thumb-slate-200">
-          <div className="min-w-[700px] sm:min-w-0">
+          <div className="min-w-175 sm:min-w-0">
         {/* Header */}
-        <div className="flex justify-center py-4 border-b border-slate-200">
-          <Image src="/ygroup-logo.svg" alt="Y Group's" width={220} height={80} className="h-16 w-auto" />
+        <div className="flex flex-col items-center justify-center gap-2 border-b border-slate-200 py-4">
+          {brandLogo ? (
+            <Image src={brandLogo} alt={brandName || "Institution"} width={160} height={56} unoptimized className="h-12 w-auto object-contain" />
+          ) : (
+            <Image src="/ygroup-logo.svg" alt={brandName || "Institution"} width={160} height={56} className="h-12 w-auto object-contain" />
+          )}
+          <p className="text-xs font-black uppercase tracking-widest text-slate-700">
+            {brandName || "Institution"}
+          </p>
         </div>
 
         {/* Pay Option Title */}
@@ -298,10 +308,10 @@ export default function PaymentReceipt({ data, onBack }: Props) {
           <p className="font-bold text-sm text-slate-800 text-center uppercase tracking-wide">Declaration</p>
         </div>
         <div className="border border-slate-300 px-4 py-3 text-xs text-slate-700 leading-relaxed space-y-1.5">
-          <p>I, <strong>{data.chiefName}</strong>, HEAD OF <em>{data.trainingPartnerName}</em> HAVE READ AND UNDERSTOOD THE RULES OF CONDUCT OF &quot;<strong>Yukti Computer Institute</strong>&quot; TRAINING AND AGREE TO ABIDE BY THE SAME.</p>
+          <p>I, <strong>{data.chiefName}</strong>, HEAD OF <em>{data.trainingPartnerName}</em> HAVE READ AND UNDERSTOOD THE RULES OF CONDUCT OF &quot;<strong>{brandName || "Institution"}</strong>&quot; TRAINING AND AGREE TO ABIDE BY THE SAME.</p>
           <p>I CERTIFY THAT I AM THE COMPETENT AUTHORITY, BY VIRTUE OF THE ADMINISTRATIVE AND FINANCIAL POWERS VESTED IN ME BY SELF TO FURNISH THE ABOVE INFORMATION AND TO UNDERTAKE THE ABOVE STATED COMMITMENT ON BEHALF OF MY/OUR INSTITUTION.</p>
-          <p>I AM AWARE THAT, IN CASE ANY INFORMATION GIVEN BY ME TO <em>Yukti Computer Institute</em> / CANDIDATES / ETC. IS FALSE OR MISLEADING, THE INSTITUTE WOULD BE DEBARRED FROM THE CONDUCTION OF <em>Yukti Computer Institute</em> COURSES AND/OR DEREGISTERED FROM AFFILIATION.</p>
-          <p>I HAVE READ TERMS &amp; CONDITION AND CANCELLATION &amp; REFUND POLICY INCLUDING NON REFUNDABLE AFFILIATION/FRANCHISE/RENEWAL/kIT FEE/CHARGES OF THE <em>Yukti</em> UNDER ANY CIRCUMSTANCES AND, ONLY AFTER COMPLETE SATISFACTION, THIS DECLARATION IS BEING MADE, WHICH MAY BE USED FOR LEGAL PURPOSES WHENEVER REQUIRED. ANY DISPUTE WILL BE SETTLED BY THE COMMITTEE CONSTITUTED BY THE <em>Yukti Computer Institute</em> SIAMLI.</p>
+          <p>I AM AWARE THAT, IN CASE ANY INFORMATION GIVEN BY ME TO <em>{brandName || "Institution"}</em> / CANDIDATES / ETC. IS FALSE OR MISLEADING, THE INSTITUTE WOULD BE DEBARRED FROM THE CONDUCTION OF <em>{brandName || "Institution"}</em> COURSES AND/OR DEREGISTERED FROM AFFILIATION.</p>
+          <p>I HAVE READ TERMS &amp; CONDITION AND CANCELLATION &amp; REFUND POLICY INCLUDING NON REFUNDABLE AFFILIATION/FRANCHISE/RENEWAL/kIT FEE/CHARGES OF THE <em>{brandName || "Institution"}</em> UNDER ANY CIRCUMSTANCES AND, ONLY AFTER COMPLETE SATISFACTION, THIS DECLARATION IS BEING MADE, WHICH MAY BE USED FOR LEGAL PURPOSES WHENEVER REQUIRED. ANY DISPUTE WILL BE SETTLED BY THE COMMITTEE CONSTITUTED BY THE <em>{brandName || "Institution"}</em>.</p>
         </div>
 
         {/* Payment Details + QR */}
@@ -343,9 +353,18 @@ export default function PaymentReceipt({ data, onBack }: Props) {
               </tbody>
             </table>
           </div>
-          {/* Large QR for payment */}
+          {/* Payment Proof / QR */}
           <div className="w-44 border-l border-slate-300 flex items-center justify-center p-3">
-            {qrCode ? (
+            {data.paymentMode === "gpay" && data.paymentScreenshot ? (
+              <Image
+                src={data.paymentScreenshot}
+                alt="Payment Screenshot"
+                width={128}
+                height={128}
+                unoptimized
+                className="h-32 w-32 rounded-lg border border-slate-200 object-cover"
+              />
+            ) : qrCode ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={qrCode} alt="Payment QR Code" className="w-32 h-32 object-contain" />
             ) : (
@@ -366,7 +385,7 @@ export default function PaymentReceipt({ data, onBack }: Props) {
             <tbody>
               <tr>
                 <td className="border-b border-slate-200 px-3 py-2 font-semibold text-slate-600 w-40 uppercase text-xs">Recipient Name</td>
-                <td className="border-b border-slate-200 px-3 py-2 font-bold text-slate-800">YUKTI COMPUTER INSTITUTE</td>
+                <td className="border-b border-slate-200 px-3 py-2 font-bold text-slate-800 uppercase">{brandName || "INSTITUTION"}</td>
                 <td className="border-b border-slate-200 px-3 py-2 font-semibold text-slate-600 w-32 uppercase text-xs">A/C Number</td>
                 <td className="border-b border-slate-200 px-3 py-2 font-bold text-blue-700">33217276617</td>
               </tr>
@@ -384,7 +403,16 @@ export default function PaymentReceipt({ data, onBack }: Props) {
         <div className="mt-1 border border-slate-300 grid grid-cols-2">
           <div className="border-r border-slate-300 px-4 py-8 text-sm text-slate-500 h-24 flex items-end">Seal of the Institute</div>
           <div className="px-4 py-8 text-sm text-slate-500 text-right h-24 relative flex flex-col items-end justify-end">
-            {authSignature && <img src={authSignature} alt="Authorized Sign" className="absolute top-2 right-4 w-32 h-14 object-contain opacity-90 mix-blend-multiply" />}
+            {authSignature && (
+              <Image
+                src={authSignature}
+                alt="Authorized Sign"
+                width={128}
+                height={56}
+                unoptimized
+                className="absolute top-2 right-4 h-14 w-32 object-contain opacity-90 mix-blend-multiply"
+              />
+            )}
             <span className="relative z-10 font-bold underline decoration-slate-300">Signature of Director/Head</span>
           </div>
         </div>
@@ -394,7 +422,7 @@ export default function PaymentReceipt({ data, onBack }: Props) {
           <p className="text-sm font-bold text-blue-700 underline mb-2">Checklist</p>
           <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
             <li>Printout of Completely filled online Application Form.</li>
-            <li>Demand draft in favour of <strong>&quot;Yukti Computer Institute&quot;</strong> OR Online payment receipt.</li>
+            <li>Demand draft in favour of <strong>&quot;{brandName || "Institution"}&quot;</strong> OR Online payment receipt.</li>
             <li>Photocopy of Institute registration letter (if any), OR ID and address proof of Institution Head.</li>
           </ul>
         </div>

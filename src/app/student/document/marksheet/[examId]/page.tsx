@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ShieldCheck, Printer, FileText } from "lucide-react";
 import { apiFetch } from "@/utils/api";
+import { useBrand } from "@/context/BrandContext";
 
 export default function MarksheetPrintPage() {
   const { examId } = useParams();
@@ -12,6 +13,7 @@ export default function MarksheetPrintPage() {
   const [loading, setLoading] = useState(true);
   const [bg, setBg] = useState("");
   const [sig, setSig] = useState("");
+  const { brandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
 
   useEffect(() => {
     // 1. Fetch Marksheet Data
@@ -76,6 +78,8 @@ export default function MarksheetPrintPage() {
               <div className="space-y-1">
                  <h2 className="text-[18px] font-black uppercase tracking-tight text-indigo-900 leading-none">Academic Marksheet</h2>
                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Statement of Marks</p>
+                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1">{brandName || "Institution"}</p>
+                 <p className="text-[7px] font-bold text-slate-400">{brandEmail || brandMobile || brandUrl || brandAddress || ""}</p>
               </div>
               <div className="w-[25mm] h-[30mm] border-2 border-slate-200 bg-slate-50 flex items-center justify-center">
                  {data.studentId?.photo ? <img src={data.studentId.photo} alt="" className="w-full h-full object-cover" /> : <FileText className="text-slate-200" />}

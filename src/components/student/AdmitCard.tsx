@@ -1,15 +1,36 @@
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { GraduationCap, ShieldCheck, MapPin, Calendar, Clock, User, X, QrCode, Printer, Globe, CheckCircle } from "lucide-react";
+import { useBrand } from "@/context/BrandContext";
+
+type AdmitCardStudent = {
+  name?: string;
+  photo?: string;
+  registrationNo?: string;
+  session?: string;
+  fatherName?: string;
+  tpCode?: string;
+  course?: string;
+};
+
+type AdmitCardExam = {
+  durationMinutes?: number | string;
+  examTime?: string;
+  examDate?: string;
+  examMode?: string;
+  offlineDetails?: { preferredCenter?: string };
+};
 
 interface AdmitCardProps {
-  student: any;
-  exam: any;
+  student: AdmitCardStudent;
+  exam: AdmitCardExam;
   onClose: () => void;
 }
 
 export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
   const [background, setBackground] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const { brandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const durationMinutes = Number(exam?.durationMinutes || 0);
   const slotText = exam?.examTime
     ? `${exam.examTime} (${durationMinutes > 0 ? `${durationMinutes} mins` : "Duration as per schedule"})`
@@ -32,10 +53,10 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 print:p-0 print:bg-white overflow-y-auto">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 print:p-0 print:bg-white overflow-y-auto">
       
       {/* Action Buttons (Floating) */}
-      <div className="fixed top-8 right-8 flex flex-col gap-3 z-[110] print:hidden">
+      <div className="fixed top-8 right-8 z-110 flex flex-col gap-3 print:hidden">
         <button 
           onClick={() => window.print()} 
           className="flex items-center gap-3 px-10 py-4 bg-[#0a0aa1] text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_20px_50px_rgba(10,10,161,0.4)] hover:scale-105 active:scale-95 transition-all"
@@ -58,7 +79,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
           {/* Layer 0: Background */}
           <div className="absolute inset-0 z-0">
             {background ? (
-              <img src={background} alt="Background" className="w-full h-full object-fill pointer-events-none" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }} />
+              <Image src={background} alt="Background" fill unoptimized className="object-fill pointer-events-none" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }} />
             ) : (
               <div className="w-full h-full bg-slate-50 relative">
                  <div className="absolute top-0 right-0 w-[50%] h-[30%] bg-[#0a0aa1]/5 rounded-bl-[100%] pointer-events-none" />
@@ -83,11 +104,11 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
                      <GraduationCap size={40} className="text-white" />
                   </div>
                   <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none mb-2">YUKTI COMPUTER <span className="text-[#0a0aa1]">EDUCATION</span></h1>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none mb-2 uppercase">{brandName || "INSTITUTION"}</h1>
                     <div className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                       <span className="flex items-center gap-1"><Globe size={12} className="text-blue-500" /> ISO 9001:2015</span>
+                       <span className="flex items-center gap-1"><Globe size={12} className="text-blue-500" /> {brandUrl || "Official Website"}</span>
                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                       <span>Regd. By Ministry of MSME, Govt. of India</span>
+                       <span>{brandEmail || brandMobile || "Official Contact"}</span>
                     </div>
                   </div>
                </div>
@@ -102,13 +123,13 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
             <div className="flex gap-16 mb-16">
                {/* Candidate Side */}
                <div className="w-[55mm] space-y-8">
-                  <div className="aspect-[3.5/4.5] w-full bg-slate-100 rounded-[2rem] border-8 border-white shadow-2xl ring-1 ring-slate-200 overflow-hidden relative group">
+                  <div className="relative aspect-3.5/4.5 w-full overflow-hidden rounded-4xl border-8 border-white bg-slate-100 shadow-2xl ring-1 ring-slate-200 group">
                     {student.photo ? (
-                      <img src={student.photo} alt="Photo" className="w-full h-full object-cover" />
+                      <Image src={student.photo} alt="Photo" fill unoptimized className="object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50"><User size={80} /></div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent" />
                   </div>
 
                   <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 border border-slate-100 shadow-xl flex flex-col items-center">
@@ -123,7 +144,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
                <div className="flex-1 space-y-10">
                   <div className="space-y-1">
                      <p className="text-[11px] font-black text-[#0a0aa1] uppercase tracking-[0.2em]">Full Name of Candidate</p>
-                     <p className="text-5xl font-black text-slate-900 tracking-tighter leading-tight bg-gradient-to-r from-slate-900 to-[#0a0aa1] bg-clip-text text-transparent">
+                     <p className="text-5xl font-black tracking-tighter leading-tight bg-linear-to-r from-slate-900 to-[#0a0aa1] bg-clip-text text-transparent">
                         {student.name}
                      </p>
                   </div>
@@ -197,14 +218,14 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
                   <div className="text-center group">
                      <div className="w-44 h-24 bg-slate-50 rounded-2xl border-2 border-slate-100 flex items-center justify-center relative overflow-hidden mb-3">
                         {signature ? (
-                          <img src={signature} alt="Sign" className="w-full h-full object-contain relative z-10" />
+                          <Image src={signature} alt="Sign" fill unoptimized className="object-contain relative z-10" />
                         ) : (
                           <span className="text-[9px] font-bold text-slate-300 italic">Auth Controller</span>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-transparent pointer-events-none" />
+                        <div className="absolute inset-0 bg-linear-to-tr from-blue-500/5 to-transparent pointer-events-none" />
                      </div>
                      <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Exam Controller</p>
-                     <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] mt-1">Yukti Education</p>
+                     <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] mt-1">{brandName || "Institution"}</p>
                   </div>
 
                   <div className="flex flex-col items-center gap-4">
@@ -226,7 +247,9 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
             <div className="absolute bottom-[10mm] left-[20mm] right-[20mm] h-1.5 bg-[#0a0aa1] rounded-full overflow-hidden">
                <div className="w-1/3 h-full bg-blue-400" />
             </div>
-            <p className="absolute bottom-[5mm] left-0 w-full text-center text-[8px] font-black text-slate-300 uppercase tracking-[0.5em] opacity-40">Digitally Issued Hallmark Document — Unauthorized replication is prohibited</p>
+            <p className="absolute bottom-[5mm] left-0 w-full text-center text-[8px] font-black text-slate-300 uppercase tracking-[0.2em] opacity-40">
+              {(brandAddress || "Digitally issued official document")} — {(brandMobile || "Unauthorized replication is prohibited")}
+            </p>
           </div>
         </div>
 
@@ -258,7 +281,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
   );
 }
 
-function Detail({ label, value, strong = false }: any) {
+function Detail({ label, value, strong = false }: { label: string; value?: string; strong?: boolean }) {
   return (
     <div className="space-y-1">
        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>

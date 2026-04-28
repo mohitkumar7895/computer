@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import Image from "next/image";
 import { Download, Printer } from "lucide-react";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -29,7 +30,7 @@ import { useBrand } from "@/context/BrandContext";
 
 export default function StudentIdCard({ student, backgrounds = {} }: StudentIdCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const { brandName: rawBrandName } = useBrand();
+  const { brandName: rawBrandName, brandMobile, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
   
   const cardWidth = "350px";
@@ -101,18 +102,18 @@ export default function StudentIdCard({ student, backgrounds = {} }: StudentIdCa
 
       <div ref={cardRef} className="flex flex-row gap-12 justify-center items-center py-12 px-12 bg-white" style={{ backgroundColor: '#ffffff', minWidth: '850px' }}>
         <div className="relative overflow-hidden shadow-2xl rounded-[2.5rem]" style={{ width: cardWidth, height: cardHeight, border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-          {backgrounds?.front && <img src={backgrounds.front} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+          {backgrounds?.front && <Image src={backgrounds.front} alt="" fill unoptimized className="object-cover" />}
           <div className="relative z-10 w-full h-full flex flex-col p-10 pt-12 text-center">
             <div className="mb-6">
                 <h1 className="text-[14px] font-black uppercase tracking-[0.25em] leading-none px-4" style={{ color: '#0a0a2e' }}>{brandName}</h1>
                 <div className="flex justify-center flex-wrap gap-2 mt-3">
-                  <span className="text-[8px] font-black border px-3 py-1 rounded-full uppercase tracking-tighter" style={{ color: '#64748b', borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}>WWW.YUKTIEDUCATION.IN</span>
-                  <span className="text-[8px] font-black border px-3 py-1 rounded-full uppercase tracking-tighter" style={{ color: '#64748b', borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}>MOB: +91 9310898801</span>
+                  <span className="text-[8px] font-black border px-3 py-1 rounded-full uppercase tracking-tighter" style={{ color: '#64748b', borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}>{brandUrl || "OFFICIAL WEBSITE"}</span>
+                  <span className="text-[8px] font-black border px-3 py-1 rounded-full uppercase tracking-tighter" style={{ color: '#64748b', borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}>MOB: {brandMobile || "---"}</span>
                 </div>
             </div>
             <div className="flex flex-col items-center mt-6">
-                <div className="w-32 h-32 rounded-[2rem] border-4 border-white shadow-2xl overflow-hidden" style={{ backgroundColor: '#f8fafc' }}>
-                  {student.photo ? <img src={student.photo} alt={student.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-4xl" style={{ backgroundColor: '#f1f5f9', color: '#cbd5e1' }}>👤</div>}
+                <div className="relative h-32 w-32 overflow-hidden rounded-4xl border-4 border-white shadow-2xl" style={{ backgroundColor: '#f8fafc' }}>
+                  {student.photo ? <Image src={student.photo} alt={student.name} fill unoptimized className="object-cover" /> : <div className="w-full h-full flex items-center justify-center text-4xl" style={{ backgroundColor: '#f1f5f9', color: '#cbd5e1' }}>👤</div>}
                 </div>
             </div>
             <div className="mt-6">
@@ -136,7 +137,7 @@ export default function StudentIdCard({ student, backgrounds = {} }: StudentIdCa
         </div>
 
         <div className="relative overflow-hidden shadow-2xl rounded-[2.5rem]" style={{ width: cardWidth, height: cardHeight, border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-          {backgrounds?.back && <img src={backgrounds.back} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+          {backgrounds?.back && <Image src={backgrounds.back} alt="" fill unoptimized className="object-cover" />}
           <div className="relative z-10 w-full h-full flex flex-col p-10 pt-20 text-left">
               <div className="mt-6 space-y-8">
                   <div>
@@ -152,11 +153,11 @@ export default function StudentIdCard({ student, backgrounds = {} }: StudentIdCa
                   </div>
               </div>
               <div className="mt-auto flex flex-col items-center pb-12">
-                <div className="w-full max-w-[200px] flex flex-col items-center">
+                <div className="flex w-full max-w-50 flex-col items-center">
                     <div className="h-20 w-full flex items-center justify-center relative mb-2">
-                      {student.centerSign ? <img src={student.centerSign} alt="" className="max-w-full max-h-full object-contain mix-blend-multiply" /> : <div className="w-28 h-full border border-dashed rounded-2xl flex items-center justify-center italic text-[9px]" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#94a3b8' }}>AUTHORIZED SIGNATURE</div>}
+                      {student.centerSign ? <Image src={student.centerSign} alt="" fill unoptimized className="object-contain mix-blend-multiply" /> : <div className="w-28 h-full border border-dashed rounded-2xl flex items-center justify-center italic text-[9px]" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#94a3b8' }}>AUTHORIZED SIGNATURE</div>}
                     </div>
-                    <div className="w-full h-[1px]" style={{ backgroundColor: '#e2e8f0' }} />
+                    <div className="h-px w-full" style={{ backgroundColor: '#e2e8f0' }} />
                     <p className="text-[8px] font-black uppercase mt-3 tracking-[0.4em]" style={{ color: '#94a3b8' }}>HEAD OFFICE SEAL & SIGN</p>
                 </div>
               </div>

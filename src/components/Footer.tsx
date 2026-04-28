@@ -88,7 +88,7 @@ export default function Footer() {
               </span>
             </div>
             </div>
-            <p className="mt-3 text-sm text-slate-200">{brandUrl || "Save money. Live better."}</p>
+            <p className="mt-3 text-sm text-slate-200">{brandUrl || "Official Website"}</p>
           </div>
         </div>
 
@@ -122,7 +122,7 @@ export default function Footer() {
               <FaMapMarkerAlt className="mt-1 h-5 w-5 shrink-0 text-[#0f0fbf]" />
               <div className="space-y-2 text-sm leading-6 sm:text-sm sm:leading-7">
                  <p className="font-extrabold text-white">{brandName}:</p>
-                <p>{brandAddress || SITE_INFO.address}</p>
+                <p>{brandAddress || "Address not available"}</p>
               </div>
             </div>
 
@@ -130,7 +130,7 @@ export default function Footer() {
               <FaPhoneAlt className="mt-1 h-4 w-4 shrink-0 text-[#0f0fbf]" />
               <div className="space-y-2 text-sm leading-6 sm:text-sm sm:leading-7">
                 <p className="font-extrabold text-white">Phone Number:</p>
-                <p>{brandMobile || SITE_INFO.phone}</p>
+                <p>{brandMobile || "Mobile not available"}</p>
               </div>
             </div>
 
@@ -153,7 +153,7 @@ export default function Footer() {
           <div className="mt-6 overflow-hidden border border-white/20 bg-white shadow-lg">
             <iframe
                title={`${brandName} Map`}
-              src={SITE_INFO.mapEmbedUrl}
+              src={brandAddress ? `https://www.google.com/maps?q=${encodeURIComponent(brandAddress)}&z=15&output=embed` : SITE_INFO.mapEmbedUrl}
               className="h-62.5 w-full"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"

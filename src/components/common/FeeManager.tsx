@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Filter, History, CreditCard, Printer, X, Download, Plus, Minus, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { Search, History, CreditCard, Printer, X, Plus, Minus, FileText, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import { useBrand } from "@/context/BrandContext";
+import { useCallback } from "react";
 
 interface Student {
   _id: string;
@@ -32,10 +34,12 @@ interface Transaction {
 }
 
 export default function FeeManager({ role }: { role: "admin" | "atc" }) {
+  const { brandName } = useBrand();
+  const roleLabel = role === "admin" ? "Admin" : "ATC";
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [courseFilter, setCourseFilter] = useState("");
+  const [courseFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -63,7 +67,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
 
   const { loading: authLoading, user: authUser } = useAuth();
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     if (authLoading || !authUser) return;
     setLoading(true);
     try {
@@ -80,12 +84,12 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authLoading, authUser, search, courseFilter, statusFilter]);
 
   useEffect(() => {
     if (authLoading || !authUser) return;
     fetchStudents();
-  }, [search, courseFilter, statusFilter, authLoading, authUser]);
+  }, [fetchStudents, authLoading, authUser]);
 
   const fetchHistory = async (student: Student) => {
     setSelectedStudent(student);
@@ -179,7 +183,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
       } else {
         setMsg({ type: "error", text: data.message });
       }
-    } catch (err) {
+    } catch {
       setMsg({ type: "error", text: "Network error" });
     } finally {
       setSubmitting(false);
@@ -212,7 +216,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
         <body>
           <div class="header">
             <div class="receipt-title">FEE RECEIPT</div>
-            <div>Yukti Computer Education</div>
+            <div>${brandName || "Institution"}</div>
           </div>
           <div class="grid">
             <div>
@@ -375,13 +379,13 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
 
       {/* Collect Fee Modal */}
       {showCollectForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCollectForm(false)} />
-          <div className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8 bg-gradient-to-br from-green-600 to-emerald-700 text-white flex justify-between items-center">
+          <div className="relative w-full max-w-2xl overflow-hidden rounded-4xl bg-white shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between bg-linear-to-br from-green-600 to-emerald-700 p-8 text-white">
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">Collect Fee</h2>
-                <p className="text-green-100 text-xs font-bold uppercase tracking-widest mt-1">Transaction Portal</p>
+                <p className="text-green-100 text-xs font-bold uppercase tracking-widest mt-1">{roleLabel} Transaction Portal</p>
               </div>
               <button onClick={() => setShowCollectForm(false)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition">
                 <X className="w-5 h-5" />
@@ -511,9 +515,9 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
 
       {/* History Modal */}
       {showDetails && selectedStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowDetails(false)} />
-          <div className="relative w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="relative w-full max-w-4xl overflow-hidden rounded-4xl bg-white shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-green-600 text-white flex items-center justify-center">
@@ -557,7 +561,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                 </div>
 
                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Payment History</h4>
-               <div className="max-h-[400px] overflow-y-auto rounded-2xl border border-slate-100">
+               <div className="max-h-100 overflow-y-auto rounded-2xl border border-slate-100">
                   <table className="w-full text-sm text-left">
                      <thead className="bg-slate-50 sticky top-0">
                         <tr className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">

@@ -10,7 +10,7 @@ export default function AdminCertificatePage() {
   const { examId } = useParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
-  const { brandName: rawBrandName } = useBrand();
+  const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
 
   useEffect(() => {
@@ -50,7 +50,9 @@ export default function AdminCertificatePage() {
               <GraduationCap className="text-white w-8 h-8" />
            </div>
            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-1">{brandName}</h1>
-           <p className="text-[10px] font-black text-blue-600 tracking-[0.4em] uppercase mb-10 border-t border-slate-100 pt-2 w-1/2">Autonomous Organization Registered Under Gov of India</p>
+           <p className="text-[10px] font-black text-blue-600 tracking-[0.2em] uppercase mb-10 border-t border-slate-100 pt-2 w-1/2">
+             {brandAddress || brandUrl || brandEmail || brandMobile || "Autonomous Organization"}
+           </p>
            
            <div className="relative mb-12">
               <div className="h-[1px] w-48 bg-amber-200 absolute left-full top-1/2 ml-4" />

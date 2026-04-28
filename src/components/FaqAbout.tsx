@@ -1,8 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { faqData } from "@/data/faq";
+import { getBrandName } from "@/lib/settings";
 
-export default function FaqAbout() {
+export default async function FaqAbout() {
+  const brandName = await getBrandName();
   return (
     <section id="about" className="scroll-mt-28 bg-white px-4 py-12 sm:scroll-mt-32 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
       <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[0.98fr_1.02fr] lg:gap-12 lg:items-start">
@@ -80,9 +82,7 @@ export default function FaqAbout() {
               Who we are?
             </h3>
             <div className="mt-3 space-y-2 text-sm leading-7 text-slate-500 sm:text-[0.98rem] sm:leading-8">
-              <p>
-                We Yukti Group&apos;s Yukti Computer Institute, approved under MSME act by government of India,
-              </p>
+              <p>We {brandName}, approved under MSME act by government of India,</p>
               <p>
                 We have been started in the year 2018, with motto to educate students according to current industrial trend .Till date we have trained more than 500+ student right now most of them are working in well reputed Industries.
               </p>

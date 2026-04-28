@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ShieldCheck, GraduationCap, Award, Printer } from "lucide-react";
 import { apiFetch } from "@/utils/api";
+import { useBrand } from "@/context/BrandContext";
 
 export default function CertificatePrintPage() {
   const { examId } = useParams();
@@ -12,6 +13,7 @@ export default function CertificatePrintPage() {
   const [loading, setLoading] = useState(true);
   const [bg, setBg] = useState("");
   const [sig, setSig] = useState("");
+  const { brandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
 
   useEffect(() => {
     // 1. Fetch Certificate Data
@@ -78,6 +80,7 @@ export default function CertificatePrintPage() {
 
            {/* Certificate Meta */}
            <div className="absolute top-[40mm] left-[30mm] flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              <p>{brandName || "Institution"}</p>
               <p>SR NO: <span className="text-slate-800">{data.serialNo}</span></p>
               <p>ENROLLMENT: <span className="text-slate-800">{data.enrollmentNo}</span></p>
               <p>DATE: <span className="text-slate-800">{new Date(data.issueDate).toLocaleDateString()}</span></p>
@@ -142,7 +145,7 @@ export default function CertificatePrintPage() {
            <div className="absolute bottom-[20mm] left-0 w-full flex flex-col items-center gap-2">
               <div className="flex items-center gap-2 text-[8px] font-black text-slate-400">
                  <ShieldCheck size={12} />
-                 AUTHENTIC ACADEMIC RECORD • SCAN QR TO VERIFY
+                 {(brandName || "AUTHENTIC ACADEMIC RECORD")} • {(brandUrl || brandEmail || brandMobile || "SCAN QR TO VERIFY")}
               </div>
               <div className="w-[20mm] h-[20mm] bg-slate-50 border border-slate-100 p-1 flex items-center justify-center opacity-50">
                  <p className="text-[6px] font-black text-slate-300 text-center uppercase tracking-tighter">QR Placeholder</p>
