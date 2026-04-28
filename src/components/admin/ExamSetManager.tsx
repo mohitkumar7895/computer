@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import { BookOpen, PlusCircle, Trash2, CheckCircle, ShieldCheck, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
@@ -31,19 +31,27 @@ interface ExamSetManagerProps {
   role: "admin" | "atc";
 }
 
+interface PendingStudentExam {
+  _id: string;
+  examMode: "online" | "offline";
+  studentId?: {
+    name?: string;
+    registrationNo?: string;
+  };
+}
+
 export default function ExamSetManager({ role }: ExamSetManagerProps) {
   const [sets, setSets] = useState<ExamSet[]>([]);
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const [loadingSets, setLoadingSets] = useState(true);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [newSet, setNewSet] = useState({ title: "", description: "", questionCount: "100", durationMinutes: "120", totalMarks: "100", examMode: "both" });
   const [questionForm, setQuestionForm] = useState({ questionText: "", options: ["", "", "", ""], correctOption: "", marks: "1" });
   const [creatingSet, setCreatingSet] = useState(false);
   const [creatingQuestion, setCreatingQuestion] = useState(false);
   const [subTab, setSubTab] = useState<"questions" | "assign">("questions");
-  const [pendingStudents, setPendingStudents] = useState<any[]>([]);
+  const [pendingStudents, setPendingStudents] = useState<PendingStudentExam[]>([]);
   const [assignForm, setAssignForm] = useState({ date: "", time: "10:00 AM", mode: "online" });
   const [assigning, setAssigning] = useState(false);
   const [selectedStudentExams, setSelectedStudentExams] = useState<string[]>([]);
@@ -56,7 +64,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
     [sets, selectedSetId],
   );
 
-  const fetchSets = async () => {
+  const fetchSets = useCallback(async () => {
     if (authLoading || !authUser) return;
     setLoadingSets(true);
     try {
@@ -64,16 +72,15 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
       if (!res.ok) throw new Error("Unable to load exam sets.");
       const data = await res.json();
       setSets(data.sets ?? []);
-    } catch (error) {
+    } catch {
       setStatusMessage({ type: "error", text: "Failed to load exam sets." });
     } finally {
       setLoadingSets(false);
     }
-  };
+  }, [authLoading, authUser, apiBase]);
 
-  const fetchQuestions = async (setId: string) => {
+  const fetchQuestions = useCallback(async (setId: string) => {
     if (authLoading || !authUser) return;
-    setLoadingQuestions(true);
     try {
       const res = await apiFetch(`${apiBase}/questions?setId=${encodeURIComponent(setId)}`);
       if (!res.ok) throw new Error("Unable to load questions.");
@@ -81,24 +88,22 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
       setQuestions(data.questions ?? []);
     } catch {
       setQuestions([]);
-    } finally {
-      setLoadingQuestions(false);
     }
-  };
+  }, [authLoading, authUser, apiBase]);
 
-  const fetchPendingStudents = async () => {
+  const fetchPendingStudents = useCallback(async () => {
     if (authLoading || !authUser) return;
     try {
       const res = await apiFetch("/api/admin/exams/all?status=pending");
       const data = await res.json();
       setPendingStudents(data.exams || []);
     } catch { /* ignore */ }
-  };
+  }, [authLoading, authUser]);
 
   useEffect(() => {
     if (authLoading || !authUser) return;
     void fetchSets();
-  }, [authLoading, authUser]);
+  }, [authLoading, authUser, fetchSets]);
 
   useEffect(() => {
     if (selectedSetId) {
@@ -106,11 +111,11 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
     } else {
       setQuestions([]);
     }
-  }, [selectedSetId]);
+  }, [selectedSetId, fetchQuestions]);
 
   useEffect(() => {
-    if (subTab === "assign") fetchPendingStudents();
-  }, [subTab]);
+    if (subTab === "assign") void fetchPendingStudents();
+  }, [subTab, fetchPendingStudents]);
 
   const handleCreateSet = async () => {
     if (!newSet.title.trim()) return;
@@ -205,8 +210,8 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
   );
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-6 p-1 md:space-y-8">
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-8">
+    <div className="mx-auto max-w-400 space-y-6 p-1 md:space-y-8">
+      <div className="flex flex-col gap-4 rounded-4xl border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-8">
         <div>
           <h2 className="flex items-center gap-3 text-xl font-black tracking-tight text-slate-900 sm:gap-4 sm:text-3xl">
              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-200 sm:h-12 sm:w-12 sm:rounded-2xl">
@@ -295,7 +300,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                Question Papers
                <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full">{sets.length} Papers</span>
             </h3>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-4 max-h-150 overflow-y-auto pr-2 custom-scrollbar">
               {loadingSets ? (
                  <div className="p-10 text-center animate-pulse text-slate-300 font-bold">Initializing papers...</div>
               ) : sets.map((set) => (
@@ -328,7 +333,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
 
         <div className="space-y-8">
           {selectedSet ? (
-            <div className="flex h-full min-h-[720px] flex-col overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm sm:min-h-[800px] sm:rounded-[3rem]">
+            <div className="flex h-full min-h-180 flex-col overflow-hidden rounded-4xl border border-slate-100 bg-white shadow-sm sm:min-h-200 sm:rounded-[3rem]">
               <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50/50 p-2 sm:flex-row sm:gap-3 sm:p-3">
                  <button 
                   onClick={() => setSubTab("questions")}
@@ -349,7 +354,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
               <div className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
                  {subTab === "questions" ? (
                    <div className="space-y-12 animate-in fade-in zoom-in-95 duration-500">
-                      <div className="flex flex-col gap-4 rounded-[1.5rem] bg-gradient-to-r from-slate-900 to-slate-800 p-5 text-white shadow-2xl sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:rounded-[2rem] sm:p-8">
+                      <div className="flex flex-col gap-4 rounded-3xl bg-linear-to-r from-slate-900 to-slate-800 p-5 text-white shadow-2xl sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:rounded-4xl sm:p-8">
                          <div>
                             <h4 className="text-lg font-black uppercase tracking-tight sm:text-2xl">{selectedSet.title}</h4>
                             <div className="mt-3 flex flex-wrap gap-2 sm:gap-4">
@@ -369,7 +374,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 ml-1">Question Content</label>
                                <textarea
                                   rows={4}
-                                  className="w-full rounded-[1.5rem] border-2 border-slate-100 bg-slate-50 px-5 py-5 text-base font-bold text-slate-800 shadow-inner outline-none transition-all placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 sm:rounded-[2.5rem] sm:px-8 sm:py-7 sm:text-xl"
+                                  className="w-full rounded-3xl border-2 border-slate-100 bg-slate-50 px-5 py-5 text-base font-bold text-slate-800 shadow-inner outline-none transition-all placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 sm:rounded-[2.5rem] sm:px-8 sm:py-7 sm:text-xl"
                                   placeholder="Type your question here..."
                                   value={questionForm.questionText}
                                   onChange={(e) => setQuestionForm({...questionForm, questionText: e.target.value})}
@@ -405,7 +410,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                            });
                                          }}
                                          placeholder={`Option ${String.fromCharCode(65+i)}`}
-                                         className={`w-full pl-16 pr-12 py-5 bg-white border-2 rounded-[1.5rem] font-bold text-slate-700 outline-none transition-all ${
+                                         className={`w-full pl-16 pr-12 py-5 bg-white border-2 rounded-3xl font-bold text-slate-700 outline-none transition-all ${
                                            questionForm.correctOption === opt && opt.trim() !== "" 
                                              ? "border-red-500 ring-4 ring-red-50 bg-red-50/20" 
                                              : "border-slate-100 focus:border-blue-400 group-hover:border-slate-200"
@@ -427,7 +432,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                </div>
                             </div>
 
-                            <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-200 bg-slate-100/50 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+                            <div className="flex flex-col gap-4 rounded-4xl border border-slate-200 bg-slate-100/50 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
                                <div className="flex flex-1 items-center gap-4 sm:gap-6">
                                   <div className="flex-1">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Question Value</p>
@@ -445,7 +450,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                <button 
                                  onClick={handleQuestionSubmit}
                                  disabled={creatingQuestion || !questionForm.correctOption || !questionForm.questionText.trim()}
-                                 className="w-full rounded-[1.5rem] bg-slate-900 px-8 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl transition-all hover:bg-black active:scale-95 disabled:grayscale disabled:opacity-30 sm:w-auto sm:px-12 sm:py-5"
+                                 className="w-full rounded-3xl bg-slate-900 px-8 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl transition-all hover:bg-black active:scale-95 disabled:grayscale disabled:opacity-30 sm:w-auto sm:px-12 sm:py-5"
                                >
                                  {creatingQuestion ? "SAVING..." : "DEPLOY QUESTION"}
                                </button>
@@ -454,13 +459,13 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
 
                          <div className="space-y-6 pt-10 border-t-2 border-slate-100 border-dashed">
                             <h5 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 ml-1 text-center">Paper Preview / Added Questions</h5>
-                            <div className="custom-scrollbar max-h-[800px] overflow-y-auto">
+                            <div className="custom-scrollbar max-h-200 overflow-y-auto">
                                {questionsForSet.length === 0 ? (
                                   <div className="py-20 text-center text-slate-300 font-bold italic px-10 rounded-[2.5rem] border border-slate-100 bg-slate-50/50">No questions added to this set yet.</div>
                                ) : (
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                                      {questionsForSet.map((q, i) => (
-                                       <div key={q._id} className="p-6 sm:p-8 bg-white rounded-[2rem] border border-slate-200 shadow-sm relative group hover:shadow-lg hover:border-blue-200 transition-all">
+                                      <div key={q._id} className="p-6 sm:p-8 bg-white rounded-4xl border border-slate-200 shadow-sm relative group hover:shadow-lg hover:border-blue-200 transition-all">
                                           <p className="font-bold text-slate-800 leading-tight mb-5 pr-6 text-sm sm:text-base">
                                              <span className="text-blue-500 mr-2 font-black">Q{i+1}.</span> {q.questionText}
                                           </p>
@@ -488,7 +493,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                  ) : (
                    <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-12">
                       <div className="bg-emerald-50/30 border-2 border-emerald-100/50 p-10 rounded-[3rem] flex flex-wrap items-end gap-8">
-                         <div className="flex-1 min-w-[300px] space-y-3">
+                        <div className="flex-1 min-w-75 space-y-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600 ml-2">Final Assignment Mode</label>
                             <select 
                                className="w-full px-8 py-5 bg-white rounded-2xl border-none font-bold text-slate-800 shadow-sm outline-none"
@@ -499,7 +504,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                <option value="offline">Center-Based Offline Paper</option>
                             </select>
                          </div>
-                         <div className="flex-1 min-w-[300px] space-y-3">
+                        <div className="flex-1 min-w-75 space-y-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600 ml-2">Execution Date</label>
                             <input 
                                type="date" 
@@ -583,8 +588,8 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center p-40 bg-white rounded-[4rem] border border-dashed border-slate-100 h-full min-h-[800px]">
-               <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10">
+            <div className="flex flex-col items-center justify-center p-40 bg-white rounded-[4rem] border border-dashed border-slate-100 h-full min-h-200">
+               <div className="w-24 h-24 bg-slate-50 rounded-4xl flex items-center justify-center mb-10">
                   <BookOpen className="w-10 h-10 text-slate-200" />
                </div>
                <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-base mb-2">Paper Designer Workspace</p>

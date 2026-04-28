@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PlusCircle, Trash2, Video, FileText, Type, Search, Trash, Eye, Play, FileIcon, Loader2 } from "lucide-react";
+import { PlusCircle, Trash2, FileText, Type, Play, FileIcon, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
@@ -180,7 +180,7 @@ export default function StudyMaterialManager({ role }: Props) {
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setFormData({ ...formData, type: t.id as any, content: "" })}
+                        onClick={() => setFormData({ ...formData, type: t.id as "video" | "pdf" | "text", content: "" })}
                         className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition ${formData.type === t.id ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200"}`}
                       >
                         <t.icon className="w-5 h-5" />
@@ -326,7 +326,7 @@ export default function StudyMaterialManager({ role }: Props) {
                 </div>
               </div>
               
-              <div className="p-6 flex-grow">
+              <div className="p-6 grow">
                 <h4 className="font-bold text-slate-800 text-lg leading-tight mb-2 line-clamp-1">{m.title}</h4>
                 <p className="text-xs text-slate-500 line-clamp-2 mb-4 leading-relaxed font-medium">{m.description || "No description provided."}</p>
                 

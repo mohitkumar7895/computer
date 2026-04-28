@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, ClipboardCheck, Trash2, FileText, ShieldCheck } from "lucide-react";
+import Image from "next/image";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { Users, Clock, Search, RefreshCw, Calendar, X, AlertCircle, Trash2, FileText, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
@@ -52,12 +53,26 @@ interface QuestionSet {
   questionCount: number;
 }
 
+interface StudentCandidate {
+  _id: string;
+  name: string;
+  registrationNo: string;
+  course?: string;
+  fatherName?: string;
+  mobile?: string;
+  admissionDate?: string;
+  examMode?: "online" | "offline";
+  status?: string;
+  photo?: string;
+  profileImage?: string;
+}
+
 export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: string, role?: "admin" | "atc" }) {
   const [requests, setRequests] = useState<ExamRequest[]>([]);
-  const [availableStudents, setAvailableStudents] = useState<any[]>([]);
+  const [availableStudents, setAvailableStudents] = useState<StudentCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterMode, setFilterMode] = useState<"all" | "online" | "offline">("all");
+  const [filterMode] = useState<"all" | "online" | "offline">("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [questionSets, setQuestionSets] = useState<QuestionSet[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -72,7 +87,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [atcTab, setAtcTab] = useState<"new" | "history">(role === "admin" ? "history" : "new");
-  const [requestExamStudent, setRequestExamStudent] = useState<any | null>(null);
+  const [requestExamStudent, setRequestExamStudent] = useState<StudentCandidate | null>(null);
   const [examReqForm, setExamReqForm] = useState({ 
     examDate: "",
     examTime: "",
@@ -88,12 +103,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
-  const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [releaseForm, setReleaseForm] = useState({ marksheet: true, certificate: true });
   const { loading: authLoading, user: authUser } = useAuth();
   const showRosterTab = role === "atc";
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (authLoading || !authUser) return;
     setLoading(true);
     try {
@@ -112,7 +125,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         });
         if (studentRes.ok) {
           const sData = await studentRes.json();
-          const validStudents = (sData.students || []).filter((s: any) => s.status === "approved" || s.status === "active");
+          const validStudents = (sData.students || []).filter((s: StudentCandidate) => s.status === "approved" || s.status === "active");
           setAvailableStudents(validStudents);
         }
       }
@@ -121,9 +134,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     } finally {
       setLoading(false);
     }
-  };
+  }, [authLoading, authUser, role]);
 
-  const fetchQuestionSets = async () => {
+  const fetchQuestionSets = useCallback(async () => {
     if (authLoading || !authUser) return;
     try {
       const endpoint = role === "admin" ? "/api/admin/question-sets" : "/api/atc/question-sets";
@@ -135,13 +148,13 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     } catch (err) {
       console.error("Failed to fetch sets", err);
     }
-  };
+  }, [authLoading, authUser, role]);
 
   useEffect(() => {
     if (authLoading || !authUser) return;
-    fetchRequests();
-    fetchQuestionSets();
-  }, [atcId, role, authLoading, authUser]);
+    void fetchRequests();
+    void fetchQuestionSets();
+  }, [atcId, fetchRequests, fetchQuestionSets, authLoading, authUser]);
 
   const toDateInputValue = (value?: string) => {
     if (!value) return "";
@@ -151,7 +164,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     return local.toISOString().slice(0, 10);
   };
 
-  const handleAction = async (requestId: string, status: string, details?: any) => {
+  const handleAction = async (requestId: string, status: string, details?: Record<string, unknown>) => {
     setActionLoading(requestId);
     try {
       const res = await apiFetch("/api/admin/exams/update", {
@@ -270,7 +283,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       if (res.ok) {
         alert("Result Submitted Successfully");
         await fetchRequests();
-        setShowReleaseModal(false);
       }
     } catch (err) {
       console.error("Approve failed", err);
@@ -327,9 +339,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const openResultModal = (exam: ExamRequest) => {
     setSelectedExam(exam);
     setResultForm({
-      status: (exam.offlineExamStatus as any) || "published",
+      status: (exam.offlineExamStatus as "not_appeared" | "appeared" | "published") || "published",
       marks: exam.totalScore?.toString() || "",
-      resultStatus: (exam.offlineExamResult as any) || "Pass"
+      resultStatus: (exam.offlineExamResult as "Pass" | "Fail" | "Waiting") || "Pass"
     });
     setShowResultModal(true);
   };
@@ -361,7 +373,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const inputCls = "w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-green-500 transition";
 
   return (
-    <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px] text-slate-800">
+    <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-150 text-slate-800">
       {/* Top Tabs styling same as StudentManager */}
       {/* Unifed Filter Tabs */}
       <div className="flex items-center gap-6 px-8 pt-6 bg-white border-b border-slate-100">
@@ -379,11 +391,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                 setReviewOnly(false);
               } else if (tab.id === "review_queue") {
                 setAtcTab("history");
-                setFilterStatus("all" as any);
+                setFilterStatus("all");
                 setReviewOnly(true);
               } else {
                 setAtcTab("history");
-                setFilterStatus(tab.id as any);
+                setFilterStatus(tab.id as "all" | "pending" | "approved" | "rejected");
                 setReviewOnly(false);
               }
             }}
@@ -407,7 +419,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       <div className="p-6">
         {/* Search & Filter bar like StudentManager */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-wrap items-center gap-4 mb-6">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-50">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text" 
@@ -474,9 +486,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {availableStudents.map(s => {
-                      const existingRequest = requests.find(r => r.studentId?._id === s._id || r.studentId === s._id);
+                      const existingRequest = requests.find((r) => r.studentId?._id === s._id);
                       const hasTodayRequest = requests.some((r) => {
-                        const sameStudent = r.studentId?._id === s._id || r.studentId === s._id;
+                        const sameStudent = r.studentId?._id === s._id;
                         if (!sameStudent) return false;
                         const dt = new Date(r.createdAt || r.updatedAt);
                         const now = new Date();
@@ -507,7 +519,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           <td className="px-6 py-5">
                             <div className="flex items-center gap-3">
                               {s.profileImage || s.photo ? (
-                                <img src={s.profileImage || s.photo} alt={s.name} className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm" />
+                                <Image src={s.profileImage || s.photo || ""} alt={s.name} width={36} height={36} unoptimized className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm" />
                               ) : (
                                 <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 font-black text-slate-400">{s.name.charAt(0)}</div>
                               )}
@@ -619,9 +631,12 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
                             {exam.studentId?.profileImage || exam.studentId?.photo ? (
-                              <img
-                                src={exam.studentId.profileImage || exam.studentId.photo}
+                              <Image
+                                src={exam.studentId.profileImage || exam.studentId.photo || ""}
                                 alt={exam.studentId?.name || "Student"}
+                                width={36}
+                                height={36}
+                                unoptimized
                                 className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm"
                               />
                             ) : (
@@ -637,8 +652,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         </td>
                         {role === "admin" && (
                           <td className="px-6 py-5">
-                            <p className="font-bold text-slate-700 uppercase text-[10px] leading-tight mb-1">{(exam.atcId as any)?.trainingPartnerName || "N/A"}</p>
-                            <p className="text-[10px] font-black text-blue-600 tracking-widest uppercase">ID: {(exam.atcId as any)?.tpCode || "—"}</p>
+                            <p className="font-bold text-slate-700 uppercase text-[10px] leading-tight mb-1">{exam.atcId?.trainingPartnerName || "N/A"}</p>
+                            <p className="text-[10px] font-black text-blue-600 tracking-widest uppercase">ID: {exam.atcId?.tpCode || "—"}</p>
                           </td>
                         )}
                         <td className="px-6 py-5 text-center">
@@ -781,7 +796,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       {/* Modal overlays */}
       {showApproveModal && selectedExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
-          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in duration-300">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Finalize Schedule</h3>
@@ -918,7 +933,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         <select 
                           className={inputCls}
                           value={resultForm.status}
-                          onChange={e => setResultForm({...resultForm, status: e.target.value as any})}
+                          onChange={e => setResultForm({...resultForm, status: e.target.value as "not_appeared" | "appeared" | "published"})}
                           required
                         >
                            <option value="not_appeared">Not Appeared</option>
@@ -963,7 +978,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
                   <div className="flex gap-4 pt-4">
                      <button type="button" onClick={() => setShowResultModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                     <button type="submit" disabled={resultSaving} className="flex-[2] py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
+                     <button type="submit" disabled={resultSaving} className="flex-2 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
                        {resultSaving ? <span className="flex items-center gap-2 justify-center"><RefreshCw size={14} className="animate-spin" /> Uploading...</span> : "Submit Result & Copy"}
                      </button>
                   </div>
@@ -973,7 +988,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       )}
 
       {requestExamStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
                  <div>
@@ -1055,7 +1070,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
                   <div className="pt-4 flex gap-4">
                      <button type="button" onClick={() => setRequestExamStudent(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                     <button type="submit" disabled={requesting} className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl">
+                     <button type="submit" disabled={requesting} className="flex-2 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl">
                        {requesting ? "Submitting..." : "Submit Request"}
                      </button>
                   </div>

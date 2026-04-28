@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MapPin, ShieldCheck, Layers, RefreshCw, CheckCircle } from "lucide-react";
+import { useEffect, useMemo, useCallback, useState } from "react";
+import { MapPin, RefreshCw, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
@@ -41,7 +41,6 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
   const [examDate, setExamDate] = useState("");
   const [notes, setNotes] = useState("");
   const [loadingSets, setLoadingSets] = useState(true);
-  const [loadingAssignment, setLoadingAssignment] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -50,7 +49,7 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
     [approvedCenters, selectedCenterId],
   );
 
-  const fetchSets = async () => {
+  const fetchSets = useCallback(async () => {
     if (!authUser) return;
     setLoadingSets(true);
     try {
@@ -63,11 +62,10 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
     } finally {
       setLoadingSets(false);
     }
-  };
+  }, [authUser]);
 
   const fetchAssignment = async (center: { tpCode?: string; _id: string }) => {
     if (!center.tpCode && !center._id) return;
-    setLoadingAssignment(true);
     setAssignment(null);
     try {
       const query = center.tpCode ? `tpCode=${encodeURIComponent(center.tpCode)}` : `centerId=${encodeURIComponent(center._id)}`;
@@ -92,13 +90,13 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
     } catch {
       setFeedback({ type: "error", text: "Unable to load assignment details." });
     } finally {
-      setLoadingAssignment(false);
+      // no-op
     }
   };
 
   useEffect(() => {
     if (authUser) void fetchSets();
-  }, [authUser]);
+  }, [authUser, fetchSets]);
 
   useEffect(() => {
     if (selectedCenter) {
@@ -199,7 +197,7 @@ export default function CenterAssignmentManager({ approvedCenters }: CenterAssig
             </span>
           </div>
 
-          <div className="mt-5 space-y-3 max-h-[520px] overflow-y-auto pr-2">
+          <div className="mt-5 space-y-3 max-h-130 overflow-y-auto pr-2">
             {approvedCenters.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-slate-400">No approved centers available.</div>
             ) : (

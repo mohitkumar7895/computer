@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PlusCircle, Trash2, Edit2, Check, X, BookOpen, Layers } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { PlusCircle, Trash2, Check, X, BookOpen, Layers } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
@@ -21,7 +21,6 @@ export default function CourseManager() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form states
   const [name, setName] = useState("");
@@ -34,7 +33,7 @@ export default function CourseManager() {
 
   const zones = ["Software Zone", "Hardware Zone", "Vocational Zone", "Others"];
 
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     if (authLoading || !authUser) return;
     setLoading(true);
     try {
@@ -44,13 +43,13 @@ export default function CourseManager() {
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
-  };
+  }, [authLoading, authUser]);
 
   useEffect(() => {
     if (!authLoading && authUser) {
       void fetchCourses();
     }
-  }, [authLoading, authUser]);
+  }, [authLoading, authUser, fetchCourses]);
 
   const handleAddCourse = async () => {
     if (!name || !shortName || !duration || (zone === "Others" && !customZone)) return;
@@ -189,7 +188,7 @@ export default function CourseManager() {
                     onClick={() => setHasMarksheet(!hasMarksheet)}
                     className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasMarksheet ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 bg-slate-50 text-transparent'}`}
                   >
-                     <Check size={14} className="stroke-[3]" />
+                    <Check size={14} className="stroke-3" />
                   </div>
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-tight group-hover:text-blue-600 transition">Generate Marksheet</span>
                </label>
@@ -199,7 +198,7 @@ export default function CourseManager() {
                     onClick={() => setHasCertificate(!hasCertificate)}
                     className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasCertificate ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-200 bg-slate-50 text-transparent'}`}
                   >
-                     <Check size={14} className="stroke-[3]" />
+                    <Check size={14} className="stroke-3" />
                   </div>
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-tight group-hover:text-emerald-600 transition">Generate Certificate</span>
                </label>
