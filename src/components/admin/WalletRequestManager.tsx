@@ -30,7 +30,7 @@ export default function WalletRequestManager() {
       const res = await apiFetch("/api/admin/wallet-requests");
       const data = await res.json();
       if (res.ok) {
-        const nextRequests = Array.isArray(data.requests) ? data.requests : [];
+        const nextRequests: WalletRequest[] = Array.isArray(data.requests) ? data.requests : [];
         setRequests(nextRequests);
         setSelectedRequestIds((prev) =>
           prev.filter((id) => nextRequests.some((request) => request._id === id && request.status === "pending"))
