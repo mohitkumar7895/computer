@@ -5,6 +5,7 @@ import { AtcUser } from "@/models/AtcUser";
 import { WalletRequest } from "@/models/WalletRequest";
 import { WalletTransaction } from "@/models/WalletTransaction";
 import { Settings } from "@/models/Settings";
+import { AtcStudent } from "@/models/Student";
 
 export async function GET(request: Request) {
   const user = await verifyAtc(request);
@@ -17,6 +18,18 @@ export async function GET(request: Request) {
 
     const requests = await WalletRequest.find({ atcId: user.id }).sort({ createdAt: -1 }).limit(50).lean();
     const history = await WalletTransaction.find({ atcId: user.id }).sort({ createdAt: -1 }).limit(100).lean();
+    const studentIds = history
+      .map((item: any) => String(item.studentId || ""))
+      .filter((id: string) => Boolean(id));
+    const students = studentIds.length
+      ? await AtcStudent.find({ _id: { $in: studentIds } }).select("_id registrationNo").lean()
+      : [];
+    const regMap = new Map<string, string>();
+    students.forEach((student: any) => regMap.set(String(student._id), String(student.registrationNo || "")));
+    const historyWithReg = history.map((item: any) => ({
+      ...item,
+      registrationNo: item.studentId ? regMap.get(String(item.studentId)) || "" : "",
+    }));
     const walletSettings = await Settings.find({
       key: { $in: ["wallet_payment_name", "wallet_payment_upi", "wallet_payment_note", "wallet_payment_qr", "qr_code"] },
     }).lean();
@@ -41,7 +54,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       balance: atc.walletBalance || 0,
       requests,
-      history,
+      history: historyWithReg,
       paymentConfig,
     });
   } catch (error: any) {
@@ -54,7 +67,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {
-    const { amount, transactionId, paymentScreenshot, paymentNote } = await request.json();
+    const { amount, transactionId, paymentDate, paymentScreenshot, paymentNote } = await request.json();
     const numericAmount = Number(amount);
     if (!numericAmount || numericAmount <= 0) {
       return NextResponse.json({ message: "Please provide a valid amount" }, { status: 400 });
@@ -75,6 +88,7 @@ export async function POST(request: Request) {
       tpCode: atc.tpCode,
       amount: numericAmount,
       transactionId: String(transactionId).trim(),
+      paymentDate: paymentDate ? new Date(paymentDate) : undefined,
       paymentScreenshot,
       paymentNote: String(paymentNote || "").trim(),
       status: "pending",

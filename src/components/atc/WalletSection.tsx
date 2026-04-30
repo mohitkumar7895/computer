@@ -7,8 +7,12 @@ type WalletRequest = {
   _id: string;
   amount: number;
   transactionId: string;
+  paymentDate?: string;
   paymentScreenshot: string;
   paymentNote?: string;
+  approvedAmount?: number;
+  adminRemark?: string;
+  processedAt?: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
 };
@@ -18,7 +22,10 @@ type WalletHistoryItem = {
   type: "credit" | "debit";
   amount: number;
   reason: string;
+  adminRemark?: string;
+  requestedAmount?: number;
   studentName?: string;
+  registrationNo?: string;
   courseName?: string;
   createdAt: string;
 };
@@ -29,6 +36,7 @@ export default function WalletSection() {
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
   const [transactionId, setTransactionId] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [paymentScreenshot, setPaymentScreenshot] = useState("");
   const [requests, setRequests] = useState<WalletRequest[]>([]);
@@ -42,9 +50,12 @@ export default function WalletSection() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const loadWallet = async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await apiFetch("/api/atc/wallet");
       const data = await res.json();
@@ -53,7 +64,11 @@ export default function WalletSection() {
         setRequests(Array.isArray(data.requests) ? data.requests : []);
         setHistory(Array.isArray(data.history) ? data.history : []);
         setPaymentConfig(data.paymentConfig || { name: "", upi: "", note: "", qr: "" });
+      } else {
+        setLoadError(data.message || "Failed to load wallet details.");
       }
+    } catch {
+      setLoadError("Unable to load wallet details. Please refresh.");
     } finally {
       setLoading(false);
     }
@@ -94,6 +109,7 @@ export default function WalletSection() {
         body: JSON.stringify({
           amount: numericAmount,
           transactionId: transactionId.trim(),
+          paymentDate: paymentDate || undefined,
           paymentScreenshot,
           paymentNote: paymentNote.trim(),
         }),
@@ -105,6 +121,7 @@ export default function WalletSection() {
         setMsg({ type: "success", text: "Wallet request submitted" });
         setAmount("");
         setTransactionId("");
+        setPaymentDate("");
         setPaymentNote("");
         setPaymentScreenshot("");
         setShowAddForm(false);
@@ -114,6 +131,42 @@ export default function WalletSection() {
       setSubmitting(false);
     }
   };
+
+  const passbookEntries = [
+    ...history.map((item) => ({
+      id: `tx-${item._id}`,
+      date: item.createdAt,
+      kind: "transaction" as const,
+      title: item.type === "credit" ? "Wallet Credit" : "Wallet Debit",
+      subtitle: item.studentName || "General Wallet Entry",
+      courseName: item.courseName || "",
+      registrationNo: item.registrationNo || "",
+      reason: item.reason,
+      remark: item.adminRemark || "",
+      requestedAmount: item.requestedAmount,
+      amount: item.amount,
+      direction: item.type,
+    })),
+    ...requests.map((request) => ({
+      id: `req-${request._id}`,
+      date: request.processedAt || request.createdAt,
+      kind: "request" as const,
+      title:
+        request.status === "approved"
+          ? "Wallet Request Approved"
+          : request.status === "rejected"
+            ? "Wallet Request Rejected"
+            : "Wallet Request Pending",
+      subtitle: request.transactionId ? `UTR: ${request.transactionId}` : "Wallet request submitted",
+      courseName: "",
+      registrationNo: "",
+      reason: request.paymentNote || "Wallet top-up request",
+      remark: request.adminRemark || "",
+      requestedAmount: request.amount,
+      amount: request.status === "approved" ? Number(request.approvedAmount ?? request.amount) : request.amount,
+      direction: request.status === "approved" ? ("credit" as const) : ("debit" as const),
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
@@ -183,6 +236,12 @@ export default function WalletSection() {
                   onChange={(e) => setTransactionId(e.target.value)}
                   className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-green-500"
                 />
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-green-500"
+                />
               </div>
               <input
                 type="text"
@@ -200,7 +259,13 @@ export default function WalletSection() {
                   {paymentConfig.qr ? (
                     <div className="pt-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={paymentConfig.qr} alt="Wallet Payment QR" className="h-36 w-36 rounded-lg border border-blue-200 bg-white object-contain" />
+                      <img
+                        src={paymentConfig.qr}
+                        alt="Wallet Payment QR"
+                        onClick={() => setZoomImage(paymentConfig.qr)}
+                        className="h-36 w-36 rounded-lg border border-blue-200 bg-white object-contain cursor-zoom-in"
+                      />
+                      <p className="mt-1 text-[10px] font-semibold text-blue-600">Click to zoom</p>
                     </div>
                   ) : null}
                 </div>
@@ -260,28 +325,85 @@ export default function WalletSection() {
 
       {activeTab === "history" && (
         <div>
-          <p className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Course Fee Deduction History</p>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 mb-3">
+            <p className="text-xs font-black text-slate-700 uppercase tracking-wider">Wallet Passbook</p>
+            <p className="text-[11px] text-slate-500 font-semibold mt-1">All wallet transactions + request updates in one clean timeline.</p>
+          </div>
+          {loadError ? (
+            <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              {loadError}
+            </div>
+          ) : null}
           {loading ? (
             <p className="text-sm text-slate-400">Loading...</p>
-          ) : history.filter((item) => item.type === "debit").length === 0 ? (
-            <p className="text-sm text-slate-400">No course fee deduction history yet.</p>
+          ) : passbookEntries.length === 0 ? (
+            <p className="text-sm text-slate-400">No wallet transactions yet.</p>
           ) : (
-            <div className="space-y-2">
-              {history
-                .filter((item) => item.type === "debit")
-                .slice(0, 20)
-                .map((item) => (
-                  <div key={item._id} className="border border-slate-100 rounded-xl px-3 py-2 text-xs">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-slate-700">
-                        {item.studentName || "Student"} - {item.courseName || "Course"}
-                      </span>
-                      <span className="font-black text-red-600">-₹{item.amount}</span>
+            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+              {passbookEntries.slice(0, 150).map((item) => (
+                <div key={item.id} className="border border-slate-100 rounded-xl px-3 py-3 text-xs bg-white">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="font-black text-slate-700 uppercase tracking-wide">
+                        {item.title}
+                      </p>
+                      <p className="text-slate-600 font-semibold">
+                        {item.subtitle}
+                        {item.courseName ? ` - ${item.courseName}` : ""}
+                      </p>
+                      {item.registrationNo ? (
+                        <p className="text-slate-500">
+                          Reg ID: <span className="font-bold text-slate-700">{item.registrationNo}</span>
+                        </p>
+                      ) : null}
+                      <p className="text-slate-500">{item.reason}</p>
+                      {item.remark ? (
+                        <p className="text-blue-700 font-semibold">Remark: {item.remark}</p>
+                      ) : null}
+                      {typeof item.requestedAmount === "number" ? (
+                        <p className="text-slate-500">Requested: <span className="font-bold text-slate-700">₹{item.requestedAmount}</span></p>
+                      ) : null}
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-black text-sm ${item.direction === "credit" ? "text-emerald-600" : "text-red-600"}`}>
+                        {item.direction === "credit" ? "+" : "-"}₹{item.amount}
+                      </p>
+                      <p className="text-slate-500 font-semibold">
+                        {new Date(item.date).toLocaleString("en-IN")}
+                      </p>
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
           )}
+        </div>
+      )}
+      {zoomImage && (
+        <div
+          className="fixed inset-0 z-[140] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setZoomImage(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-black text-slate-800 uppercase tracking-wider">Admin QR Screenshot</p>
+              <button
+                onClick={() => setZoomImage(null)}
+                className="text-xs font-bold text-slate-500 hover:text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={zoomImage}
+              alt="Zoomed admin QR"
+              className="w-full max-h-[75vh] rounded-xl bg-white object-contain"
+            />
+          </div>
         </div>
       )}
     </div>

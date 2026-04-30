@@ -11,7 +11,12 @@ const geistSans = Geist({
 import { getBrandName } from "@/lib/settings";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const brandName = await getBrandName();
+  let brandName = "Institution";
+  try {
+    brandName = await getBrandName();
+  } catch {
+    // Keep static fallback metadata when DB is unavailable.
+  }
   return {
     title: `${brandName} | Professional Training Courses`,
     description: `Official portal for ${brandName}, providing modern computer education and professional training.`,
@@ -27,7 +32,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const brandData = await getFullBrandData();
+  let brandData: Record<string, string> = {};
+  try {
+    brandData = await getFullBrandData();
+  } catch {
+    brandData = {};
+  }
 
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>

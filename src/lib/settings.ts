@@ -14,8 +14,9 @@ export async function getSetting(key: string, defaultValue: string = ""): Promis
     await connectDB();
     const setting = await Setting.findOne({ key });
     return setting ? setting.value : defaultValue;
-  } catch (err) {
-    console.error(`Error fetching setting ${key}:`, err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown settings error";
+    console.warn(`Settings fallback for "${key}": ${message}`);
     return defaultValue;
   }
 }
@@ -44,8 +45,9 @@ export async function getFullBrandData() {
       data[setting.key] = setting.value;
     });
     return data;
-  } catch (err) {
-    console.error("Error fetching full brand data:", err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown settings error";
+    console.warn(`Settings fallback for full brand data: ${message}`);
     return {};
   }
 }

@@ -8,8 +8,12 @@ type WalletRequest = {
   tpCode: string;
   amount: number;
   transactionId: string;
+  paymentDate?: string;
   paymentScreenshot: string;
   paymentNote?: string;
+  approvedAmount?: number;
+  adminRemark?: string;
+  processedAt?: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
   atcId?: { trainingPartnerName?: string; walletBalance?: number };
@@ -23,6 +27,10 @@ export default function WalletRequestManager() {
   const [bulkActionLoading, setBulkActionLoading] = useState<"approve" | "reject" | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [viewingRequest, setViewingRequest] = useState<WalletRequest | null>(null);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [processModal, setProcessModal] = useState<{ request: WalletRequest; action: "approve" | "reject" } | null>(null);
+  const [processAmount, setProcessAmount] = useState("");
+  const [processRemark, setProcessRemark] = useState("");
 
   const loadRequests = async () => {
     setLoading(true);
@@ -45,18 +53,41 @@ export default function WalletRequestManager() {
     void loadRequests();
   }, []);
 
-  const handleAction = async (requestId: string, action: "approve" | "reject") => {
+  const handleAction = async (
+    requestId: string,
+    action: "approve" | "reject",
+    options?: { approvedAmount?: number; adminRemark?: string }
+  ) => {
     setActionId(requestId + action);
     try {
       const res = await apiFetch("/api/admin/wallet-requests", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, action }),
+        body: JSON.stringify({ requestId, action, ...options }),
       });
       if (res.ok) await loadRequests();
     } finally {
       setActionId(null);
     }
+  };
+
+  const openProcessModal = (request: WalletRequest, action: "approve" | "reject") => {
+    setProcessModal({ request, action });
+    setProcessAmount(String(request.amount || ""));
+    setProcessRemark("");
+  };
+
+  const submitProcessAction = async () => {
+    if (!processModal) return;
+    const approvedAmount = Number(processAmount);
+    if (processModal.action === "approve" && (!approvedAmount || approvedAmount <= 0)) return;
+    await handleAction(processModal.request._id, processModal.action, {
+      approvedAmount: processModal.action === "approve" ? approvedAmount : undefined,
+      adminRemark: processRemark.trim(),
+    });
+    setProcessModal(null);
+    setProcessAmount("");
+    setProcessRemark("");
   };
 
   const pendingRequests = requests.filter((request) => request.status === "pending");
@@ -182,14 +213,14 @@ export default function WalletRequestManager() {
                 {request.status === "pending" && (
                   <>
                     <button
-                      onClick={() => void handleAction(request._id, "approve")}
+                      onClick={() => openProcessModal(request, "approve")}
                       disabled={actionId === request._id + "approve"}
                       className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase"
                     >
                       Approve
                     </button>
                     <button
-                      onClick={() => void handleAction(request._id, "reject")}
+                      onClick={() => openProcessModal(request, "reject")}
                       disabled={actionId === request._id + "reject"}
                       className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 text-[10px] font-black uppercase"
                     >
@@ -231,8 +262,22 @@ export default function WalletRequestManager() {
                   <p className="text-sm font-bold text-slate-800">{viewingRequest.transactionId || "-"}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[10px] text-slate-500 font-black uppercase">Payment Date</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {viewingRequest.paymentDate ? new Date(viewingRequest.paymentDate).toLocaleDateString("en-IN") : "-"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                   <p className="text-[10px] text-slate-500 font-black uppercase">Note (optional)</p>
                   <p className="text-sm font-semibold text-slate-700">{viewingRequest.paymentNote || "-"}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[10px] text-slate-500 font-black uppercase">Approved Amount</p>
+                  <p className="text-sm font-bold text-slate-800">₹{viewingRequest.approvedAmount ?? viewingRequest.amount}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[10px] text-slate-500 font-black uppercase">Admin Remark</p>
+                  <p className="text-sm font-semibold text-slate-700">{viewingRequest.adminRemark || "-"}</p>
                 </div>
               </div>
 
@@ -245,7 +290,12 @@ export default function WalletRequestManager() {
                   <p className="text-[10px] text-slate-500 font-black uppercase mb-2">Upload payment screenshot</p>
                   {viewingRequest.paymentScreenshot ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={viewingRequest.paymentScreenshot} alt="Wallet payment proof" className="w-full h-[170px] object-contain rounded-lg bg-white border border-slate-200" />
+                    <img
+                      src={viewingRequest.paymentScreenshot}
+                      alt="Wallet payment proof"
+                      onClick={() => setZoomImage(viewingRequest.paymentScreenshot)}
+                      className="w-full h-[170px] object-contain rounded-lg bg-white border border-slate-200 cursor-zoom-in"
+                    />
                   ) : (
                     <div className="h-[170px] flex items-center justify-center text-xs font-semibold text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white">
                       No screenshot uploaded
@@ -262,18 +312,16 @@ export default function WalletRequestManager() {
               {viewingRequest.status === "pending" && (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={async () => {
-                      await handleAction(viewingRequest._id, "reject");
-                      setViewingRequest(null);
+                    onClick={() => {
+                      openProcessModal(viewingRequest, "reject");
                     }}
                     className="px-4 py-2 rounded-lg bg-red-100 text-red-700 text-[10px] font-black uppercase hover:bg-red-200"
                   >
                     Reject
                   </button>
                   <button
-                    onClick={async () => {
-                      await handleAction(viewingRequest._id, "approve");
-                      setViewingRequest(null);
+                    onClick={() => {
+                      openProcessModal(viewingRequest, "approve");
                     }}
                     className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700"
                   >
@@ -282,6 +330,61 @@ export default function WalletRequestManager() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {zoomImage && (
+        <div
+          className="fixed inset-0 z-[130] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setZoomImage(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zoomImage}
+            alt="Zoomed payment screenshot"
+            className="max-h-[90vh] max-w-[90vw] rounded-xl bg-white object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+      {processModal && (
+        <div className="fixed inset-0 z-[140] bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">
+                {processModal.action === "approve" ? "Approve Wallet Request" : "Reject Wallet Request"}
+              </h4>
+              <button className="text-xs font-bold text-slate-500" onClick={() => setProcessModal(null)}>
+                Close
+              </button>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              Requested Amount: <span className="font-black">₹{processModal.request.amount}</span>
+            </div>
+            {processModal.action === "approve" && (
+              <input
+                type="number"
+                value={processAmount}
+                onChange={(e) => setProcessAmount(e.target.value)}
+                placeholder="Approved amount"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-emerald-500"
+              />
+            )}
+            <textarea
+              value={processRemark}
+              onChange={(e) => setProcessRemark(e.target.value)}
+              placeholder="Admin remark (optional)"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 min-h-[90px]"
+            />
+            <button
+              onClick={() => void submitProcessAction()}
+              disabled={actionId === processModal.request._id + processModal.action}
+              className={`w-full rounded-xl px-4 py-2.5 text-sm font-black uppercase ${
+                processModal.action === "approve" ? "bg-emerald-600 text-white" : "bg-red-100 text-red-700"
+              }`}
+            >
+              {processModal.action === "approve" ? "Confirm Approval" : "Confirm Rejection"}
+            </button>
           </div>
         </div>
       )}

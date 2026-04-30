@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useEffect, type FormEvent } from "react";
-import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, Heart, RefreshCw, ShieldCheck, Download, XCircle, Search, Hash, X } from "lucide-react";
+import NextImage from "next/image";
+import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, RefreshCw, ShieldCheck, Download, XCircle, Search, Hash, X } from "lucide-react";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
@@ -18,6 +19,7 @@ interface Student {
   currentAddress?: string;
   permanentAddress?: string;
   highestQualification?: string;
+  qualificationDetail?: string;
   parentsMobile?: string;
   nationality?: string;
   religion?: string;
@@ -34,6 +36,7 @@ interface Student {
   admissionDate: string;
   photo?: string;
   examMode?: string;
+  courseType?: string;
   offlineExamStatus?: "not_appeared" | "appeared" | "review_pending" | "published";
   offlineExamMarks?: string;
   offlineExamResult?: "Pass" | "Fail" | "Waiting";
@@ -46,7 +49,15 @@ interface Student {
   duesAmount?: number;
   admissionFees?: string;
   marksheet10th?: string;
+  marksheet12th?: string;
+  graduationDoc?: string;
+  highestQualDoc?: string;
+  qualificationDoc?: string;
   otherDocs?: string;
+  aadhaarNo?: string;
+  parentMobile?: string;
+  emergencyMobile?: string;
+  referenceBy?: string;
 }
 
 interface Course {
@@ -103,7 +114,6 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     examStatus: "appeared" as const
   });
   const [isEditing, setIsEditing] = useState(false);
-  const [editTab, setEditTab] = useState<"personal" | "academic" | "address" | "documents" | "fees">("personal");
   const [resultSubmitting, setResultSubmitting] = useState(false);
   
   // Local validation states for modals
@@ -158,6 +168,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       };
       void fetchMedia();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudent?._id]);
 
   const handleLookup = async () => {
@@ -208,6 +219,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     if (authLoading || !authUser) return;
     void fetchCourses(); // Always fetch courses on mount
     if (tab === "list") void fetchStudents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, authLoading, authUser]);
 
   const handleAddSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -216,14 +228,16 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     const requiredInputs = formEl.querySelectorAll("[required]");
     const invalid = new Set<string>();
     
-    requiredInputs.forEach((input: any) => {
-      if (!input.value || (input.type === 'file' && input.files.length === 0)) {
+    requiredInputs.forEach((input) => {
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement)) return;
+      if (!input.value || (input instanceof HTMLInputElement && input.type === "file" && input.files?.length === 0)) {
         invalid.add(input.name);
       }
     });
     const fileInputs = formEl.querySelectorAll("input[type='file']");
     let fileError = "";
-    fileInputs.forEach((input: any) => {
+    fileInputs.forEach((input) => {
+      if (!(input instanceof HTMLInputElement)) return;
       const file = input.files?.[0];
       if (file) {
         if (file.type.startsWith("image/")) {
@@ -359,59 +373,17 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       setDisability("No");
       await fetchStudents();
       setTab("list");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Submission Error:", err);
-      let errorMsg = err.message;
+      let errorMsg = err instanceof Error ? err.message : "Unknown error";
       try {
-         const errorData = JSON.parse(err.message);
+         const errorData = JSON.parse(err instanceof Error ? err.message : "");
          if (errorData.message) errorMsg = errorData.message + (errorData.details ? " (" + errorData.details + ")" : "");
       } catch { /* not json */ }
       
       setMsg({ type: "error", text: "Submission Failed: " + errorMsg });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleUpdate = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!selectedStudent) return;
-
-    // Check validation
-    const formEl = e.currentTarget as HTMLFormElement;
-    const requiredInputs = formEl.querySelectorAll("[required]");
-    const invalid = new Set<string>();
-    requiredInputs.forEach((input: any) => {
-      if (!input.value) invalid.add(input.name || input.id);
-    });
-
-    if (invalid.size > 0) {
-      setModalInvalidFields(invalid);
-      return;
-    }
-    setModalInvalidFields(new Set());
-
-    setUpdating(true);
-    try {
-      const res = await apiFetch("/api/atc/students", {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ studentId: selectedStudent._id, ...editForm }),
-      });
-      if (res.ok) {
-        setMsg({ type: "success", text: "Student updated successfully" });
-        setSelectedStudent(null);
-        void fetchStudents();
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        setMsg({ type: "error", text: errorData.message || "Update failed. Please try again." });
-      }
-    } catch {
-      setMsg({ type: "error", text: "Update failed due to network error" });
-    } finally {
-      setUpdating(false);
     }
   };
 
@@ -423,7 +395,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     const formEl = e.currentTarget as HTMLFormElement;
     const requiredInputs = formEl.querySelectorAll("[required]");
     const invalid = new Set<string>();
-    requiredInputs.forEach((input: any) => {
+    requiredInputs.forEach((input) => {
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement)) return;
       if (!input.value) invalid.add(input.name || input.id);
     });
 
@@ -471,7 +444,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     const formEl = e.currentTarget as HTMLFormElement;
     const requiredInputs = formEl.querySelectorAll("[required]");
     const invalid = new Set<string>();
-    requiredInputs.forEach((input: any) => {
+    requiredInputs.forEach((input) => {
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement)) return;
       if (!input.value) invalid.add(input.name || input.id);
     });
 
@@ -718,7 +692,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   };
 
   return (
-    <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px]">
+    <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-150">
       {/* Tabs */}
       <div className="flex items-center gap-2 px-6 pt-4 border-b border-slate-100 bg-white">
         <button
@@ -866,7 +840,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
-                               {s.photo ? <img src={s.photo} className="w-full h-full object-cover" /> : <User className="w-4 h-4 text-slate-400" />}
+                               {s.photo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={s.photo} alt={`${s.name} photo`} className="w-full h-full object-cover" />
+                               ) : <User className="w-4 h-4 text-slate-400" />}
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-slate-800 leading-none mb-1">{s.name}</p>
@@ -923,7 +900,6 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
                             <button 
                               onClick={() => {
-                                setEditTab("personal");
                                 setSelectedStudent(s);
                                 setEditForm({
                                   name: s.name || "",
@@ -935,13 +911,13 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                   parentsMobile: s.parentsMobile || "",
                                   email: s.email || "",
                                   course: s.course || "",
-                                  courseType: (s as any).courseType || "Regular",
+                                  courseType: s.courseType || "Regular",
                                   session: s.session || "",
                                   admissionDate: s.admissionDate || "",
                                   currentAddress: s.currentAddress || "",
                                   permanentAddress: s.permanentAddress || "",
                                   highestQualification: s.highestQualification || "",
-                                  qualificationDetail: (s as any).qualificationDetail || "",
+                                  qualificationDetail: s.qualificationDetail || "",
                                   aadharNo: s.aadharNo || "",
                                   category: s.category || "General",
                                   nationality: s.nationality || "Indian",
@@ -976,7 +952,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
             <div className="bg-blue-600/5 p-6 rounded-3xl border border-blue-100 flex flex-col md:flex-row items-end gap-4 shadow-sm relative overflow-hidden group">
                <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
                <div className="flex-1 w-full">
-                  <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
                      <Search className="w-3 h-3" /> Registration Lookup (Existing Student)
                      <span className="text-slate-400 font-bold ml-auto">OPTIONAL</span>
                   </label>
@@ -993,7 +969,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                  type="button" 
                  onClick={handleLookup}
                  disabled={isFetching || !lookupRegNo}
-                 className="h-[52px] px-8 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-3 whitespace-nowrap shadow-lg shadow-blue-100"
+                 className="h-13 px-8 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-3 whitespace-nowrap shadow-lg shadow-blue-100"
                >
                  {isFetching ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <RefreshCw className="w-4 h-4" />}
                  {isFetching ? "Searching..." : "Fetch Details"}
@@ -1011,12 +987,12 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                   <input required name="name" className={inputCls("name")} placeholder="Student's Legal Name" />
                 </div>
                 <div>
-                  <label className={labelCls("fatherName")}>Father's Name *</label>
-                  <input required name="fatherName" className={inputCls("fatherName")} placeholder="Father's Name" />
+                  <label className={labelCls("fatherName")}>Father&apos;s Name *</label>
+                  <input required name="fatherName" className={inputCls("fatherName")} placeholder="Father&apos;s Name" />
                 </div>
                 <div>
-                  <label className={labelCls("motherName")}>Mother's Name *</label>
-                  <input required name="motherName" className={inputCls("motherName")} placeholder="Mother's Name" />
+                  <label className={labelCls("motherName")}>Mother&apos;s Name *</label>
+                  <input required name="motherName" className={inputCls("motherName")} placeholder="Mother&apos;s Name" />
                 </div>
                 <div><label className={labelCls("dob")}>Date of Birth *</label><input required type="date" name="dob" className={inputCls("dob")} /></div>
                 <div>
@@ -1176,16 +1152,17 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                     onChange={(e) => setSelectedQual(e.target.value)}
                   >
                     <option value="">Select Qualification</option>
+                    <option value="Below Matric">Below Matric</option>
                     <option value="Matriculation">Matriculation</option>
                     <option value="Intermediate">Intermediate</option>
                     <option value="Graduation">Graduation</option>
                     <option value="Post Graduation">Post Graduation</option>
-                    <option value="PhD / Above">PhD / Above</option>
+                    <option value="PHD Above">PHD Above</option>
                   </select>
                 </div>
                 {selectedQual && (
                   <div className="animate-in slide-in-from-top-2 duration-300">
-                    <label className={labelCls("qualificationDetail")}>Percentage / University / Year *</label>
+                    <label className={labelCls("qualificationDetail")}>Course name *</label>
                     <input 
                       required 
                       name="qualificationDetail" 
@@ -1202,11 +1179,11 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                   {[
                     { label: "Student Photo (JPG/PNG) * - Max 100KB", name: "photo", required: true },
                     { label: "Student Signature (JPG/PNG) * - Max 100KB", name: "studentSignature", required: true },
-                    { label: "10th Marksheet (Compulsory) * - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: true },
+                    { label: "10th Marksheet - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: false },
                     { label: "12th Marksheet (JPG/PNG/PDF) - Max 500KB", name: "marksheet12th", required: false },
                     { label: "Graduation (JPG/PNG/PDF) - Max 500KB", name: "graduationDoc", required: false },
                     { label: "Highest Qualification (JPG/PNG/PDF) - Max 500KB", name: "highestQualDoc", required: false },
-                    { label: "Aadhar Card PDF * - Max 500KB", name: "aadharDoc", required: true },
+                    { label: "Aadhar Card PDF - Max 500KB", name: "aadharDoc", required: false },
                     { label: "Additional Docs / Admission Form (PDF) - Max 500KB", name: "otherDocs", required: false },
                   ].map(doc => (
                     <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
@@ -1237,19 +1214,19 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
       {/* Premium Student Profile Modal */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white rounded-[3rem] w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-white/20 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-500">
             {/* Modal Header */}
             <div className={`shrink-0 px-10 py-8 flex items-center justify-between border-b border-slate-100 ${
               (selectedStudent.status === 'active' || selectedStudent.status === 'approved') 
-                ? 'bg-gradient-to-r from-emerald-50 to-white' 
-                : 'bg-gradient-to-r from-blue-50 to-white'
+                ? 'bg-linear-to-r from-emerald-50 to-white' 
+                : 'bg-linear-to-r from-blue-50 to-white'
             }`}>
               <div className="flex items-center gap-6">
                 <div className="relative group">
                    <div className="w-20 h-20 rounded-3xl overflow-hidden bg-white border-4 border-white shadow-2xl transition-transform group-hover:scale-105 duration-300">
                       {selectedStudent.photo ? (
-                        <img src={selectedStudent.photo} alt="" className="w-full h-full object-cover" />
+                        <NextImage src={selectedStudent.photo} alt={`${selectedStudent.name} photo`} width={80} height={80} unoptimized className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-slate-50">
                            <User className="w-8 h-8 text-slate-300" />
@@ -1334,13 +1311,15 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                          { label: "Aadhar Number", key: "aadharNo" },
                          { label: "Nationality", key: "nationality" },
                          { label: "Marital Status", key: "maritalStatus", type: "select", options: ["Single", "Married", "Others"] },
+                         { label: "Disability", key: "disability" },
+                         { label: "Disability Details", key: "disabilityDetails" },
                        ].map((item, idx) => (
                          <div key={idx} className="space-y-1.5">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
                             {isEditing ? (
                               item.type === "select" ? (
                                 <select 
-                                  value={(editForm as any)[item.key]}
+                                  value={String(editForm[item.key as keyof typeof editForm] ?? "")}
                                   onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
                                   className={modalInputCls(item.key)}
                                 >
@@ -1349,7 +1328,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                               ) : (
                                 <input 
                                   type={item.type || "text"}
-                                  value={(editForm as any)[item.key]}
+                                  value={String(editForm[item.key as keyof typeof editForm] ?? "")}
                                   onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
                                   className={modalInputCls(item.key)}
                                 />
@@ -1358,9 +1337,11 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                               <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">
                                  {item.key === 'dob' 
                                    ? (selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A') 
+                                   : item.key === "disability"
+                                     ? (selectedStudent.disability ? "Yes" : "No")
                                    : pickValue(
-                                       (selectedStudent as any)[item.key],
-                                       item.key === "aadharNo" ? (selectedStudent as any).aadhaarNo : "",
+                                      selectedStudent[item.key as keyof Student],
+                                      item.key === "aadharNo" ? selectedStudent.aadhaarNo : "",
                                      )}
                               </p>
                             )}
@@ -1401,7 +1382,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                  className={modalInputCls("parentsMobile")}
                                />
                              ) : (
-                              <p className="text-lg font-black text-slate-800 tracking-tighter">{pickValue(selectedStudent.parentsMobile, (selectedStudent as any).parentMobile, (selectedStudent as any).emergencyMobile)}</p>
+                              <p className="text-lg font-black text-slate-800 tracking-tighter">{pickValue(selectedStudent.parentsMobile, selectedStudent.parentMobile, selectedStudent.emergencyMobile)}</p>
                              )}
                           </div>
                           <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-200 transition-colors">
@@ -1427,12 +1408,12 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                  className={modalInputCls("referredBy")}
                                />
                              ) : (
-                               <p className="text-base font-black text-slate-800 tracking-tight">{pickValue(selectedStudent.referredBy, (selectedStudent as any).referenceBy)}</p>
+                               <p className="text-base font-black text-slate-800 tracking-tight">{pickValue(selectedStudent.referredBy, selectedStudent.referenceBy)}</p>
                              )}
                           </div>
                        </div>
                        <div className="space-y-6">
-                          <div className="p-6 bg-blue-50/30 rounded-[2rem] border border-blue-100 h-full">
+                          <div className="p-6 bg-blue-50/30 rounded-4xl border border-blue-100 h-full">
                              <div className="space-y-6">
                                 <div>
                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2">Current Address</p>
@@ -1469,53 +1450,48 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
                        <BookOpen className="w-4 h-4 text-emerald-600" /> Academic & admission info
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                       {[
-                         { label: "Course Name", value: selectedStudent.course },
-                         { label: "Session", value: selectedStudent.session },
-                         { label: "Admission Date", value: selectedStudent.admissionDate || 'N/A' },
-                         { label: "Highest Qualification", value: selectedStudent.highestQualification },
-                         { label: "Exam Mode", value: selectedStudent.examMode || 'N/A' },
-                         { label: "Course Name", key: "course", type: "select", options: availableCourses.map(c => c.name) },
-                         { label: "Session", key: "session" },
-                         { label: "Admission Date", key: "admissionDate", type: "date" },
-                         { label: "Highest Qualification", key: "highestQualification" },
-                         { label: "Exam Mode", key: "examMode", type: "select", options: ["online", "offline"] },
-                         { label: "Referred By", key: "referredBy" },
-                         { label: "Course Type", key: "courseType", type: "select", options: ["Regular", "ODL (Open Distance Learning)"] },
-                       ].map((item, idx) => {
-                         const accKey = "key" in item && item.key ? item.key : undefined;
-                         if (isEditing && !accKey) return null;
-                         return (
-                         <div key={idx} className="space-y-1.5">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
-                            {isEditing && accKey ? (
-                              item.type === "select" ? (
-                                <select 
-                                  value={String((editForm as unknown as Record<string, string>)[accKey] ?? "")}
-                                  onChange={e => setEditForm({...editForm, [accKey]: e.target.value})}
-                                  className={modalInputCls(accKey)}
-                                >
-                                  <option value="">Select</option>
-                                  {item.type === "select" && item.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                        {[
+                          { label: "Course Name", key: "course", type: "select", options: availableCourses.map(c => c.name) },
+                          { label: "Session", key: "session" },
+                          { label: "Admission Date", key: "admissionDate", type: "date" },
+                          { label: "Highest Qualification", key: "highestQualification" },
+                          { label: "Course name", key: "qualificationDetail" },
+                          { label: "Exam Mode", key: "examMode", type: "select", options: ["online", "offline"] },
+                          { label: "Course Type", key: "courseType", type: "select", options: ["Regular", "ODL (Open Distance Learning)"] },
+                          { label: "Referred By", key: "referredBy" },
+                        ].map((item, idx) => {
+                          const accKey = item.key;
+                          return (
+                            <div key={idx} className="space-y-1.5">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
+                              {isEditing ? (
+                                item.type === "select" ? (
+                                  <select
+                                    value={String((editForm as unknown as Record<string, string>)[accKey] ?? "")}
+                                    onChange={e => setEditForm({...editForm, [accKey]: e.target.value})}
+                                    className={modalInputCls(accKey)}
+                                  >
+                                    <option value="">Select</option>
+                                    {item.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type={item.type || "text"}
+                                    value={String((editForm as unknown as Record<string, string>)[accKey] ?? "")}
+                                    onChange={e => setEditForm({...editForm, [accKey]: e.target.value})}
+                                    className={modalInputCls(accKey)}
+                                  />
+                                )
                               ) : (
-                                <input 
-                                  type={item.type || "text"}
-                                  value={String((editForm as unknown as Record<string, string>)[accKey] ?? "")}
-                                  onChange={e => setEditForm({...editForm, [accKey]: e.target.value})}
-                                  className={modalInputCls(accKey)}
-                                />
-                              )
-                            ) : (
-                              <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">
-                                {"value" in item && item.value !== undefined ? item.value : accKey ? String((selectedStudent as unknown as Record<string, unknown>)[accKey] ?? "N/A") : "N/A"}
-                              </p>
-                            )}
-                         </div>
-                         );
-                       })}
-                    </div>
+                                <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">
+                                  {pickValue((selectedStudent as unknown as Record<string, unknown>)[accKey])}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                   </div>
                 </div>
 
@@ -1568,10 +1544,13 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                     
                     <div className="grid grid-cols-1 gap-4">
                        {[
+                         { label: 'Student Photo', key: 'photo', data: selectedStudent.photo },
                          { label: 'Aadhar Document', key: 'aadharDoc', data: selectedStudent.aadharDoc },
-                         { label: '10th Marksheet', key: 'marksheet10th', data: (selectedStudent as any).marksheet10th },
-                         { label: '12th Marksheet', key: 'marksheet12th', data: (selectedStudent as any).marksheet12th },
-                         { label: 'Graduation Doc', key: 'graduationDoc', data: (selectedStudent as any).graduationDoc },
+                         { label: '10th Marksheet', key: 'marksheet10th', data: selectedStudent.marksheet10th },
+                         { label: '12th Marksheet', key: 'marksheet12th', data: selectedStudent.marksheet12th },
+                         { label: 'Graduation Doc', key: 'graduationDoc', data: selectedStudent.graduationDoc },
+                         { label: 'Highest Qualification Doc', key: 'highestQualDoc', data: selectedStudent.highestQualDoc },
+                         { label: 'Qualification Doc', key: 'qualificationDoc', data: selectedStudent.qualificationDoc },
                          { label: 'Signature Copy', key: 'studentSignature', data: selectedStudent.studentSignature },
                          { label: 'Other Document', key: 'otherDocs', data: selectedStudent.otherDocs },
                        ].filter(d => d.data).map((doc, idx) => (
@@ -1579,7 +1558,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                             <div className="flex items-center gap-3">
                                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors overflow-hidden">
                                   {doc.data?.includes('image/') || doc.data?.endsWith('.jpg') || doc.data?.endsWith('.png') ? (
-                                    <img src={doc.data} className="w-full h-full object-cover" />
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={doc.data} alt={doc.label} className="w-full h-full object-cover" />
                                   ) : (
                                     <FileText className="w-5 h-5" />
                                   )}
@@ -1601,8 +1581,15 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                        ))}
 
                        {![
-                         selectedStudent.aadharDoc, (selectedStudent as any).marksheet10th, 
-                         selectedStudent.studentSignature, selectedStudent.otherDocs
+                         selectedStudent.photo,
+                         selectedStudent.aadharDoc,
+                         selectedStudent.marksheet10th,
+                         selectedStudent.marksheet12th,
+                         selectedStudent.graduationDoc,
+                         selectedStudent.highestQualDoc,
+                         selectedStudent.qualificationDoc,
+                         selectedStudent.studentSignature,
+                         selectedStudent.otherDocs
                        ].some(Boolean) && (
                          <div className="p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
                             <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -1635,7 +1622,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       )}
 
       {requestExamStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
@@ -1720,7 +1707,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
       {/* Result Submission Modal */}
       {showResultModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
@@ -1812,7 +1799,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
       )}
         {/* ID CARD VIEW MODAL */}
         {viewIdCard && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-100 flex items-center justify-center p-4">
              <div className="relative group">
                 <div className="absolute -top-12 right-0 flex gap-4">
                    <button 
@@ -1833,7 +1820,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                      student={{
                        ...viewIdCard,
                        registrationNo: viewIdCard.registrationNo || "PENDING",
-                       dob: (viewIdCard as any).dob || "N/A"
+                       dob: viewIdCard.dob || "N/A"
                      }} 
                    />
                 </div>
@@ -1862,7 +1849,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
       {/* SUCCESS POPUP MODAL */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-110 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-300 text-center p-10 relative">
              <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
              <div className="w-20 h-20 bg-green-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">

@@ -6,8 +6,12 @@ export interface IWalletRequest {
   tpCode: string;
   amount: number;
   transactionId: string;
+  paymentDate?: Date;
   paymentScreenshot: string;
   paymentNote?: string;
+  approvedAmount?: number;
+  adminRemark?: string;
+  processedAt?: Date;
   status: "pending" | "approved" | "rejected";
   createdAt: Date;
   updatedAt: Date;
@@ -19,8 +23,12 @@ const WalletRequestSchema = new Schema<IWalletRequest>(
     tpCode: { type: String, required: true },
     amount: { type: Number, required: true, min: 1 },
     transactionId: { type: String, required: true, trim: true },
+    paymentDate: { type: Date },
     paymentScreenshot: { type: String, required: true },
     paymentNote: { type: String, default: "" },
+    approvedAmount: { type: Number, min: 0 },
+    adminRemark: { type: String, default: "" },
+    processedAt: { type: Date },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
   },
   { timestamps: true }

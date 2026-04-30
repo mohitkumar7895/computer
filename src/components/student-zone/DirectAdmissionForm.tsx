@@ -348,21 +348,22 @@ export default function DirectAdmissionForm() {
                 onChange={(e) => setSelectedQual(e.target.value)}
               >
                 <option value="">Select Qualification</option>
+                <option value="Below Matric">Below Matric</option>
                 <option value="Matriculation">Matriculation</option>
                 <option value="Intermediate">Intermediate</option>
                 <option value="Graduation">Graduation</option>
                 <option value="Post Graduation">Post Graduation</option>
-                <option value="PhD / Above">PhD / Above</option>
+                <option value="PHD Above">PHD Above</option>
               </select>
             </div>
             {selectedQual && (
               <div className="animate-in slide-in-from-top-2 duration-300 md:col-span-2">
-                <label className={labelCls("qualificationDetail")}>Percentage / University / Year *</label>
-                <input 
-                  required 
-                  name="qualificationDetail" 
-                  className={inputCls("qualificationDetail")} 
-                  placeholder={`Enter ${selectedQual} details...`} 
+                <label className={labelCls("qualificationDetail")}>Course name *</label>
+                <input
+                  required
+                  name="qualificationDetail"
+                  className={inputCls("qualificationDetail")}
+                  placeholder={`Enter ${selectedQual} details...`}
                 />
               </div>
             )}
@@ -374,11 +375,11 @@ export default function DirectAdmissionForm() {
               {[
                 { label: "Student Photo (JPG/PNG) * - Max 100KB", name: "photo", required: true },
                 { label: "Student Signature (JPG/PNG) * - Max 100KB", name: "studentSignature", required: true },
-                { label: "Aadhar Card PDF * - Max 500KB", name: "aadharDoc", required: true },
-                { label: "10th Marksheet * - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: true },
+                { label: "Aadhar Card PDF - Max 500KB", name: "aadharDoc", required: false },
+                { label: "10th Marksheet - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: false },
                 { label: "12th Marksheet (JPG/PNG/PDF) - Max 500KB", name: "marksheet12th", required: false },
                 { label: "Graduation Doc (JPG/PNG/PDF) - Max 500KB", name: "graduationDoc", required: false },
-                { label: "Highest Qual. Doc * (JPG/PNG/PDF) - Max 500KB", name: "highestQualDoc", required: true },
+                { label: "Highest Qual. Doc (JPG/PNG/PDF) - Max 500KB", name: "highestQualDoc", required: false },
                 { label: "Other Documents (PDF) - Max 500KB", name: "otherDocs", required: false },
               ].map(doc => (
                 <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>

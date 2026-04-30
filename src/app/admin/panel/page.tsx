@@ -77,6 +77,7 @@ interface Student {
   admissionFees: string;
   admissionDate?: string;
   highestQualification: string;
+  qualificationDetail?: string;
   status: "pending" | "approved" | "rejected" | "active" | "pending_atc" | "pending_admin";
   isDirectAdmission?: boolean;
   createdAt: string;
@@ -121,6 +122,15 @@ type PendingResult = {
   totalScore?: number;
   grade?: string;
   offlineExamCopy?: string;
+};
+
+type CenterWalletHistoryItem = {
+  _id: string;
+  type: "credit" | "debit";
+  amount: number;
+  reason: string;
+  adminRemark?: string;
+  createdAt: string;
 };
 
 
@@ -192,6 +202,13 @@ export default function AdminPanelPage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [viewIdCard, setViewIdCard] = useState<Student | null>(null);
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
+  const [centerWalletModal, setCenterWalletModal] = useState<{ _id: string; tpCode: string; trainingPartnerName: string; walletBalance: number } | null>(null);
+  const [centerWalletHistory, setCenterWalletHistory] = useState<CenterWalletHistoryItem[]>([]);
+  const [centerWalletLoading, setCenterWalletLoading] = useState(false);
+  const [centerWalletAction, setCenterWalletAction] = useState<"credit" | "debit">("credit");
+  const [centerWalletAmount, setCenterWalletAmount] = useState("");
+  const [centerWalletRemark, setCenterWalletRemark] = useState("");
+  const [centerWalletSubmitting, setCenterWalletSubmitting] = useState(false);
   
   // Result Review
   const [pendingResults, setPendingResults] = useState<PendingResult[]>([]);
@@ -280,6 +297,100 @@ export default function AdminPanelPage() {
   };
 
   const feeLabel = (value: string) => getFeeLabel(feePlans, value, FEE_LABEL);
+
+  const openCenterWallet = async (application: Application) => {
+    if (!application.tpCode) {
+      showToast("error", "TP code not available for this center.");
+      return;
+    }
+    setCenterWalletLoading(true);
+    setCenterWalletModal({
+      _id: application._id,
+      tpCode: application.tpCode,
+      trainingPartnerName: application.trainingPartnerName,
+      walletBalance: 0,
+    });
+    try {
+      const res = await apiFetch(`/api/admin/centers/wallet?tpCode=${encodeURIComponent(application.tpCode)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        showToast("error", data.message || "Failed to load center wallet.");
+        return;
+      }
+      setCenterWalletModal({
+        _id: String(data.center?._id || application._id),
+        tpCode: String(data.center?.tpCode || application.tpCode),
+        trainingPartnerName: String(data.center?.trainingPartnerName || application.trainingPartnerName),
+        walletBalance: Number(data.center?.walletBalance || 0),
+      });
+      setCenterWalletHistory(Array.isArray(data.history) ? data.history : []);
+      setCenterWalletAction("credit");
+      setCenterWalletAmount("");
+      setCenterWalletRemark("");
+    } catch {
+      showToast("error", "Failed to load center wallet.");
+    } finally {
+      setCenterWalletLoading(false);
+    }
+  };
+
+  const submitCenterWalletAction = async () => {
+    if (!centerWalletModal) return;
+    const amount = Number(centerWalletAmount);
+    if (!amount || amount <= 0) {
+      showToast("error", "Please enter a valid amount.");
+      return;
+    }
+
+    setCenterWalletSubmitting(true);
+    try {
+      const res = await apiFetch("/api/admin/centers/wallet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tpCode: centerWalletModal.tpCode,
+          action: centerWalletAction,
+          amount,
+          remark: centerWalletRemark.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast("error", data.message || "Wallet update failed.");
+        return;
+      }
+      showToast("success", data.message || "Wallet updated.");
+      setCenterWalletAmount("");
+      setCenterWalletRemark("");
+      await openCenterWallet({
+        ...centerWalletModal,
+        email: "",
+        mobile: "",
+        chiefName: "",
+        designation: "",
+        trainingPartnerAddress: "",
+        district: "",
+        state: "",
+        pin: "",
+        processFee: "",
+        yearOfEstablishment: "",
+        statusOfInstitution: "",
+        educationQualification: "",
+        professionalExperience: "",
+        dob: "",
+        status: "approved",
+        submittedByAdmin: false,
+        paymentMode: "",
+        createdAt: "",
+      });
+    } catch {
+      showToast("error", "Wallet update failed.");
+    } finally {
+      setCenterWalletSubmitting(false);
+    }
+  };
 
   const fetchApplications = useCallback(async () => {
     if (!sessionReady || authLoading || !authUser) return;
@@ -1428,6 +1539,16 @@ export default function AdminPanelPage() {
                               className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition">
                               Print
                             </button>
+                            {app.tpCode && (
+                              <button
+                                type="button"
+                                onClick={() => void openCenterWallet(app)}
+                                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition flex items-center gap-1.5"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                Wallet
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1459,6 +1580,100 @@ export default function AdminPanelPage() {
                             await fetchApplications();
                           }}
                         />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {centerWalletModal && (
+                  <div className="fixed inset-0 z-130 bg-black/50 flex items-center justify-center p-4">
+                    <div className="w-full max-w-4xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Center Wallet Management</h4>
+                          <p className="text-xs text-slate-500 font-bold mt-1">
+                            {centerWalletModal.trainingPartnerName} ({centerWalletModal.tpCode})
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setCenterWalletModal(null)}
+                          className="text-xs font-bold text-slate-500 hover:text-slate-700"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Current Balance</p>
+                            <p className="text-2xl font-black text-emerald-700">₹{centerWalletModal.walletBalance}</p>
+                          </div>
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Adjust Balance</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => setCenterWalletAction("credit")}
+                                className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase ${centerWalletAction === "credit" ? "bg-emerald-600 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+                              >
+                                Add Balance
+                              </button>
+                              <button
+                                onClick={() => setCenterWalletAction("debit")}
+                                className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase ${centerWalletAction === "debit" ? "bg-red-600 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+                              >
+                                Withdraw
+                              </button>
+                            </div>
+                            <input
+                              type="number"
+                              placeholder="Amount"
+                              value={centerWalletAmount}
+                              onChange={(e) => setCenterWalletAmount(e.target.value)}
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                            />
+                            <textarea
+                              value={centerWalletRemark}
+                              onChange={(e) => setCenterWalletRemark(e.target.value)}
+                              placeholder="Remark (optional)"
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 min-h-22.5"
+                            />
+                            <button
+                              onClick={() => void submitCenterWalletAction()}
+                              disabled={centerWalletSubmitting}
+                              className={`w-full rounded-xl py-2.5 text-sm font-black uppercase ${centerWalletAction === "credit" ? "bg-emerald-600 text-white" : "bg-red-100 text-red-700"} disabled:opacity-60`}
+                            >
+                              {centerWalletSubmitting ? "Processing..." : centerWalletAction === "credit" ? "Add Amount" : "Withdraw Amount"}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Wallet History</p>
+                          {centerWalletLoading ? (
+                            <p className="text-sm text-slate-400">Loading history...</p>
+                          ) : centerWalletHistory.length === 0 ? (
+                            <p className="text-sm text-slate-400">No wallet history found.</p>
+                          ) : (
+                            <div className="space-y-2 max-h-107.5 overflow-y-auto pr-1">
+                              {centerWalletHistory.map((item) => (
+                                <div key={item._id} className="border border-slate-100 rounded-xl px-3 py-3 text-xs bg-white">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="font-black text-slate-700 uppercase">
+                                      {item.type === "credit" ? "Credit" : "Debit"}
+                                    </p>
+                                    <p className={`font-black ${item.type === "credit" ? "text-emerald-600" : "text-red-600"}`}>
+                                      {item.type === "credit" ? "+" : "-"}₹{item.amount}
+                                    </p>
+                                  </div>
+                                  <p className="text-slate-600 mt-1">{item.reason}</p>
+                                  {item.adminRemark ? (
+                                    <p className="text-blue-700 font-semibold mt-1">Remark: {item.adminRemark}</p>
+                                  ) : null}
+                                  <p className="text-slate-500 mt-1">{new Date(item.createdAt).toLocaleString("en-IN")}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2560,6 +2775,7 @@ export default function AdminPanelPage() {
                         {[
                           { label: "Email Address", key: "email" }, { label: "Mobile Number", key: "mobile" }, { label: "Course Name", key: "course" },
                           { label: "Session", key: "session" }, { label: "Course Type", key: "courseType" }, { label: "Highest Qualification", key: "highestQualification" },
+                          { label: "Course name", key: "qualificationDetail" }, { label: "Exam Mode", key: "examMode" },
                           { label: "Admission Date", key: "admissionDate" }, { label: "Total Fee", key: "admissionFees" },
                         ].map((field) => (
                           <div key={field.key}>
@@ -2567,6 +2783,26 @@ export default function AdminPanelPage() {
                             <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
                           </div>
                         ))}
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Disability</label>
+                          <select
+                            value={String(Boolean(studentEditValues.disability))}
+                            onChange={(e) => setStudentEditValues((prev) => ({ ...prev, disability: e.target.value === "true" }))}
+                            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                          >
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Disability Details</label>
+                          <input
+                            type="text"
+                            value={getStudentFieldValue(studentEditValues, "disabilityDetails")}
+                            onChange={(e) => setStudentEditValues((prev) => ({ ...prev, disabilityDetails: e.target.value }))}
+                            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                          />
+                        </div>
                         <div className="md:col-span-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Student Password</label>
                           <input type="text" value={String(studentEditValues.password || "")} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, password: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" placeholder="Enter student password" />
