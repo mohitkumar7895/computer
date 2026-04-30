@@ -10,6 +10,7 @@ interface Course {
   name: string;
   shortName: string;
   durationMonths: number;
+  registrationFee: number;
   zone: string;
   hasMarksheet: boolean;
   hasCertificate: boolean;
@@ -26,6 +27,7 @@ export default function CourseManager() {
   const [name, setName] = useState("");
   const [shortName, setShortName] = useState("");
   const [duration, setDuration] = useState("");
+  const [registrationFee, setRegistrationFee] = useState("");
   const [zone, setZone] = useState("Software Zone");
   const [customZone, setCustomZone] = useState("");
   const [hasMarksheet, setHasMarksheet] = useState(true);
@@ -52,7 +54,7 @@ export default function CourseManager() {
   }, [authLoading, authUser, fetchCourses]);
 
   const handleAddCourse = async () => {
-    if (!name || !shortName || !duration || (zone === "Others" && !customZone)) return;
+    if (!name || !shortName || !duration || !registrationFee || (zone === "Others" && !customZone)) return;
 
     try {
       const finalZone = zone === "Others" ? customZone : zone;
@@ -65,6 +67,7 @@ export default function CourseManager() {
           name, 
           shortName, 
           durationMonths: Number(duration), 
+          registrationFee: Number(registrationFee),
           zone: finalZone,
           hasMarksheet,
           hasCertificate
@@ -72,7 +75,7 @@ export default function CourseManager() {
       });
       if (res.ok) {
         setIsAdding(false);
-        setName(""); setShortName(""); setDuration(""); setZone("Software Zone"); setCustomZone("");
+        setName(""); setShortName(""); setDuration(""); setRegistrationFee(""); setZone("Software Zone"); setCustomZone("");
         setHasMarksheet(true); setHasCertificate(true);
         void fetchCourses();
       }
@@ -160,6 +163,16 @@ export default function CourseManager() {
                 value={duration} onChange={e => setDuration(e.target.value)}
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Registration Fee (INR)</label>
+              <input
+                type="number"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm"
+                placeholder="e.g. 500"
+                value={registrationFee}
+                onChange={e => setRegistrationFee(e.target.value)}
+              />
+            </div>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Zone</label>
@@ -221,6 +234,7 @@ export default function CourseManager() {
                 <th className="px-6 py-4">Course Name</th>
                 <th className="px-6 py-4">Short Name</th>
                 <th className="px-6 py-4">Duration</th>
+                <th className="px-6 py-4">Reg. Fee</th>
                 <th className="px-6 py-4">Zone</th>
                 <th className="px-6 py-4 text-center">Marksheet</th>
                 <th className="px-6 py-4 text-center">Certificate</th>
@@ -231,11 +245,11 @@ export default function CourseManager() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400">Loading courses...</td>
+                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400">Loading courses...</td>
                 </tr>
               ) : courses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400">No courses defined yet.</td>
+                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400">No courses defined yet.</td>
                 </tr>
               ) : (
                 courses.map((c) => (
@@ -243,6 +257,7 @@ export default function CourseManager() {
                     <td className="px-6 py-4 font-bold text-slate-700">{c.name}</td>
                     <td className="px-6 py-4 text-slate-500">{c.shortName}</td>
                     <td className="px-6 py-4 text-slate-500">{c.durationMonths} Months</td>
+                    <td className="px-6 py-4 text-slate-700 font-bold">₹{c.registrationFee || 0}</td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100 uppercase">
                         <Layers className="w-3 h-3" />

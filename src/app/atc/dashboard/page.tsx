@@ -59,6 +59,7 @@ interface AtcUser {
 import { useBrand } from "@/context/BrandContext";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import WalletSection from "@/components/atc/WalletSection";
 
 export default function AtcDashboardPage() {
   const { brandName, brandLogo, brandMobile, brandEmail } = useBrand();
@@ -67,7 +68,7 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "frontAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "students" | "frontAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees" | "wallet">("dashboard");
   const [studentInitialFilter, setStudentInitialFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [stats, setStats] = useState({ 
     total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0,
@@ -299,6 +300,12 @@ export default function AtcDashboardPage() {
             <FileText className="w-4 h-4" /> Study Materials
           </button>
           <button
+            onClick={() => { setTab("wallet"); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "wallet" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+          >
+            <CreditCard className="w-4 h-4" /> Wallet
+          </button>
+          <button
             onClick={() => { setTab("fees"); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "fees" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
@@ -350,6 +357,7 @@ export default function AtcDashboardPage() {
                tab === "certificates" ? "Certificate Requests" :
                tab === "examSets" ? "My Exam Sets" :
                tab === "materials" ? "Study Materials" :
+               tab === "wallet" ? "Wallet" :
                tab === "fees" ? "Fee Management" :
                "My Profile"}
             </h1>
@@ -445,6 +453,7 @@ export default function AtcDashboardPage() {
                       </div>
                     ))}
                   </div>
+
                 </div>
               )}
 
@@ -748,6 +757,10 @@ export default function AtcDashboardPage() {
 
           {tab === "fees" && (
             <FeeManager role="atc" />
+          )}
+
+          {tab === "wallet" && (
+            <WalletSection />
           )}
         </div>
       </main>

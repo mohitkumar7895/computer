@@ -24,9 +24,9 @@ export async function POST(req: Request) {
     if (!isAdmin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, shortName, durationMonths, zone, hasMarksheet, hasCertificate } = body;
+    const { name, shortName, durationMonths, registrationFee, zone, hasMarksheet, hasCertificate } = body;
 
-    if (!name || !shortName || !durationMonths || !zone) {
+    if (!name || !shortName || !durationMonths || registrationFee === undefined || registrationFee === null || !zone) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       name, 
       shortName, 
       durationMonths, 
+      registrationFee: Number(registrationFee),
       zone,
       hasMarksheet: hasMarksheet ?? true,
       hasCertificate: hasCertificate ?? true

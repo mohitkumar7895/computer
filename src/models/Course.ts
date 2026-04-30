@@ -5,6 +5,7 @@ export interface ICourse {
   name: string;
   shortName: string;
   durationMonths: number;
+  registrationFee: number;
   zone: string; // Software Zone, Hardware Zone, Vocational Zone, Others (Custom)
   hasMarksheet: boolean;
   hasCertificate: boolean;
@@ -17,6 +18,7 @@ const CourseSchema = new Schema<ICourse>(
     name: { type: String, required: true },
     shortName: { type: String, required: true },
     durationMonths: { type: Number, required: true },
+    registrationFee: { type: Number, required: true, min: 0, default: 0 },
     zone: { type: String, required: true },
     hasMarksheet: { type: Boolean, default: true },
     hasCertificate: { type: Boolean, default: true },

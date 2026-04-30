@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
 import { Settings } from "@/models/Settings";
+import { AtcUser } from "@/models/AtcUser";
+import { Course } from "@/models/Course";
+import { WalletTransaction } from "@/models/WalletTransaction";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 async function verifyAdmin(request: Request) {
   const cookieStore = await cookies();
@@ -38,6 +42,49 @@ export async function PATCH(
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
     if (action === "approved" || action === "rejected") {
+      if (action === "approved" && student.status !== "active") {
+        const normalizedCourse = String(student.course || "").trim();
+        const courseQuery: any[] = [
+          { name: normalizedCourse },
+          { shortName: normalizedCourse },
+          { name: { $regex: `^${escapeRegex(normalizedCourse)}$`, $options: "i" } },
+          { shortName: { $regex: `^${escapeRegex(normalizedCourse)}$`, $options: "i" } },
+        ];
+        if (student.courseId) courseQuery.push({ _id: student.courseId });
+        const course = await Course.findOne({ $or: courseQuery }).lean() as any;
+
+        if (!course) {
+          return NextResponse.json({ message: "Course not found for this admission" }, { status: 400 });
+        }
+
+        const registrationFee = Number(course.registrationFee || 0);
+        if (registrationFee < 0) {
+          return NextResponse.json({ message: "Invalid course registration fee" }, { status: 400 });
+        }
+        const updatedAtc = await AtcUser.findOneAndUpdate(
+          { _id: student.atcId, walletBalance: { $gte: registrationFee } },
+          { $inc: { walletBalance: -registrationFee } },
+          { new: true }
+        ).lean();
+
+        if (!updatedAtc) {
+          return NextResponse.json({ message: "Insufficient Balance" }, { status: 400 });
+        }
+
+        // Keep student's total fee/admission fee unchanged.
+        // Only course registration fee is deducted from ATC wallet.
+        await WalletTransaction.create({
+          atcId: student.atcId,
+          tpCode: student.tpCode,
+          type: "debit",
+          amount: registrationFee,
+          reason: "Course registration fee deduction",
+          studentId: student._id,
+          studentName: student.name,
+          courseName: student.course,
+        });
+      }
+
       if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-") || student.registrationNo.startsWith("DIRECT-"))) {
         const { generateNextId } = await import("@/lib/idGenerator");
         const regNo = await generateNextId("reg_format_student", AtcStudent, "registrationNo");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
+import { Course } from "@/models/Course";
 import { verifyAtc } from "@/lib/auth";
 
 export async function POST(request: Request) {
@@ -15,11 +16,28 @@ export async function POST(request: Request) {
     if (!student) return NextResponse.json({ message: "Student not found" }, { status: 404 });
 
     if (action === "approved") {
+      const parsedFee = Number(totalFee);
+      if (!Number.isFinite(parsedFee) || parsedFee < 0) {
+        return NextResponse.json({ message: "Please provide a valid total fee" }, { status: 400 });
+      }
+
       student.status = "pending_admin";
       student.registrationNo = `PENDING-${Date.now()}-${student.aadharNo || Math.floor(Math.random() * 1000)}`;
-      student.totalFee = totalFee;
-      student.admissionFees = String(totalFee);
-      student.duesAmount = totalFee - (student.paidAmount || 0);
+      student.totalFee = parsedFee;
+      student.admissionFees = String(parsedFee);
+      student.duesAmount = parsedFee - (student.paidAmount || 0);
+
+      // Keep courseId in sync for robust admin-side registration fee lookup.
+      const normalizedCourse = String(student.course || "").trim();
+      const course = await Course.findOne({
+        $or: [
+          { name: normalizedCourse },
+          { shortName: normalizedCourse },
+          { name: { $regex: `^${normalizedCourse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+          { shortName: { $regex: `^${normalizedCourse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+        ],
+      }).select("_id").lean() as any;
+      if (course?._id) student.courseId = course._id;
     } else if (action === "rejected") {
       student.status = "rejected";
     }

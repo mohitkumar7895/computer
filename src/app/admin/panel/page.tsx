@@ -26,6 +26,7 @@ import {
 } from "@/utils/atcSettings";
 import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
+import WalletRequestManager from "@/components/admin/WalletRequestManager";
 
 const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
   loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
@@ -138,7 +139,7 @@ const FEE_LABEL: Record<string, string> = {
   "5000": "TP 3 YEARS — ₹5,900",
 };
 
-type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds";
+type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds" | "walletRequests" | "walletPayment";
 
 const PrintField = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
   <div>
@@ -218,6 +219,11 @@ export default function AdminPanelPage() {
   const [brandAddress, setBrandAddress] = useState("");
   const [brandUrl, setBrandUrl] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
+  const [walletPayName, setWalletPayName] = useState("");
+  const [walletPayUpi, setWalletPayUpi] = useState("");
+  const [walletPayNote, setWalletPayNote] = useState("");
+  const [walletPayQr, setWalletPayQr] = useState("");
+  const [walletPaySaving, setWalletPaySaving] = useState(false);
   const [brandSaving, setBrandSaving] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
@@ -348,6 +354,22 @@ export default function AdminPanelPage() {
       const blRes = await apiFetch("/api/admin/settings?key=brand_logo");
       const blData = (await blRes.json()) as { value: string | null };
       if (blData.value) setBrandLogo(blData.value);
+
+      const wpnRes = await apiFetch("/api/admin/settings?key=wallet_payment_name");
+      const wpnData = (await wpnRes.json()) as { value: string | null };
+      setWalletPayName(wpnData.value && wpnData.value !== "-" ? wpnData.value : "");
+
+      const wpuRes = await apiFetch("/api/admin/settings?key=wallet_payment_upi");
+      const wpuData = (await wpuRes.json()) as { value: string | null };
+      setWalletPayUpi(wpuData.value && wpuData.value !== "-" ? wpuData.value : "");
+
+      const wptRes = await apiFetch("/api/admin/settings?key=wallet_payment_note");
+      const wptData = (await wptRes.json()) as { value: string | null };
+      setWalletPayNote(wptData.value && wptData.value !== "-" ? wptData.value : "");
+
+      const wpqRes = await apiFetch("/api/admin/settings?key=wallet_payment_qr");
+      const wpqData = (await wpqRes.json()) as { value: string | null };
+      setWalletPayQr(wpqData.value && wpqData.value !== "-" ? wpqData.value : "");
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
@@ -496,6 +518,46 @@ export default function AdminPanelPage() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleWalletQrUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setWalletPayQr(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleWalletPaymentSave = async () => {
+    setWalletPaySaving(true);
+    try {
+      const h = { "Content-Type": "application/json" };
+      await apiFetch("/api/admin/settings", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ key: "wallet_payment_name", value: walletPayName.trim() || "-" }),
+      });
+      await apiFetch("/api/admin/settings", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ key: "wallet_payment_upi", value: walletPayUpi.trim() || "-" }),
+      });
+      await apiFetch("/api/admin/settings", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ key: "wallet_payment_note", value: walletPayNote.trim() || "-" }),
+      });
+      await apiFetch("/api/admin/settings", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ key: "wallet_payment_qr", value: walletPayQr || "-" }),
+      });
+      showToast("success", "Wallet payment details saved.");
+    } catch {
+      showToast("error", "Failed to save wallet payment details.");
+    } finally {
+      setWalletPaySaving(false);
+    }
   };
 
   const handleBulkAction = async (type: "students" | "centers", action: string) => {
@@ -953,6 +1015,8 @@ export default function AdminPanelPage() {
     students: "Manage Students",
     resultReview: "Certificate Authorize",
     fees: "Fee Management",
+    walletRequests: "Wallet Requests",
+    walletPayment: "Wallet Payment Settings",
     backgrounds: "Background Templates",
   };
 
@@ -969,6 +1033,8 @@ export default function AdminPanelPage() {
     students: "Review and approve student registrations from all centers",
     resultReview: "Authorize ATC submitted results and release marksheet/certificate after review",
     fees: "Collect or return fees, view transaction history, and generate receipts for students",
+    walletRequests: "Approve or reject ATC wallet add-money requests",
+    walletPayment: "Configure receiver details and QR shown to ATCs for wallet payments",
     backgrounds: "Upload backgrounds for ID Cards, Certificates, and Marksheets",
   };
 
@@ -1021,6 +1087,7 @@ export default function AdminPanelPage() {
                 { id: "questionSets" as Tab, icon: BookOpen, label: "Exam Sets" },
                 { id: "materials" as Tab, icon: FileText, label: "Study Materials" },
                 { id: "fees" as Tab, icon: CreditCard, label: "Fee Management" },
+                { id: "walletRequests" as Tab, icon: CreditCard, label: "Wallet Requests" },
                 { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
                 { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Certificate Authorize", badge: pendingResults.length },
               ].map((item) => (
@@ -1041,7 +1108,7 @@ export default function AdminPanelPage() {
               <div className="space-y-1">
                 <button
                   onClick={() => toggleMenu("settings")}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "settings" || tab === "registration" ? "text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "settings" || tab === "registration" || tab === "walletPayment" ? "text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
                 >
                   <Settings className="w-4 h-4" />
                   Settings
@@ -1063,6 +1130,13 @@ export default function AdminPanelPage() {
                      >
                        <Hash className="w-3.5 h-3.5" />
                        Registration
+                     </button>
+                     <button
+                       onClick={() => { setTab("walletPayment"); setIsSidebarOpen(false); }}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "walletPayment" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                     >
+                       <CreditCard className="w-3.5 h-3.5" />
+                       Wallet Payment
                      </button>
                      <button
                        onClick={() => { setTab("backgrounds"); setIsSidebarOpen(false); }}
@@ -1170,6 +1244,8 @@ export default function AdminPanelPage() {
             )}
 
             {tab === "fees" && <FeeManager role="admin" />}
+
+            {tab === "walletRequests" && <WalletRequestManager />}
 
             {/* ── CREATE TAB ── */}
             {tab === "create" && (
@@ -2148,6 +2224,64 @@ export default function AdminPanelPage() {
                       <p>Important: Upload only high-resolution JPG or PNG files.</p>
                       <p className="opacity-70">These backgrounds will be used for automated document generation for all centers.</p>
                    </div>
+                </div>
+              </div>
+            )}
+
+            {tab === "walletPayment" && (
+              <div className="max-w-2xl">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">Wallet Payment Details</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">ATC will see these details before submitting wallet add-money request.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={walletPayName}
+                      onChange={(e) => setWalletPayName(e.target.value)}
+                      placeholder="Receiver Name"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={walletPayUpi}
+                      onChange={(e) => setWalletPayUpi(e.target.value)}
+                      placeholder="UPI ID / Account Info"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                    />
+                    <textarea
+                      value={walletPayNote}
+                      onChange={(e) => setWalletPayNote(e.target.value)}
+                      rows={2}
+                      placeholder="Payment instructions"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm resize-none"
+                    />
+                    <label className="flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50 cursor-pointer hover:bg-emerald-100 transition">
+                      <Upload className="w-5 h-5 text-emerald-600" />
+                      <span className="text-sm font-semibold text-emerald-700">Upload wallet payment QR</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleWalletQrUpload} />
+                    </label>
+                    {walletPayQr && walletPayQr !== "-" && (
+                      <div className="flex justify-center">
+                        <Image src={walletPayQr} alt="Wallet QR" width={140} height={140} unoptimized className="w-36 h-36 object-contain border border-slate-200 rounded-xl bg-white" />
+                      </div>
+                    )}
+                    <button
+                      onClick={handleWalletPaymentSave}
+                      disabled={walletPaySaving}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition disabled:opacity-50"
+                    >
+                      {walletPaySaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                      {walletPaySaving ? "Saving..." : "Save Wallet Details"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

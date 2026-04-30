@@ -9,6 +9,7 @@ export interface IAtcUser {
   password: string; // hashed
   applicationId: mongoose.Types.ObjectId;
   zones: string[];
+  walletBalance: number;
   status: "active" | "disabled";
   createdAt: Date;
 }
@@ -22,6 +23,7 @@ const AtcUserSchema = new Schema<IAtcUser>(
     password: { type: String, required: true },
     applicationId: { type: Schema.Types.ObjectId, ref: "AtcApplication", required: true },
     zones: [{ type: String }],
+    walletBalance: { type: Number, default: 0, min: 0 },
     status: { type: String, enum: ["active", "disabled"], default: "active" },
   },
   { timestamps: true },
