@@ -147,8 +147,9 @@ export default function DirectAdmissionForm() {
     }
   };
 
-  const inputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${invalidFields.has(name || "") ? "border-red-700 ring-4 ring-red-50" : "border-slate-200"} rounded-xl text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition placeholder:text-slate-400`;
-  const labelCls = (name?: string) => `block text-[11px] font-bold ${invalidFields.has(name || "") ? "text-red-700" : "text-slate-500"} uppercase tracking-wider mb-1.5`;
+  const inputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${invalidFields.has(name || "") ? "border-red-800 bg-red-50/60 ring-4 ring-red-100" : "border-slate-200"} rounded-xl text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition placeholder:text-slate-400`;
+  const labelCls = (name?: string) =>
+    `block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${invalidFields.has(name || "") ? "text-red-800 after:ml-2 after:text-[10px] after:font-black after:tracking-normal after:text-red-700 after:content-['Required_field']" : "text-slate-500"}`;
   const sectionCls = "bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5";
 
   if (!isMounted) return <div className="min-h-100 flex items-center justify-center"><span className="w-8 h-8 rounded-full border-4 border-slate-100 border-t-blue-600 animate-spin" /></div>;
@@ -217,7 +218,7 @@ export default function DirectAdmissionForm() {
             </div>
             <div>
               <label className={labelCls("disability")}>Physically Disability *</label>
-              <select name="disability" className={inputCls("disability")} value={disability} onChange={e => setDisability(e.target.value)}>
+              <select required name="disability" className={inputCls("disability")} value={disability} onChange={e => setDisability(e.target.value)}>
                 <option>No</option><option>Yes</option>
               </select>
             </div>
@@ -383,8 +384,9 @@ export default function DirectAdmissionForm() {
                 { label: "Other Documents (PDF) - Max 500KB", name: "otherDocs", required: false },
               ].map(doc => (
                 <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
-                  <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-700" : "text-slate-400 group-hover:text-blue-500"}`}>
+                  <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-800" : "text-slate-400 group-hover:text-blue-500"}`}>
                     {doc.label}
+                    {invalidFields.has(doc.name) && <span className="ml-1 normal-case text-[10px] tracking-normal text-red-700">Required field</span>}
                   </label>
                   <input 
                     type="file" 
