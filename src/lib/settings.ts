@@ -1,5 +1,6 @@
 import { connectDB } from "./mongodb";
 import mongoose from "mongoose";
+import { unstable_noStore as noStore } from "next/cache";
 
 const SettingSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true },
@@ -11,6 +12,7 @@ type SettingRecord = { key: string; value: string };
 
 export async function getSetting(key: string, defaultValue: string = ""): Promise<string> {
   try {
+    noStore();
     await connectDB();
     const setting = await Setting.findOne({ key });
     return setting ? setting.value : defaultValue;
@@ -27,6 +29,7 @@ export async function getBrandName(): Promise<string> {
 
 export async function getFullBrandData() {
   try {
+    noStore();
     await connectDB();
     const keys = [
       "brand_name", 

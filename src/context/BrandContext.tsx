@@ -41,13 +41,14 @@ export const BrandProvider = ({
     try {
       const res = await fetch("/api/public/brand", { cache: 'no-store' });
       if (res.ok) {
-        const data = await res.json();
-        if (data.brand_name) setBrandName(data.brand_name);
-        if (data.brand_mobile) setBrandMobile(data.brand_mobile);
-        if (data.brand_email) setBrandEmail(data.brand_email);
-        if (data.brand_address) setBrandAddress(data.brand_address);
-        if (data.brand_url) setBrandUrl(data.brand_url);
-        if (data.brand_logo) setBrandLogo(data.brand_logo);
+        const data = (await res.json()) as Partial<Record<string, string>>;
+        // Always overwrite local values so refresh never shows stale settings.
+        setBrandName(data.brand_name ?? "");
+        setBrandMobile(data.brand_mobile ?? "");
+        setBrandEmail(data.brand_email ?? "");
+        setBrandAddress(data.brand_address ?? "");
+        setBrandUrl(data.brand_url ?? "");
+        setBrandLogo(data.brand_logo ?? "");
       }
     } catch (err) {
       console.error("Failed to fetch brand settings", err);

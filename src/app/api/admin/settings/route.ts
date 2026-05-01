@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as { key: string; value: string };
-    if (!body.key || !body.value) {
+    if (!body.key || body.value === undefined || body.value === null) {
       return NextResponse.json({ message: "key and value are required." }, { status: 400 });
     }
 
