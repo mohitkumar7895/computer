@@ -308,7 +308,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                                 if (startsAt.getTime() > now.getTime()) {
                                   return <ExamCountdown targetAt={startsAt} />;
                                 }
-                                if (endsAt.getTime() <= now.getTime()) {
+                                if (endsAt && endsAt.getTime() <= now.getTime()) {
                                   return <span className="text-[9px] font-bold text-red-500 italic">Exam window closed</span>;
                                 }
                                 return (
