@@ -208,11 +208,15 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     setResultSaving(true);
     try {
       const submitStatus = role === "atc" ? "published" : resultForm.status;
+      const effectiveMarks =
+        selectedExam.examMode === "online"
+          ? String(resultForm.marks || selectedExam.totalScore || 0)
+          : resultForm.marks;
       const formData = new FormData();
       formData.append("studentId", selectedExam.studentId?._id);
       formData.append("examId", selectedExam._id);
       formData.append("offlineExamStatus", submitStatus);
-      formData.append("totalScore", resultForm.marks);
+      formData.append("totalScore", effectiveMarks);
       formData.append("offlineExamResult", resultForm.resultStatus);
       formData.append("grade", resultForm.grade);
       formData.append("session", resultForm.session);
@@ -223,12 +227,17 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         method: "POST",
         body: formData,
       });
-      if (res.ok) {
-        await fetchRequests();
-        setShowResultModal(false);
+      const data = await res.json().catch(() => ({} as { message?: string }));
+      if (!res.ok) {
+        alert(data.message || "Unable to submit result right now.");
+        return;
       }
+      alert(data.message || "Result submitted successfully.");
+      await fetchRequests();
+      setShowResultModal(false);
     } catch (err) {
       console.error("Result save failed", err);
+      alert("Result submit failed. Please try again.");
     } finally {
       setResultSaving(false);
     }
@@ -301,7 +310,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   };
 
   const openResultModal = (exam: ExamRequest) => {
-    if (role === "atc" && exam.examDate && exam.examTime) {
+    if (role === "atc" && exam.examMode === "offline" && exam.examDate && exam.examTime) {
       const scheduled = new Date(`${exam.examDate}T${exam.examTime}:00`);
       if (!Number.isNaN(scheduled.getTime()) && Date.now() < scheduled.getTime()) {
         alert(`Result can be submitted after ${scheduled.toLocaleString("en-IN")}`);

@@ -9,7 +9,7 @@ import {
 import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
 import ExamCountdown from "@/components/common/ExamCountdown";
-import { buildExamWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { buildExamWindow } from "@/lib/exam-schedule";
 import { apiFetch } from "@/utils/api";
 
 interface ExamManagerProps {
@@ -19,6 +19,7 @@ interface ExamManagerProps {
 export default function ExamManager({ student }: ExamManagerProps) {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [modeSelection, setModeSelection] = useState<"online" | "offline" | null>(null);
   const [offlineForm, setOfflineForm] = useState({
     preferredDate: "",
@@ -32,6 +33,11 @@ export default function ExamManager({ student }: ExamManagerProps) {
   useEffect(() => {
     fetchExams();
   }, [student]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNowTs(Date.now()), 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const fetchExams = async () => {
     try {
@@ -294,15 +300,15 @@ export default function ExamManager({ student }: ExamManagerProps) {
                          {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'online' && (
                            <div className="flex flex-col items-start gap-1">
                              {(() => {
-                                const lifecycleStatus = lifecycleStatusForExam(exam);
-                                const { startsAt } = buildExamWindow(exam);
+                                const now = new Date(nowTs);
+                                const { startsAt, endsAt } = buildExamWindow(exam, now);
                                 if (!startsAt) {
                                   return <span className="text-[9px] font-bold text-red-500 italic">Exam date/time not assigned</span>;
                                 }
-                                if (lifecycleStatus === "upcoming") {
+                                if (startsAt.getTime() > now.getTime()) {
                                   return <ExamCountdown targetAt={startsAt} />;
                                 }
-                                if (lifecycleStatus === "completed") {
+                                if (endsAt.getTime() <= now.getTime()) {
                                   return <span className="text-[9px] font-bold text-red-500 italic">Exam window closed</span>;
                                 }
                                 return (
@@ -320,7 +326,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                         {exam.status === 'completed' && (
                            <div className="flex flex-col gap-2">
                              <span className="text-xs font-black text-slate-800">
-                               {`${Math.min(Number(exam.totalScore || 0), Number(exam.maxScore || 0))}/${Number(exam.maxScore || 0)} Questions Attempted`}
+                               {`${Array.isArray(exam.answers) ? exam.answers.length : 0} Questions Attempted`}
                              </span>
                              {exam.examMode === 'offline' && exam.offlineExamCopy && (
                                <button 

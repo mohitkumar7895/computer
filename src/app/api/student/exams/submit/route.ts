@@ -9,7 +9,7 @@ import { buildExamWindow, lifecycleStatusForExam } from "@/lib/exam-schedule";
 export async function POST(request: Request) {
   try {
     const { examId, studentId, answers } = await request.json();
-    if (!examId || !studentId || !answers) {
+    if (!examId || !studentId || !answers || typeof answers !== "object") {
       return NextResponse.json({ message: 'Invalid submission data' }, { status: 400 });
     }
     await connectDB();
@@ -27,25 +27,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Reattempt not allowed." }, { status: 409 });
     }
     const lifecycleStatus = lifecycleStatusForExam(examRecord);
-    if (lifecycleStatus === "upcoming") {
+    const { startsAt, endsAt } = buildExamWindow(examRecord);
+    const nowMs = Date.now();
+    if (lifecycleStatus === "upcoming" && startsAt && nowMs < startsAt.getTime()) {
       return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
     }
     if (lifecycleStatus === "completed") {
-      const { endsAt } = buildExamWindow(examRecord);
-      const now = Date.now();
-      const allowedUntil = endsAt ? endsAt.getTime() + 5000 : now;
-      if (now > allowedUntil) {
+      const hardEndMs = endsAt?.getTime() ?? nowMs;
+      const startedAtMs = examRecord.startedAt ? new Date(examRecord.startedAt).getTime() : null;
+      const startedWindowMs = startedAtMs
+        ? startedAtMs + ((examRecord.durationMinutes || 60) * 60 * 1000) + (2 * 60 * 1000)
+        : hardEndMs + 5000;
+      const allowedUntil = Math.max(hardEndMs + 5000, startedWindowMs);
+      if (nowMs > allowedUntil) {
         return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
       }
     }
     const questions = await ExamQuestion.find({ setId: examRecord.setId, isActive: true });
     let totalScore = 0;
     const maxScore = questions.reduce((sum: number, q) => sum + (q.marks || 1), 0);
+    const submittedAnswers: Array<{
+      questionId: unknown;
+      selectedOption: string;
+      correct: boolean;
+      marksEarned: number;
+    }> = [];
     for (const q of questions) {
       const selectedOption = answers[q._id.toString()] || '';
       const isCorrect = selectedOption.trim().toLowerCase() === q.correctOption.trim().toLowerCase();
+      const marksEarned = isCorrect ? (q.marks || 1) : 0;
       if (isCorrect) totalScore += (q.marks || 1);
+      submittedAnswers.push({
+        questionId: q._id,
+        selectedOption,
+        correct: isCorrect,
+        marksEarned,
+      });
     }
+    examRecord.answers = submittedAnswers as never[];
     examRecord.totalScore = totalScore;
     examRecord.maxScore = maxScore;
     examRecord.status = 'completed';

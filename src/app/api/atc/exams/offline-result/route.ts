@@ -72,7 +72,9 @@ export async function POST(request: Request) {
         scheduledAt = baseDate;
       }
     }
-    if (scheduledAt && !Number.isNaN(scheduledAt.getTime()) && Date.now() < scheduledAt.getTime()) {
+    const shouldBlockBySchedule =
+      exam.examMode === "offline" || (exam.examMode === "online" && String(exam.status) !== "completed");
+    if (shouldBlockBySchedule && scheduledAt && !Number.isNaN(scheduledAt.getTime()) && Date.now() < scheduledAt.getTime()) {
       return NextResponse.json(
         { message: "Result can only be submitted after scheduled exam date and time." },
         { status: 400 }
@@ -114,7 +116,8 @@ export async function POST(request: Request) {
     
     // We don't set status to completed here anymore if it's pending review
     if (finalStatus === "review_pending") {
-      exam.status = "pending"; // Still pending until Admin approves result
+      // Keep online attempts completed; only offline stays pending for admin review.
+      exam.status = exam.examMode === "online" ? "completed" : "pending";
       exam.resultDeclared = false;
       // Store additional info in exam metadata for admin approval
       if (grade) exam.grade = grade;

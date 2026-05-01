@@ -17,10 +17,11 @@ export async function GET(request: Request) {
 
   try {
     await connectDB();
-    const exam = await StudentExam.findById(examId).lean();
-    if (!exam || String(exam.studentId) !== String(studentId)) {
+    const examDoc = await StudentExam.findById(examId);
+    if (!examDoc || String(examDoc.studentId) !== String(studentId)) {
       return NextResponse.json({ message: "Exam record not found." }, { status: 404 });
     }
+    const exam = examDoc.toObject();
     if (exam.examMode !== "online") {
       return NextResponse.json({ message: "Only online exams can be started." }, { status: 400 });
     }
@@ -41,6 +42,10 @@ export async function GET(request: Request) {
     const timeLeftSeconds = endsAt ? Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000)) : 0;
     if (timeLeftSeconds <= 0) {
       return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+    }
+    if (!examDoc.startedAt) {
+      examDoc.startedAt = new Date();
+      await examDoc.save();
     }
     const questions = await ExamQuestion.find({ setId, isActive: true }).lean();
     return NextResponse.json({ questions, timeLeftSeconds });

@@ -506,6 +506,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         const regNo = (exam.studentId?.registrationNo || "UNKNOWN").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
 
         for (const docType of selectedZipDocs) {
+          const needsApprovedResult =
+            docType === "certificate" ||
+            docType === "marksheet" ||
+            docType === "certificatePrint" ||
+            docType === "marksheetPrint";
+          if (needsApprovedResult && !canAccessResultDocs(exam)) {
+            continue;
+          }
           const filename = `${regNo}_${ZIP_DOC_SUFFIX[docType]}.pdf`;
           try {
             if (docType === "examCopy") {
@@ -583,6 +591,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
   const labelCls = "block text-[11px] font-black uppercase text-slate-400 tracking-wider mb-2";
   const inputCls = "w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-green-500 transition";
+  const canAccessResultDocs = (exam: ExamRequest) =>
+    exam.status === "completed" &&
+    exam.offlineExamStatus === "published" &&
+    exam.resultDeclared === true;
 
   return (
     <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-150 text-slate-800">
@@ -1001,7 +1013,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                   View Copy
                                 </button>
                               )}
-                             {role === "admin" && exam.status === "completed" && (
+                             {role === "admin" && canAccessResultDocs(exam) && (
                                <div className="flex flex-col gap-1.5">
                                  <button
                                    onClick={() => {
@@ -1031,7 +1043,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                 </button>
                               </div>
                             )}
-                             {role === "admin" && exam.status === "completed" && (
+                             {role === "admin" && canAccessResultDocs(exam) && (
                                <div className="flex flex-col gap-1.5">
                                  <button
                                    onClick={() => window.open(`/admin/document/certificate/${exam._id}?print=1&download=1`, "_blank")}
