@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const atc = await verifyAtc(request);
     if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     
-    const { studentId, examDate, examTime, durationMinutes, setId } = await request.json();
+    const { studentId, examDate, examTime, durationMinutes, setId, examMode } = await request.json();
 
     if (!studentId || !examDate || !examTime || !durationMinutes) {
       return NextResponse.json(
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Unauthorized student mapping." }, { status: 403 });
     }
 
-    const mode = String(student.examMode || "online").toLowerCase();
+    const mode = String(examMode || student.examMode || "online").toLowerCase();
     if (mode !== "online" && mode !== "offline") {
       return NextResponse.json({ message: "Student exam mode is invalid." }, { status: 400 });
     }
@@ -59,8 +59,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Duration must be between 1 and 600 minutes." }, { status: 400 });
     }
 
-    if (!setId) {
-      return NextResponse.json({ message: "Question set is required." }, { status: 400 });
+    if (mode === "online" && !setId) {
+      return NextResponse.json({ message: "Question set is required for online exam." }, { status: 400 });
     }
 
     const newExam = new StudentExam({
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       examTime,
       examDateTime: dateTime,
       durationMinutes: duration,
-      setId,
+      setId: mode === "online" ? setId : undefined,
       approvalStatus: "pending",
       status: "pending",
       lifecycleStatus: lifecycleStatusForExam({

@@ -9,7 +9,7 @@ type AdmitPayload = {
   exam: Record<string, unknown>;
 };
 
-export default function PublicAdmitCardPage() {
+export default function AdminAdmitCardPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,17 +22,18 @@ export default function PublicAdmitCardPage() {
       try {
         const res = await fetch(`/api/public/admit-card?examId=${encodeURIComponent(examId)}`);
         if (!res.ok) {
-          router.push("/student-zone");
+          router.push("/admin/panel");
           return;
         }
         const payload = (await res.json()) as AdmitPayload;
         setData(payload);
       } catch {
-        router.push("/student-zone");
+        router.push("/admin/panel");
       } finally {
         setLoading(false);
       }
     };
+
     if (examId) {
       void fetchData();
     }
@@ -55,7 +56,7 @@ export default function PublicAdmitCardPage() {
     <AdmitCard
       student={data.student}
       exam={data.exam}
-      onClose={() => router.push("/student-zone")}
+      onClose={() => router.push("/admin/panel")}
     />
   );
 }

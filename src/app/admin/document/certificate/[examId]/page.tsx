@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { GraduationCap, Award, MapPin, Calendar, ShieldCheck, User } from "lucide-react";
 
 import { useBrand } from "@/context/BrandContext";
@@ -9,6 +9,9 @@ import { useBrand } from "@/context/BrandContext";
 export default function AdminCertificatePage() {
   const { examId } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPrintMode = searchParams.get("print") === "1";
+  const shouldDownload = searchParams.get("download") === "1";
   const [data, setData] = useState<any>(null);
   const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
@@ -19,6 +22,39 @@ export default function AdminCertificatePage() {
       .then((d) => (d.data ? setData(d.data) : router.push("/admin/panel")))
       .catch(() => router.push("/admin/panel"));
   }, [examId, router]);
+
+  useEffect(() => {
+    if (!data || !shouldDownload) return;
+    const timer = window.setTimeout(async () => {
+      const element = document.getElementById("cert-a4");
+      if (!element) return;
+      try {
+        const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+          import("html2canvas"),
+          import("jspdf"),
+        ]);
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+        });
+        const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        const pdf = new jsPDF("p", "mm", "a4");
+        pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "certificate");
+        pdf.save(`${regNo.replace(/\s+/g, "_")}_Certificate.pdf`);
+      } catch (error) {
+        console.error("Certificate download failed", error);
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [data, shouldDownload]);
+
+  useEffect(() => {
+    if (!data || !isPrintMode) return;
+    const t = window.setTimeout(() => window.print(), 350);
+    return () => window.clearTimeout(t);
+  }, [data, isPrintMode]);
 
   if (!data) return <div className="p-10 font-bold text-slate-400 animate-pulse uppercase tracking-widest text-center">Preparing Authenticated Document...</div>;
 
@@ -36,13 +72,13 @@ export default function AdminCertificatePage() {
       </div>
 
       {/* A4 Document Container */}
-      <div className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
+      <div id="cert-a4" className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
         
         {/* Borders */}
         <div className="absolute inset-[8mm] border-[1px] border-amber-200 pointer-events-none" />
         <div className="absolute inset-[10mm] border-[3px] border-double border-amber-600 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-48 h-48 bg-amber-50 rounded-bl-[100%] opacity-30 -mr-16 -mt-16" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-tr-[100%] opacity-20 -ml-24 -mb-24" />
+        {!isPrintMode && <div className="absolute top-0 right-0 w-48 h-48 bg-amber-50 rounded-bl-[100%] opacity-30 -mr-16 -mt-16" />}
+        {!isPrintMode && <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-tr-[100%] opacity-20 -ml-24 -mb-24" />}
 
         {/* Header Section */}
         <div className="relative z-10 flex flex-col items-center text-center mt-8">
@@ -150,9 +186,11 @@ export default function AdminCertificatePage() {
         </div>
 
         {/* Diagonal Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-[35deg]">
-           <p className="text-[120px] font-black uppercase text-slate-900 tracking-[0.1em]">{brandName}</p>
-        </div>
+        {!isPrintMode && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-[35deg]">
+             <p className="text-[120px] font-black uppercase text-slate-900 tracking-[0.1em]">{brandName}</p>
+          </div>
+        )}
       </div>
 
       <style jsx global>{`

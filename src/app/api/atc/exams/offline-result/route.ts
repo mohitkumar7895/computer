@@ -6,6 +6,8 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
+type OfflineExamStatus = "not_appeared" | "appeared" | "review_pending" | "published";
+type OfflineExamResult = "Pass" | "Fail" | "Waiting";
 
 export async function POST(request: Request) {
   try {
@@ -49,17 +51,32 @@ export async function POST(request: Request) {
     } else if (studentId) {
       // Find the most recent offline exam for this student
       exam = await StudentExam.findOne({ studentId, atcId: decoded.id, examMode: "offline" }).sort({ createdAt: -1 });
-      
-      // If no offline exam record exists at all, CREATE one (Direct Entry mode)
-      if (!exam) {
-        exam = new StudentExam({
-          studentId,
-          atcId: decoded.id,
-          examMode: "offline",
-          approvalStatus: "approved", // Mark as approved by default for direct entry
-          status: "pending"
-        });
+    }
+
+    if (!exam) {
+      return NextResponse.json({ message: "Exam request not found for this student." }, { status: 404 });
+    }
+
+    if (String(exam.approvalStatus || "") !== "approved") {
+      return NextResponse.json({ message: "Exam is not approved yet." }, { status: 400 });
+    }
+
+    let scheduledAt: Date | null = null;
+    if (exam.examDateTime) {
+      scheduledAt = new Date(exam.examDateTime);
+    } else if (exam.examDate && exam.examTime) {
+      const baseDate = new Date(exam.examDate);
+      const [hours, minutes] = String(exam.examTime).split(":").map((part) => Number(part));
+      if (!Number.isNaN(baseDate.getTime()) && Number.isFinite(hours) && Number.isFinite(minutes)) {
+        baseDate.setHours(hours, minutes, 0, 0);
+        scheduledAt = baseDate;
       }
+    }
+    if (scheduledAt && !Number.isNaN(scheduledAt.getTime()) && Date.now() < scheduledAt.getTime()) {
+      return NextResponse.json(
+        { message: "Result can only be submitted after scheduled exam date and time." },
+        { status: 400 }
+      );
     }
 
     let base64Copy = undefined;
@@ -90,8 +107,8 @@ export async function POST(request: Request) {
     // If they were trying to 'publish', we set it to 'review_pending'
     const finalStatus = offlineExamStatus === "published" ? "review_pending" : offlineExamStatus;
     
-    exam.offlineExamStatus = finalStatus as any;
-    exam.offlineExamResult = offlineExamResult as any;
+    exam.offlineExamStatus = finalStatus as OfflineExamStatus;
+    exam.offlineExamResult = offlineExamResult as OfflineExamResult;
     exam.totalScore = totalScore;
     if (base64Copy) exam.offlineExamCopy = base64Copy;
     
@@ -115,8 +132,9 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ message: "Exam result updated successfully" });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[api/atc/exams/offline-result] Error:", error);
-    return NextResponse.json({ message: error.message || "Something went wrong" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Something went wrong";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

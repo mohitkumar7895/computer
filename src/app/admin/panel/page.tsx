@@ -8,7 +8,7 @@ import { apiFetch } from "@/utils/api";
 import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
-  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, ClipboardCheck, MapPin, BookOpen, User, Building2, CreditCard, EyeOff, Hash, Save, Printer,
+  Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, MapPin, BookOpen, User, Building2, CreditCard, EyeOff, Hash, Save, Printer,
   Layout, Type, Mail
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
@@ -1124,7 +1124,7 @@ export default function AdminPanelPage() {
     settings: "Panel Settings",
     registration: "Registration Settings",
     students: "Manage Students",
-    resultReview: "Certificate Authorize",
+    resultReview: "Result Review",
     fees: "Fee Management",
     walletRequests: "Wallet Requests",
     walletPayment: "Wallet Payment Settings",
@@ -1200,7 +1200,6 @@ export default function AdminPanelPage() {
                 { id: "fees" as Tab, icon: CreditCard, label: "Fee Management" },
                 { id: "walletRequests" as Tab, icon: CreditCard, label: "Wallet Requests" },
                 { id: "courses" as Tab, icon: BookOpen, label: "Courses" },
-                { id: "resultReview" as Tab, icon: ClipboardCheck, label: "Certificate Authorize", badge: pendingResults.length },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -2397,8 +2396,16 @@ export default function AdminPanelPage() {
                     { id: "marksheet", label: "Marksheet" },
                     { id: "admit_card", label: "Admit Card" },
                   ] as const).map((item) => (
-                    <div key={item.id} className="space-y-3">
-                      <div className="relative aspect-3.5/2 bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden group shadow-sm transition hover:border-purple-200">
+                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest">{item.label}</p>
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${
+                          bgs[item.id] ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {bgs[item.id] ? "Uploaded" : "Not Added"}
+                        </span>
+                      </div>
+                      <div className="relative aspect-3.5/2 bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden group shadow-sm transition hover:border-purple-200">
                         {bgs[item.id] ? (
                           <>
                             <Image src={bgs[item.id]} alt={item.label} width={350} height={200} unoptimized className="w-full h-full object-cover" />
@@ -2426,8 +2433,11 @@ export default function AdminPanelPage() {
                           type="file" 
                           accept="image/*"
                           onChange={(e) => handleBgUpload(e, item.id)}
-                          className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition cursor-pointer"
+                          className="block w-full text-xs text-slate-500 file:w-full file:mr-0 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition cursor-pointer"
                         />
+                        <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {bgs[item.id] ? "Replace Background" : "Add Background"}
+                        </p>
                       </label>
                     </div>
                   ))}

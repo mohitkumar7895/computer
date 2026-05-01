@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { FileText, Search, Printer } from "lucide-react";
+import AdmitCard from "@/components/student/AdmitCard";
 
 interface StudentData {
   _id: string;
@@ -22,6 +23,8 @@ interface AdmitExamData {
   examDate?: string;
   examTime?: string;
   durationMinutes?: number;
+  examMode?: string;
+  offlineDetails?: { preferredCenter?: string };
 }
 
 export default function AdmitCardViewer() {
@@ -32,6 +35,7 @@ export default function AdmitCardViewer() {
   const [assignment, setAssignment] = useState<{ examDate?: string; notes?: string } | null>(null);
   const [sets, setSets] = useState<QuestionSet[]>([]);
   const [exam, setExam] = useState<AdmitExamData | null>(null);
+  const [showAdmitModal, setShowAdmitModal] = useState(false);
 
   const fetchAdmitCard = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -125,7 +129,7 @@ export default function AdmitCardViewer() {
               <h3 className="mt-2 text-2xl font-bold text-slate-800">{student.name}</h3>
               <p className="text-sm text-slate-500">Registration no. {student.registrationNo}</p>
             </div>
-            <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition">
+            <button onClick={() => setShowAdmitModal(true)} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition">
               <Printer className="w-4 h-4" /> Print Admit Card
             </button>
           </div>
@@ -147,14 +151,13 @@ export default function AdmitCardViewer() {
 
           {exam?._id ? (
             <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href={`/admit-card/${exam._id}`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => setShowAdmitModal(true)}
                 className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
               >
                 View Admit Card
-              </a>
+              </button>
               <a
                 href={`/admit-card/${exam._id}?print=1`}
                 target="_blank"
@@ -194,6 +197,14 @@ export default function AdmitCardViewer() {
             </div>
           )}
         </div>
+      )}
+
+      {showAdmitModal && student && exam && (
+        <AdmitCard
+          student={student}
+          exam={exam}
+          onClose={() => setShowAdmitModal(false)}
+        />
       )}
     </div>
   );

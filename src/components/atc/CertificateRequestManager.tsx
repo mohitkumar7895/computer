@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, X, Filter, Monitor, AlertCircle, CheckCircle, XCircle, Building2, ClipboardCheck, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from "react";
+import { Users, Clock, Search, RefreshCw, Calendar, X, Building2, ClipboardCheck, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
@@ -53,13 +53,21 @@ interface QuestionSet {
   questionCount: number;
 }
 
+interface AtcStudentLite {
+  _id: string;
+  name: string;
+  registrationNo: string;
+  status: string;
+}
+
+type ExamStatusForm = "not_appeared" | "appeared" | "published";
+
 export default function CertificateRequestManager({ atcId, role = "atc" }: { atcId?: string, role?: "admin" | "atc" }) {
   const [requests, setRequests] = useState<ExamRequest[]>([]);
-  const [availableStudents, setAvailableStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMode, setFilterMode] = useState<"all" | "online" | "offline">("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [filterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [questionSets, setQuestionSets] = useState<QuestionSet[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedExam, setSelectedExam] = useState<ExamRequest | null>(null);
@@ -71,13 +79,14 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [atcTab, setAtcTab] = useState<"new" | "history">(role === "admin" ? "history" : "new");
-  const [requestExamStudent, setRequestExamStudent] = useState<any | null>(null);
+  const [requestExamStudent, setRequestExamStudent] = useState<AtcStudentLite | null>(null);
   const [examReqForm, setExamReqForm] = useState({ 
     examMode: "online", 
     preferredDate: "", 
     preferredCenter: "",
     examDate: "",
     examTime: "",
+    durationMinutes: "60",
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);
@@ -99,7 +108,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
 
   const { loading: authLoading, user: authUser } = useAuth();
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (authLoading || !authUser) return;
     setLoading(true);
     try {
@@ -112,24 +121,14 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         setRequests(data.requests || []);
       }
       
-      if (role === "atc") {
-        const studentRes = await apiFetch("/api/atc/students", { 
-          cache: "no-store",
-        });
-        if (studentRes.ok) {
-          const sData = await studentRes.json();
-          const validStudents = (sData.students || []).filter((s: any) => s.status === "approved" || s.status === "active");
-          setAvailableStudents(validStudents);
-        }
-      }
     } catch (err) {
       console.error("Fetch failed", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [authLoading, authUser, role]);
 
-  const fetchQuestionSets = async () => {
+  const fetchQuestionSets = useCallback(async () => {
     if (authLoading || !authUser) return;
     try {
       const res = await apiFetch("/api/atc/question-sets");
@@ -140,15 +139,15 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     } catch (err) {
       console.error("Failed to fetch sets", err);
     }
-  };
+  }, [authLoading, authUser]);
 
   useEffect(() => {
     if (authLoading || !authUser) return;
     fetchRequests();
     fetchQuestionSets();
-  }, [atcId, role, authLoading, authUser]);
+  }, [atcId, authLoading, authUser, fetchQuestionSets, fetchRequests, role]);
 
-  const handleAction = async (requestId: string, status: string, details?: any) => {
+  const handleAction = async (requestId: string, status: string, details?: Record<string, unknown>) => {
     setActionLoading(requestId);
     try {
       const res = await apiFetch("/api/admin/exams/update", {
@@ -188,7 +187,8 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
           } : undefined,
           examDate: examReqForm.examDate,
           examTime: examReqForm.examTime,
-          setId: examReqForm.setId
+          durationMinutes: Number(examReqForm.durationMinutes || 60),
+          setId: examReqForm.examMode === "online" ? examReqForm.setId : undefined
         }),
       });
       if (res.ok) {
@@ -301,6 +301,14 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   };
 
   const openResultModal = (exam: ExamRequest) => {
+    if (role === "atc" && exam.examDate && exam.examTime) {
+      const scheduled = new Date(`${exam.examDate}T${exam.examTime}:00`);
+      if (!Number.isNaN(scheduled.getTime()) && Date.now() < scheduled.getTime()) {
+        alert(`Result can be submitted after ${scheduled.toLocaleString("en-IN")}`);
+        return;
+      }
+    }
+
     const autoResultStatus =
       exam.offlineExamResult ||
       (typeof exam.totalScore === "number" ? (exam.totalScore >= 33 ? "Pass" : "Fail") : "Pass");
@@ -309,9 +317,9 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     setResultForm({
       status: "published",
       marks: exam.totalScore?.toString() || "",
-      resultStatus: autoResultStatus as any,
-      grade: (exam as any).grade || "A",
-      session: (exam as any).session || ""
+      resultStatus: autoResultStatus as "Pass" | "Fail" | "Waiting",
+      grade: exam.grade || "A",
+      session: exam.session || ""
     });
     setResultCopyFile(null);
     setShowResultModal(true);
@@ -331,7 +339,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   const inputCls = "w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-green-500 transition";
 
   return (
-    <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[600px] text-slate-800">
+    <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-150 text-slate-800">
       {/* Top Tabs styling same as StudentManager */}
       <div className="flex items-center gap-2 px-6 pt-4 border-b border-slate-100 bg-white">
         <button
@@ -340,7 +348,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         >
           <span className="flex items-center gap-2">
             {role === "admin" ? <Building2 className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-            {role === "admin" ? "Certificate Authorize" : "Draft Certificates"}
+            {role === "admin" ? "Result Review" : "Draft Certificates"}
           </span>
           {atcTab === "new" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-600 rounded-t-full" />}
         </button>
@@ -359,7 +367,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       <div className="p-6">
         {/* Search & Filter bar like StudentManager */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-wrap items-center gap-4 mb-6">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-50">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text" 
@@ -372,7 +380,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
           <select 
             className="px-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500 transition font-bold text-slate-600"
             value={filterMode}
-            onChange={(e: any) => setFilterMode(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterMode(e.target.value as "all" | "online" | "offline")}
           >
             <option value="all">All Modes</option>
             <option value="online">Online Only</option>
@@ -392,7 +400,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
               </div>
             ) : requests.filter(r => r.approvalStatus === 'approved' && r.offlineExamStatus !== 'published').length === 0 ? (
               <div className="text-center p-24 bg-white rounded-[3rem] border border-dashed border-slate-200 shadow-sm">
-                 <div className="w-20 h-20 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                 <div className="w-20 h-20 bg-blue-50 rounded-4xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                     <ClipboardCheck className="w-10 h-10 text-blue-400" />
                  </div>
                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">No Pending Certificates</h3>
@@ -449,6 +457,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                           <td className="px-6 py-5">
                             <div className="flex items-center gap-3">
                               {r.studentId?.photo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
                                 <img src={r.studentId.photo} alt="" className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm" />
                               ) : (
                                 <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 font-black text-slate-400">{r.studentId?.name?.charAt(0)}</div>
@@ -538,7 +547,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                </div>
             ) : filtered.length === 0 ? (
                <div className="bg-white p-24 text-center rounded-[3rem] border border-dashed border-slate-200 shadow-sm">
-                  <div className="w-20 h-20 bg-emerald-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                  <div className="w-20 h-20 bg-emerald-50 rounded-4xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                      <Clock className="w-10 h-10 text-emerald-400" />
                   </div>
                   <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">No History Found</h3>
@@ -589,8 +598,8 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                         </td>
                         {role === "admin" && (
                           <td className="px-6 py-5">
-                            <p className="font-bold text-slate-700 uppercase text-[10px] leading-tight mb-1">{(exam.atcId as any)?.trainingPartnerName || "N/A"}</p>
-                            <p className="text-[10px] font-black text-blue-600 tracking-widest uppercase">ID: {(exam.atcId as any)?.tpCode || "—"}</p>
+                            <p className="font-bold text-slate-700 uppercase text-[10px] leading-tight mb-1">{exam.atcId?.trainingPartnerName || "N/A"}</p>
+                            <p className="text-[10px] font-black text-blue-600 tracking-widest uppercase">ID: {exam.atcId?.tpCode || "—"}</p>
                           </td>
                         )}
                         <td className="px-6 py-5 text-center">
@@ -613,7 +622,11 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                                   <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
                                     <Calendar size={12} className="text-slate-400" /> {new Date(exam.examDate).toLocaleDateString()}
                                   </p>
-
+                                  {exam.examTime ? (
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">
+                                      Time: {exam.examTime}
+                                    </p>
+                                  ) : null}
                                 </>
                               ) : (
                                 <p className="text-[10px] font-bold text-slate-400 uppercase leading-none italic">Waiting for schedule...</p>
@@ -730,7 +743,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       {/* Modal overlays */}
       {showApproveModal && selectedExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
-          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in duration-300">
              <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Finalize Schedule</h3>
@@ -747,8 +760,10 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                     <label className={labelCls}>Final Exam Mode</label>
                     <select 
                         className={inputCls}
-                        value={(approvalForm as any).examMode}
-                        onChange={(e) => setApprovalForm({...approvalForm, examMode: e.target.value} as any)}
+                        value={approvalForm.examMode}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setApprovalForm({ ...approvalForm, examMode: e.target.value as "online" | "offline" })
+                        }
                     >
                       <option value="online">Online</option>
                       <option value="offline">Offline</option>
@@ -838,7 +853,9 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                        <select 
                          className={inputCls}
                          value={resultForm.status}
-                         onChange={e => setResultForm({...resultForm, status: e.target.value as any})}
+                         onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                           setResultForm({ ...resultForm, status: e.target.value as ExamStatusForm })
+                         }
                          disabled={role === "atc"}
                          required
                        >
@@ -906,7 +923,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
 
                  <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setShowResultModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                    <button type="submit" disabled={resultSaving} className="flex-[2] py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
+                    <button type="submit" disabled={resultSaving} className="flex-2 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
                       {resultSaving ? "Processing..." : "Submit Result"}
                     </button>
                  </div>
@@ -916,7 +933,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       )}
 
       {requestExamStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
                  <div>
@@ -952,9 +969,31 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                          onChange={e => setExamReqForm({...examReqForm, examDate: e.target.value})}
                        />
                     </div>
+                    <div className="space-y-2">
+                       <label className={labelCls}>Proposed Time *</label>
+                       <input 
+                         type="time"
+                         className={inputCls}
+                         required
+                         value={examReqForm.examTime}
+                         onChange={e => setExamReqForm({...examReqForm, examTime: e.target.value})}
+                       />
+                    </div>
 
+                    <div className="space-y-2">
+                       <label className={labelCls}>Duration (Minutes) *</label>
+                       <input 
+                         type="number"
+                         className={inputCls}
+                         min={1}
+                         max={600}
+                         required
+                         value={examReqForm.durationMinutes}
+                         onChange={e => setExamReqForm({...examReqForm, durationMinutes: e.target.value})}
+                       />
+                    </div>
 
-
+                    {examReqForm.examMode === "online" && (
                     <div className="space-y-2 col-span-full">
                        <label className={labelCls}>Select Question Set *</label>
                        <select 
@@ -969,6 +1008,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                           ))}
                        </select>
                     </div>
+                    )}
 
                     {examReqForm.examMode === 'offline' && (
                       <div className="space-y-2 col-span-full">
@@ -986,7 +1026,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
 
                   <div className="pt-4 flex gap-4">
                      <button type="button" onClick={() => setRequestExamStudent(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                     <button type="submit" disabled={requesting} className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl">
+                     <button type="submit" disabled={requesting} className="flex-2 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl">
                        {requesting ? "Submitting..." : "Submit Request"}
                      </button>
                   </div>
@@ -995,7 +1035,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         </div>
       )}
       {showReleaseModal && selectedExam && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
            <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
                  <div>
@@ -1040,7 +1080,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                     <button 
                       onClick={() => handleApproveResult(selectedExam._id, "published", releaseForm)}
                       disabled={actionLoading === selectedExam._id || (!releaseForm.marksheet && !releaseForm.certificate)}
-                      className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl disabled:opacity-50"
+                      className="flex-2 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-black transition shadow-xl disabled:opacity-50"
                     >
                       {actionLoading === selectedExam._id ? "Processing..." : "Process Release"}
                     </button>

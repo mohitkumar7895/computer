@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { GraduationCap, ShieldCheck, MapPin, Calendar, Clock, User, X, QrCode, Printer, Globe, CheckCircle } from "lucide-react";
+import { GraduationCap, ShieldCheck, MapPin, Calendar, Clock, User, X, QrCode, Printer, Globe, CheckCircle, Download } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
 
 type AdmitCardStudent = {
@@ -30,6 +30,7 @@ interface AdmitCardProps {
 export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
   const [background, setBackground] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const { brandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const durationMinutes = Number(exam?.durationMinutes || 0);
   const slotText = exam?.examTime
@@ -42,8 +43,10 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
         const res = await fetch("/api/public/assets");
         if (res.ok) {
           const assets = await res.json();
-          if (assets.admit_card) setBackground(assets.admit_card);
-          if (assets.auth_signature) setSignature(assets.auth_signature);
+          const nextBackground = typeof assets.admit_card === "string" && assets.admit_card.trim() !== "-" ? assets.admit_card : "";
+          const nextSignature = typeof assets.auth_signature === "string" && assets.auth_signature.trim() !== "-" ? assets.auth_signature : "";
+          if (nextBackground) setBackground(nextBackground);
+          if (nextSignature) setSignature(nextSignature);
         }
       } catch (err) {
         console.error("Failed to fetch assets", err);
@@ -52,11 +55,43 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
     fetchAssets();
   }, []);
 
+  const handleDownloadPdf = async () => {
+    const element = document.getElementById("admit-card-view");
+    if (!element) return;
+    setDownloading(true);
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF("p", "mm", "a4");
+      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+      const fileName = `${(student.registrationNo || "admit-card").toString().replace(/\s+/g, "-")}.pdf`;
+      pdf.save(fileName);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 print:p-0 print:bg-white overflow-y-auto">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-6 print:p-0 print:bg-white overflow-auto">
       
       {/* Action Buttons (Floating) */}
       <div className="fixed top-8 right-8 z-110 flex flex-col gap-3 print:hidden">
+        <button
+          onClick={() => void handleDownloadPdf()}
+          disabled={downloading}
+          className="flex items-center gap-3 px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_20px_50px_rgba(5,150,105,0.4)] hover:scale-105 active:scale-95 transition-all disabled:opacity-70"
+        >
+          <Download size={20} />
+          {downloading ? "Generating..." : "Download PDF"}
+        </button>
         <button 
           onClick={() => window.print()} 
           className="flex items-center gap-3 px-10 py-4 bg-[#0a0aa1] text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_20px_50px_rgba(10,10,161,0.4)] hover:scale-105 active:scale-95 transition-all"
@@ -72,9 +107,15 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
         </button>
       </div>
 
-      <div className="w-full max-w-[210mm] min-h-[297mm] bg-white relative print:shadow-none print:m-0 flex flex-col scale-[0.8] lg:scale-100 origin-top my-10 print:scale-100 print:my-0 shadow-[0_0_100px_rgba(0,0,0,0.5)]">
-        
-        <div id="admit-card-view" className="relative w-[210mm] h-[297mm] mx-auto bg-white overflow-hidden flex flex-col">
+      <div className="w-full flex justify-center print:block">
+        <div
+          id="admit-card-view"
+          className="relative bg-white overflow-hidden flex flex-col shadow-[0_0_100px_rgba(0,0,0,0.5)] print:shadow-none"
+          style={{
+            width: "min(210mm, calc(100vw - 24px))",
+            aspectRatio: "210 / 297",
+          }}
+        >
           
           {/* Layer 0: Background */}
           <div className="absolute inset-0 z-0">
@@ -266,6 +307,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
               top: 0 !important;
               width: 210mm !important;
               height: 297mm !important;
+              aspect-ratio: auto !important;
               padding: 0 !important;
               border: none !important;
               visibility: visible !important;

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, X, AlertCircle, Trash2, FileText, ShieldCheck } from "lucide-react";
+import { Users, Clock, Search, RefreshCw, Calendar, X, AlertCircle, FileText, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 
@@ -103,6 +103,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const [documentLoadingId, setDocumentLoadingId] = useState<string | null>(null);
   const { loading: authLoading, user: authUser } = useAuth();
   const showRosterTab = role === "atc";
 
@@ -197,7 +198,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           examId,
           examDate: approvalForm.examDate,
           examTime: approvalForm.examTime,
-          setId: approvalForm.setId,
+          setId: approvalForm.examMode === "online" ? approvalForm.setId : undefined,
           durationMinutes: approvalForm.durationMinutes,
         }),
       });
@@ -224,10 +225,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         },
         body: JSON.stringify({ 
           studentId: requestExamStudent._id, 
+          examMode: requestExamStudent.examMode || "online",
           examDate: examReqForm.examDate,
           examTime: examReqForm.examTime,
           durationMinutes: examReqForm.durationMinutes,
-          setId: examReqForm.setId
+          setId: requestExamStudent.examMode === "online" ? examReqForm.setId : undefined
         }),
       });
       if (res.ok) {
@@ -273,12 +275,18 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const handleApproveResult = async (examId: string, status: "published" | "appeared" = "published") => {
     setActionLoading(examId);
     try {
+      const shouldReleaseDocs = status === "published";
       const res = await apiFetch("/api/admin/exams/approve-result", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ examId, status, marksheet: false, certificate: false }),
+        body: JSON.stringify({
+          examId,
+          status,
+          marksheet: shouldReleaseDocs,
+          certificate: shouldReleaseDocs,
+        }),
       });
       if (res.ok) {
         alert("Result Submitted Successfully");
@@ -294,11 +302,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
   const handleBulkAction = async (action: "approve" | "reject" | "delete") => {
     if (selectedExams.length === 0) return;
-    
-    if (action === "approve") {
-      setShowApproveModal(true);
-      return; // The modal will handle the final batch submit
-    }
 
     if (!confirm(`Are you sure you want to ${action} ${selectedExams.length} requests?`)) return;
 
@@ -312,7 +315,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           headers: { 
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ requestId: id, status: action === "reject" ? "rejected" : "delete" }),
+          body: JSON.stringify({
+            requestId: id,
+            status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "delete",
+            admitCardReleased: action === "approve",
+          }),
         });
       }
       setSelectedExams([]);
@@ -337,6 +344,16 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   };
 
   const openResultModal = (exam: ExamRequest) => {
+    if (role === "atc" && exam.examDate && exam.examTime) {
+      const scheduledDateTime = new Date(`${toDateInputValue(exam.examDate)}T${exam.examTime}:00`);
+      if (!Number.isNaN(scheduledDateTime.getTime()) && Date.now() < scheduledDateTime.getTime()) {
+        alert(
+          `Result submission is not allowed yet. The exam time has not ended.\n\nYou can submit the result after ${scheduledDateTime.toLocaleString("en-IN")}.`
+        );
+        return;
+      }
+    }
+
     setSelectedExam(exam);
     setResultForm({
       status: (exam.offlineExamStatus as "not_appeared" | "appeared" | "published") || "published",
@@ -346,7 +363,33 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     setShowResultModal(true);
   };
 
-  const [reviewOnly, setReviewOnly] = useState(false);
+  const triggerSingleDocumentDownload = async (
+    examId: string,
+    docType: "certificatePrint" | "marksheetPrint"
+  ) => {
+    setDocumentLoadingId(`${examId}:${docType}`);
+    try {
+      const res = await apiFetch("/api/admin/exams/documents-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examIds: [examId], docTypes: [docType] }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Document download failed", error);
+    } finally {
+      setDocumentLoadingId(null);
+    }
+  };
 
   const filtered = requests.filter(r => {
     const matchesSearch = 
@@ -356,11 +399,6 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     const matchesMode = filterMode === "all" || r.examMode === filterMode;
     const matchesStatus = filterStatus === "all" || r.approvalStatus === filterStatus;
     
-    // Review Queue logic
-    if (role === "admin" && reviewOnly) {
-       return matchesSearch && r.offlineExamStatus === "review_pending";
-    }
-
     // For ATCs: Hide from Scheduling if result is already in review or published
     const isNotInResultPhase = role === "atc" 
       ? (r.offlineExamStatus !== 'review_pending' && r.offlineExamStatus !== 'published' && r.status !== 'completed')
@@ -381,28 +419,22 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           { id: "all_students", label: "All Request", icon: Users },
           { id: "pending", label: "Pending", icon: Clock },
           { id: "approved", label: "Admit Card", icon: ShieldCheck },
-          ...(role === "admin" ? [{ id: "review_queue", label: "Review Queue", icon: AlertCircle }] : [])
+          ...(role === "admin" ? [{ id: "rejected", label: "Reject", icon: AlertCircle }] : [])
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => {
               if (tab.id === "all_students") {
                 setAtcTab("new");
-                setReviewOnly(false);
-              } else if (tab.id === "review_queue") {
-                setAtcTab("history");
                 setFilterStatus("all");
-                setReviewOnly(true);
               } else {
                 setAtcTab("history");
                 setFilterStatus(tab.id as "all" | "pending" | "approved" | "rejected");
-                setReviewOnly(false);
               }
             }}
             className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative flex items-center gap-2 ${
               (tab.id === "all_students" && atcTab === "new") || 
-              (tab.id === "review_queue" && atcTab === "history" && reviewOnly) ||
-              (atcTab === "history" && filterStatus === tab.id && !reviewOnly)
+              (atcTab === "history" && filterStatus === tab.id)
                 ? "text-green-600"
                 : "text-slate-400 hover:text-slate-600"
             }`}
@@ -591,6 +623,25 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                </div>
             ) : (
               <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                {role === "admin" && selectedExams.length > 0 && (
+                  <div className="bg-slate-900 px-6 py-3 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                    <div className="flex items-center gap-4 text-white text-xs font-bold">
+                      <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">{selectedExams.length}</div>
+                      <span className="uppercase tracking-widest">Requests Selected</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleBulkAction("approve")} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase hover:bg-emerald-600 transition shadow-lg">
+                        Approve Selected
+                      </button>
+                      <button onClick={() => handleBulkAction("reject")} className="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase hover:bg-amber-600 transition shadow-lg">
+                        Reject Selected
+                      </button>
+                      <button onClick={() => setSelectedExams([])} className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black uppercase hover:bg-white/20 transition">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-slate-50/50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
@@ -695,35 +746,21 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         </td>
                         <td className="px-6 py-5 text-right">
                            <div className="flex items-center justify-end gap-2 text-slate-800">
-                              {role === "atc" && exam.approvalStatus === "approved" && (
-                                <button
-                                  onClick={() => window.open(`/atc/document/admit-card/${exam._id}`, "_blank")}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition"
-                                >
-                                  Admit Card
-                                </button>
-                              )}
-                              {role === "admin" && exam.approvalStatus === "pending" && (
-                               <div className="flex gap-2">
-                                 <button 
-                                   onClick={() => openApproveModal(exam)}
+                             {role === "admin" && exam.approvalStatus === "pending" && (
+                               <>
+                                 <button
+                                   onClick={() => handleAction(exam._id, "approved", { admitCardReleased: true })}
                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition"
                                  >
                                    Approve
                                  </button>
-                                 <button 
+                                 <button
                                    onClick={() => handleAction(exam._id, "rejected")}
                                    className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-[10px] font-black uppercase shadow-lg shadow-red-100 hover:bg-red-700 transition"
                                  >
                                    Reject
                                  </button>
-                                 <button 
-                                   onClick={() => { if(confirm('Delete request?')) handleAction(exam._id, "delete"); }}
-                                   className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
-                                 >
-                                   <Trash2 size={14} />
-                                 </button>
-                               </div>
+                               </>
                              )}
                              {role === "atc" && exam.status !== "completed" && (
                                <button
@@ -733,25 +770,17 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                  Edit Request
                                </button>
                              )}
-                             {role === "admin" && exam.offlineExamStatus === "review_pending" && (
-                               <div className="flex gap-2">
-                                 <button
-                                   onClick={() => handleApproveResult(exam._id, "published")}
-                                   className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition"
-                                 >
-                                   Approve Result
-                                 </button>
-                                 <button
-                                   onClick={() => handleApproveResult(exam._id, "appeared")}
-                                   className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-black uppercase hover:bg-amber-200 transition"
-                                 >
-                                   Send Back
-                                 </button>
-                               </div>
-                             )}
-                             {(role === "admin" || role === "atc") && exam.examMode === 'offline' && exam.approvalStatus === 'approved' && exam.status !== 'completed' && (
+                            {role === "atc" && exam.examMode === 'offline' && exam.approvalStatus === 'approved' && exam.status !== 'completed' && (
                                 <button onClick={() => openResultModal(exam)} className="text-[10px] font-black uppercase underline underline-offset-4 text-orange-600 hover:text-orange-800">Enter Result</button>
                              )}
+                             {(role === "atc" || role === "admin") && (exam.approvalStatus === "approved" || exam.status === "completed") && (
+                                <button
+                                  onClick={() => window.open(`${role === "admin" ? "/admin" : "/atc"}/document/admit-card/${exam._id}`, "_blank")}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition"
+                                >
+                                  Admit Card
+                                </button>
+                              )}
                              {exam.offlineExamCopy && (
                                 <button
                                   onClick={() => {
@@ -765,20 +794,52 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                 </button>
                               )}
                              {role === "admin" && exam.status === "completed" && (
-                               <>
+                               <div className="flex flex-col gap-1.5">
                                  <button
-                                   onClick={() => window.open(`/admin/document/marksheet/${exam._id}`, "_blank")}
-                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
+                                   onClick={() => {
+                                     window.open(`/admin/document/certificate/${exam._id}?download=1`, "_blank");
+                                     void triggerSingleDocumentDownload(exam._id, "certificatePrint");
+                                   }}
+                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition uppercase shadow-sm"
                                  >
-                                   View Marksheet
+                                    {documentLoadingId === `${exam._id}:certificatePrint` ? "Downloading..." : "Download Certificate"}
                                  </button>
                                  <button
-                                   onClick={() => window.open(`/admin/document/certificate/${exam._id}`, "_blank")}
+                                   onClick={() => {
+                                     window.open(`/admin/document/marksheet/${exam._id}?download=1`, "_blank");
+                                      void triggerSingleDocumentDownload(exam._id, "marksheetPrint");
+                                   }}
+                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition uppercase shadow-sm"
+                                 >
+                                    {documentLoadingId === `${exam._id}:marksheetPrint` ? "Downloading..." : "Download Marksheet"}
+                                 </button>
+                               </div>
+                             )}
+                            {role === "admin" && exam.offlineExamStatus === "review_pending" && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApproveResult(exam._id, "published")}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition"
+                                >
+                                  Approve Result
+                                </button>
+                              </div>
+                            )}
+                             {role === "admin" && exam.status === "completed" && (
+                               <div className="flex flex-col gap-1.5">
+                                 <button
+                                   onClick={() => window.open(`/admin/document/certificate/${exam._id}?print=1&download=1`, "_blank")}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
                                  >
-                                   View Certificate
+                                   Print Certificate
                                  </button>
-                               </>
+                                 <button
+                                   onClick={() => window.open(`/admin/document/marksheet/${exam._id}?print=1&download=1`, "_blank")}
+                                   className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
+                                 >
+                                   Print Marksheet
+                                 </button>
+                               </div>
                              )}
                            </div>
                         </td>
@@ -863,6 +924,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
 
 
+                {approvalForm.examMode === "online" && (
                 <div className="space-y-2">
                    <label className={labelCls}>Select Question Set</label>
                    <select 
@@ -876,6 +938,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                      ))}
                    </select>
                 </div>
+                )}
 
                 <button 
                   onClick={async () => {
@@ -885,12 +948,20 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                       setActionLoading("bulk");
                       try {
                         for (const id of selectedExams) {
+                          const exam = requests.find((req) => req._id === id);
                           await apiFetch("/api/admin/exams/update", {
                             method: "POST",
                             headers: { 
                               "Content-Type": "application/json",
                             },
-                            body: JSON.stringify({ requestId: id, status: "approved", ...approvalForm, admitCardReleased: role === "admin" }),
+                            body: JSON.stringify({
+                              requestId: id,
+                              status: "approved",
+                              ...approvalForm,
+                              examMode: exam?.examMode || approvalForm.examMode,
+                              setId: (exam?.examMode || approvalForm.examMode) === "online" ? approvalForm.setId : undefined,
+                              admitCardReleased: role === "admin",
+                            }),
                           });
                         }
                         setSelectedExams([]);
@@ -899,7 +970,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                       } catch (err) { console.error(err); }
                       finally { setActionLoading(null); }
                     } else if (selectedExam) {
-                      handleAction(selectedExam._id, "approved", { ...approvalForm, admitCardReleased: role === "admin" });
+                      handleAction(selectedExam._id, "approved", {
+                        ...approvalForm,
+                        setId: selectedExam.examMode === "online" ? approvalForm.setId : undefined,
+                        admitCardReleased: role === "admin",
+                      });
                     }
                   }}
                   className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-black transition shadow-xl"
@@ -1052,6 +1127,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                       />
                     </div>
 
+                    {requestExamStudent.examMode === "online" && (
                     <div className="space-y-2 col-span-full">
                        <label className={labelCls}>Set / Paper *</label>
                        <select 
@@ -1066,6 +1142,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           ))}
                        </select>
                     </div>
+                    )}
                   </div>
 
                   <div className="pt-4 flex gap-4">

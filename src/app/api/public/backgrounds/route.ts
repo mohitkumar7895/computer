@@ -8,9 +8,11 @@ export async function GET() {
   try {
     await connectDB();
     const settings = await Settings.find({ key: { $in: BG_KEYS.map(k => `bg_${k}`) } });
-    const data: any = { id_front: "", id_back: "", certificate: "", marksheet: "", admit_card: "" };
-    settings.forEach(s => {
-      data[s.key.replace("bg_", "")] = s.value;
+    const data: Record<string, string> = { id_front: "", id_back: "", certificate: "", marksheet: "", admit_card: "" };
+    settings.forEach((s) => {
+      const normalizedKey = s.key.replace("bg_", "");
+      const normalizedValue = typeof s.value === "string" && s.value.trim() !== "-" ? s.value : "";
+      data[normalizedKey] = normalizedValue;
     });
     return NextResponse.json(data);
   } catch (error) {

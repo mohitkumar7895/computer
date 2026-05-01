@@ -27,7 +27,8 @@ export default function CertificatePrintPage() {
 
     // 2. Fetch Background Template
     apiFetch("/api/public/backgrounds").then(res => res.json()).then(bgs => {
-      setBg(bgs.certificate);
+      const nextBg = typeof bgs.certificate === "string" && bgs.certificate.trim() !== "-" ? bgs.certificate : "";
+      setBg(nextBg);
     });
 
     // 3. Fetch Signature

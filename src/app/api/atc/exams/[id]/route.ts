@@ -6,6 +6,7 @@ import { AtcStudent } from "@/models/Student";
 import { StudentMedia } from "@/models/StudentMedia";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -21,7 +22,13 @@ export async function GET(
     const { id: examId } = await params;
     await connectDB();
 
-    const exam = await StudentExam.findById(examId).lean();
+    let exam = await StudentExam.findById(examId).lean();
+    if (!exam && mongoose.Types.ObjectId.isValid(examId)) {
+      // Backward compatibility: some old links pass studentId instead of examId.
+      exam = await StudentExam.findOne({ studentId: examId })
+        .sort({ createdAt: -1 })
+        .lean();
+    }
     if (!exam) return NextResponse.json({ message: "Exam not found" }, { status: 404 });
 
     const student = await AtcStudent.findById(exam.studentId).lean();

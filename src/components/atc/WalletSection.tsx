@@ -147,7 +147,9 @@ export default function WalletSection() {
       amount: item.amount,
       direction: item.type,
     })),
-    ...requests.map((request) => ({
+    ...requests
+      .filter((request) => request.status !== "approved")
+      .map((request) => ({
       id: `req-${request._id}`,
       date: request.processedAt || request.createdAt,
       kind: "request" as const,

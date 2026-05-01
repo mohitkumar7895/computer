@@ -2,181 +2,168 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { GraduationCap, Award, MapPin, Calendar, ShieldCheck, User } from "lucide-react";
-
+import { ShieldCheck, Award, Printer } from "lucide-react";
+import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
 
 export default function AtcCertificatePage() {
   const { examId } = useParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
-  const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
-  const brandName = rawBrandName.toUpperCase();
+  const [loading, setLoading] = useState(true);
+  const [bg, setBg] = useState("");
+  const [sig, setSig] = useState("");
+  const { brandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
 
   useEffect(() => {
-    fetch(`/api/atc/documents/certificate?examId=${examId}`)
+    apiFetch(`/api/atc/documents/certificate?examId=${examId}`)
       .then((res) => res.json())
-      .then((d) => (d.data ? setData(d.data) : router.push("/atc/dashboard")))
+      .then((d) => {
+        if (d.data) setData(d.data);
+        else router.push("/atc/dashboard");
+      })
       .catch(() => router.push("/atc/dashboard"));
+
+    apiFetch("/api/public/backgrounds")
+      .then((res) => res.json())
+      .then((bgs) => {
+        const nextBg = typeof bgs.certificate === "string" && bgs.certificate.trim() !== "-" ? bgs.certificate : "";
+        setBg(nextBg);
+      });
+
+    apiFetch("/api/public/settings?key=authorized_signature")
+      .then((res) => res.json())
+      .then((nextSig) => {
+        if (nextSig.value) setSig(nextSig.value);
+      });
+
+    setLoading(false);
   }, [examId, router]);
 
-  if (!data) return <div className="p-10 font-bold text-slate-400 animate-pulse uppercase tracking-widest text-center">Preparing Authenticated Document...</div>;
+  if (loading || !data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8 print:p-0 print:bg-white">
-      {/* Control Bar */}
-      <div className="mx-auto w-[210mm] mb-6 print:hidden flex justify-between items-center bg-white p-4 rounded-[1.5rem] shadow-xl border border-white">
-        <div className="flex items-center gap-3">
-           <button onClick={() => router.back()} className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition">Back</button>
-           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Document Preview: Certificate</p>
-        </div>
-        <button onClick={() => window.print()} className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-black uppercase text-xs hover:bg-blue-700 transition shadow-lg shadow-blue-100 flex items-center gap-2">
-           Print Document
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-10 print:p-0 print:bg-white">
+      <div className="mb-8 flex gap-4 print:hidden">
+        <button
+          onClick={() => router.back()}
+          className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-tight hover:bg-slate-50"
+        >
+          Back
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="px-8 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-tight flex items-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700"
+        >
+          <Printer size={16} /> Print Certificate (A4)
         </button>
       </div>
 
-      {/* A4 Document Container */}
-      <div className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
-        
-        {/* Borders */}
-        <div className="absolute inset-[8mm] border-[1px] border-amber-200 pointer-events-none" />
-        <div className="absolute inset-[10mm] border-[3px] border-double border-amber-600 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-48 h-48 bg-amber-50 rounded-bl-[100%] opacity-30 -mr-16 -mt-16" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-tr-[100%] opacity-20 -ml-24 -mb-24" />
+      <div className="w-[210mm] h-[297mm] bg-white shadow-2xl relative overflow-hidden print:shadow-none" id="cert-a4">
+        {bg && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
 
-        {/* Header Section */}
-        <div className="relative z-10 flex flex-col items-center text-center mt-8">
-           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4 transform rotate-6 border-4 border-white">
-              <GraduationCap className="text-white w-8 h-8" />
-           </div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-1">{brandName}</h1>
-           <p className="text-[10px] font-black text-blue-600 tracking-[0.2em] uppercase mb-10 border-t border-slate-100 pt-2 w-1/2">
-             {brandAddress || brandUrl || brandEmail || brandMobile || "Autonomous Organization"}
-           </p>
-           
-           <div className="relative mb-12">
-              <div className="h-[1px] w-48 bg-amber-200 absolute left-full top-1/2 ml-4" />
-              <div className="h-[1px] w-48 bg-amber-200 absolute right-full top-1/2 mr-4" />
-              <h2 className="text-5xl font-serif text-amber-700 italic px-8">Diploma Certificate</h2>
-           </div>
-        </div>
+        <div className="absolute inset-0 z-10 flex flex-col items-center pt-[70mm] text-[#1a1a1a]">
+          <div className="absolute top-[55mm] right-[30mm] w-[35mm] h-[45mm] border-2 border-slate-200">
+            {data.studentId?.photo && <img src={data.studentId.photo} alt="" className="w-full h-full object-cover" />}
+          </div>
 
-        {/* Body Content */}
-        <div className="relative z-10 px-12 flex flex-col items-center mt-4">
-           {/* Student Photo */}
-           <div className="absolute top-0 right-0 w-32 h-36 border-4 border-white shadow-xl ring-1 ring-slate-100 rounded-xl overflow-hidden mb-6 group transition-all duration-300">
-             {data.studentId?.photo ? (
-               <img src={data.studentId.photo} alt="" className="w-full h-full object-cover" />
-             ) : (
-               <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-200"><User size={40} /></div>
-             )}
-           </div>
+          <div className="absolute top-[40mm] left-[30mm] flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            <p>{brandName || "Institution"}</p>
+            <p>SR NO: <span className="text-slate-800">{data.serialNo}</span></p>
+            <p>ENROLLMENT: <span className="text-slate-800">{data.enrollmentNo}</span></p>
+            <p>DATE: <span className="text-slate-800">{new Date(data.issueDate).toLocaleDateString()}</span></p>
+          </div>
 
-           <div className="w-full space-y-10 text-center mt-20">
-              <p className="text-lg font-medium text-slate-500 italic">This is to certify that</p>
-              
-              <div>
-                 <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tight border-b-2 border-slate-900 inline-block px-4 pb-1">{data.studentId?.name}</h3>
-                 <div className="flex justify-center gap-12 mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    <span>S/o / D/o: <span className="text-slate-800">{data.studentId?.fatherName}</span></span>
-                    <span>M/o: <span className="text-slate-800">{data.studentId?.motherName}</span></span>
-                 </div>
+          <div className="text-center w-full px-[20mm] space-y-[12mm]">
+            <div className="space-y-4">
+              <h2 className="text-[12px] font-black uppercase tracking-[0.4em] text-blue-800">Certificate of Achievement</h2>
+              <p className="text-[14px] font-medium italic">This is to certify that</p>
+              <h1 className="text-[32px] font-black uppercase tracking-tight text-slate-900 leading-none">{data.studentId?.name}</h1>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-center gap-[10mm] text-[12px]">
+                <p className="flex items-center gap-2">S/o, D/o, W/o: <span className="font-bold border-b border-slate-300 pb-0.5">{data.studentId?.fatherName}</span></p>
+                <p className="flex items-center gap-2">Mothers Name: <span className="font-bold border-b border-slate-300 pb-0.5">{data.studentId?.motherName}</span></p>
               </div>
+              <p className="text-[12px] flex items-center justify-center gap-2">
+                Roll Number: <span className="font-black px-3 py-0.5 bg-blue-50 border border-blue-100 rounded">{data.studentId?.classRollNo || "N/A"}</span>
+              </p>
+            </div>
 
-              <p className="text-lg font-medium text-slate-500 italic">has successfully completed the prescribed course of study in</p>
-              
-              <div>
-                 <h4 className="text-2xl font-black text-slate-800 uppercase tracking-tighter bg-slate-50 px-8 py-4 rounded-3xl border border-slate-100 inline-block">{data.courseName}</h4>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-3">Course Specialized Subject</p>
+            <div className="space-y-4 pt-4">
+              <p className="text-[12px] font-medium leading-relaxed max-w-lg mx-auto">
+                Has successfully completed the prescribed course of study and passed the final examination in
+              </p>
+              <h3 className="text-[20px] font-black text-blue-900 border-2 border-blue-900/10 rounded-2xl py-4 mx-[20mm]">
+                {data.courseName}
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-[20mm] pt-10 px-[15mm]">
+              <div className="text-left space-y-1">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Authorized Center</p>
+                <p className="text-[11px] font-black text-slate-900">{data.centerName} ({data.centerCode})</p>
               </div>
-
-              <div className="grid grid-cols-2 gap-y-8 gap-x-16 text-left py-10 px-6 bg-amber-50/20 rounded-[2.5rem] border border-amber-100/50">
-                 <div className="space-y-1">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Enrollment Number</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{data.enrollmentNo}</p>
-                 </div>
-                 <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Certificate Serial</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{data.serialNo}</p>
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Issue Date</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{new Date(data.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                 </div>
-                 <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Academic Session</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{data.session}</p>
-                 </div>
+              <div className="text-right space-y-1">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Examination Session</p>
+                <p className="text-[11px] font-black text-slate-900">{data.session}</p>
               </div>
+            </div>
 
-              <div className="pt-8 w-full flex justify-between items-start">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
-                       <ShieldCheck className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div>
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left">Training Auth</p>
-                       <p className="text-[11px] font-black text-slate-800 uppercase">{data.centerName} ({data.centerCode})</p>
-                    </div>
-                 </div>
-                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                    Grade Awarded: <span className="text-lg text-slate-900 ml-2">{data.grade}</span>
-                 </div>
+            <div className="flex justify-center items-center gap-[40mm] pt-[20mm]">
+              <div className="flex flex-col items-center">
+                <div className="w-[30mm] h-0.5 bg-slate-300 mb-2" />
+                <p className="text-[8px] font-black uppercase tracking-widest">Center Head Signature</p>
               </div>
-           </div>
-        </div>
-
-        {/* Footer / Signatures */}
-        <div className="mt-auto relative z-10 flex justify-between items-end pb-10 px-6">
-           <div className="text-center group">
-              <div className="w-40 h-10 border-b-2 border-slate-200 mb-2 transition-colors group-hover:border-amber-400" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Candidate Signature</p>
-           </div>
-           
-           {/* Seal Place */}
-           <div className="w-24 h-24 rounded-full border-2 border-amber-100/50 flex items-center justify-center opacity-40 grayscale group-hover:grayscale-0 transition-all">
-              <div className="w-20 h-20 rounded-full border border-amber-200 flex items-center justify-center">
-                 <ShieldCheck className="w-8 h-8 text-amber-600" />
+              <div className="flex flex-col items-center">
+                {sig ? (
+                  <img src={sig} alt="" className="h-[25mm] object-contain mb-[-10mm]" />
+                ) : (
+                  <Award size={60} className="text-blue-900/10 mb-[-10mm] opacity-50" />
+                )}
+                <div className="w-[30mm] h-0.5 bg-slate-300 mb-2" />
+                <p className="text-[8px] font-black uppercase tracking-widest text-blue-900">Administrator Signature</p>
               </div>
-           </div>
+            </div>
+          </div>
 
-           <div className="text-center group">
-              <div className="w-40 h-12 flex items-center justify-center mb-1">
-                 <div className="p-2 border border-slate-100 rounded-lg bg-slate-50 text-[10px] font-black text-slate-300 uppercase italic">Digital Archive Copy</div>
-              </div>
-              <div className="w-40 h-[0.5px] bg-slate-200 mb-2" />
-              <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Admin / Controller</p>
-           </div>
-        </div>
-
-        {/* Diagonal Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-[35deg]">
-           <p className="text-[120px] font-black uppercase text-slate-900 tracking-[0.1em]">{brandName}</p>
+          <div className="absolute bottom-[20mm] left-0 w-full flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-[8px] font-black text-slate-400">
+              <ShieldCheck size={12} />
+              {(brandName || "AUTHENTIC ACADEMIC RECORD")} • {(brandUrl || brandEmail || brandMobile || "SCAN QR TO VERIFY")}
+            </div>
+            <div className="w-[20mm] h-[20mm] bg-slate-50 border border-slate-100 p-1 flex items-center justify-center opacity-50">
+              <p className="text-[6px] font-black text-slate-300 text-center uppercase tracking-tighter">QR Placeholder</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <style jsx global>{`
         @media print {
-          @page {
-            size: A4;
-            margin: 0;
-          }
-          body {
-            background-color: white !important;
-          }
-          .mx-auto {
+          body { padding: 0; background-color: white; }
+          .print-hidden { display: none !important; }
+          #cert-a4 {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             margin: 0 !important;
-            padding: 10mm !important;
-          }
-          .absolute.inset-\\[8mm\\] {
-            inset: 8mm !important;
-          }
-          .absolute.inset-\\[10mm\\] {
-            inset: 10mm !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            border: none !important;
           }
         }
       `}</style>
     </div>
   );
 }
-

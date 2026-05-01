@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { GraduationCap, FileText, CheckCircle, ShieldCheck, User, QrCode } from "lucide-react";
 
 import { useBrand } from "@/context/BrandContext";
@@ -9,7 +9,11 @@ import { useBrand } from "@/context/BrandContext";
 export default function AdminMarksheetPage() {
   const { examId } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPrintMode = searchParams.get("print") === "1";
+  const shouldDownload = searchParams.get("download") === "1";
   const [data, setData] = useState<any>(null);
+  const [bg, setBg] = useState("");
   const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
 
@@ -18,7 +22,51 @@ export default function AdminMarksheetPage() {
       .then((res) => res.json())
       .then((d) => (d.data ? setData(d.data) : router.push("/admin/panel")))
       .catch(() => router.push("/admin/panel"));
+
+    fetch("/api/public/backgrounds")
+      .then((res) => res.json())
+      .then((bgs) => {
+        if (typeof bgs.marksheet === "string") {
+          setBg(bgs.marksheet);
+        }
+      })
+      .catch(() => {
+        setBg("");
+      });
   }, [examId, router]);
+
+  useEffect(() => {
+    if (!data || !shouldDownload) return;
+    const timer = window.setTimeout(async () => {
+      const element = document.getElementById("cert-a4");
+      if (!element) return;
+      try {
+        const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+          import("html2canvas"),
+          import("jspdf"),
+        ]);
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+        });
+        const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        const pdf = new jsPDF("p", "mm", "a4");
+        pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "marksheet");
+        pdf.save(`${regNo.replace(/\s+/g, "_")}_Marksheet.pdf`);
+      } catch (error) {
+        console.error("Marksheet download failed", error);
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [data, shouldDownload]);
+
+  useEffect(() => {
+    if (!data || !isPrintMode) return;
+    const t = window.setTimeout(() => window.print(), 350);
+    return () => window.clearTimeout(t);
+  }, [data, isPrintMode]);
 
   if (!data) return <div className="p-10 font-bold text-slate-400 animate-pulse uppercase tracking-widest text-center">Processing Statement of Marks...</div>;
 
@@ -36,6 +84,10 @@ export default function AdminMarksheetPage() {
       </div>
 
       <div className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
+        {!isPrintMode && bg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bg} alt="Marksheet background" className="absolute inset-0 w-full h-full object-cover" />
+        ) : null}
         
         {/* Borders */}
         <div className="absolute inset-[8mm] border-[0.5px] border-slate-200 pointer-events-none" />

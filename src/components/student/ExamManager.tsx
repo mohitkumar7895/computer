@@ -317,9 +317,11 @@ export default function ExamManager({ student }: ExamManagerProps) {
                              <span className="text-[9px] font-bold text-slate-400">No start button required</span>
                            </div>
                          )}
-                         {exam.status === 'completed' && (
+                        {exam.status === 'completed' && (
                            <div className="flex flex-col gap-2">
-                             <span className="text-xs font-black text-slate-800">{exam.totalScore}/{exam.maxScore}</span>
+                             <span className="text-xs font-black text-slate-800">
+                               {`${Math.min(Number(exam.totalScore || 0), Number(exam.maxScore || 0))}/${Number(exam.maxScore || 0)} Questions Attempted`}
+                             </span>
                              {exam.examMode === 'offline' && exam.offlineExamCopy && (
                                <button 
                                  onClick={() => {

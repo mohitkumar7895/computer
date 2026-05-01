@@ -27,7 +27,8 @@ export default function MarksheetPrintPage() {
 
     // 2. Fetch Background Template
     apiFetch("/api/public/backgrounds").then(res => res.json()).then(bgs => {
-      setBg(bgs.marksheet);
+      const nextBg = typeof bgs.marksheet === "string" && bgs.marksheet.trim() !== "-" ? bgs.marksheet : "";
+      setBg(nextBg);
     });
 
     // 3. Fetch Signature
