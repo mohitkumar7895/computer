@@ -42,9 +42,9 @@ export default function StudentLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo/Icon */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl mb-4 transform -rotate-6 hover:rotate-0 transition-transform duration-300 overflow-hidden">
+          <div className="inline-flex items-center justify-center w-32 h-32 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl mb-4 transform -rotate-6 hover:rotate-0 transition-transform duration-300 overflow-hidden">
             {brandLogo ? (
-              <Image src={brandLogo} alt={brandName} width={88} height={88} unoptimized className="h-full w-full object-contain scale-125" />
+              <Image src={brandLogo} alt={brandName} width={112} height={112} unoptimized className="h-full w-full object-contain scale-125" />
             ) : (
               <GraduationCap size={44} />
             )}

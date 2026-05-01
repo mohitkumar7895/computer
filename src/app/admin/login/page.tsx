@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="relative inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
+          <div className="relative inline-flex items-center justify-center w-32 h-32 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
             {brandLogo ? (
                <Image src={brandLogo} alt={brandName} fill className="object-contain scale-125" />
             ) : (
