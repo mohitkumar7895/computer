@@ -31,22 +31,49 @@ export async function GET(request: Request) {
     if (exam.status === "completed") {
       return NextResponse.json({ message: "Exam attempt already completed." }, { status: 409 });
     }
-    const lifecycleStatus = lifecycleStatusForExam(exam);
-    if (lifecycleStatus === "upcoming") {
-      return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
+
+    const hasExplicitSchedule = Boolean(
+      exam.examDateTime || (exam.examDate && exam.examTime),
+    );
+
+    let timeLeftSeconds = 0;
+
+    // For "instant online exams" (no explicit schedule set by admin), run timer from first start.
+    if (exam.examMode === "online" && !hasExplicitSchedule) {
+      const durationMinutes = Math.max(1, Number(exam.durationMinutes ?? 60) || 60);
+      const startAnchor = examDoc.startedAt ? new Date(examDoc.startedAt) : new Date();
+
+      if (!examDoc.startedAt) {
+        examDoc.startedAt = startAnchor;
+        await examDoc.save();
+      }
+
+      const endsAt = new Date(startAnchor.getTime() + durationMinutes * 60_000);
+      timeLeftSeconds = Math.max(0, Math.floor((endsAt.getTime() - Date.now()) / 1000));
+      if (timeLeftSeconds <= 0) {
+        return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+      }
+    } else {
+      const lifecycleStatus = lifecycleStatusForExam(exam);
+      if (lifecycleStatus === "upcoming") {
+        return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
+      }
+      if (lifecycleStatus === "completed") {
+        return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+      }
+
+      const { endsAt, now } = buildExamWindow(exam);
+      timeLeftSeconds = endsAt ? Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000)) : 0;
+      if (timeLeftSeconds <= 0) {
+        return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+      }
+
+      if (!examDoc.startedAt) {
+        examDoc.startedAt = new Date();
+        await examDoc.save();
+      }
     }
-    if (lifecycleStatus === "completed") {
-      return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
-    }
-    const { endsAt, now } = buildExamWindow(exam);
-    const timeLeftSeconds = endsAt ? Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000)) : 0;
-    if (timeLeftSeconds <= 0) {
-      return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
-    }
-    if (!examDoc.startedAt) {
-      examDoc.startedAt = new Date();
-      await examDoc.save();
-    }
+
     const questions = await ExamQuestion.find({ setId, isActive: true }).lean();
     return NextResponse.json({ questions, timeLeftSeconds });
   } catch (error) {
