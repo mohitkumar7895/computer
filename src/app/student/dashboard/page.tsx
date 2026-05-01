@@ -38,6 +38,10 @@ type StudentRecord = {
   currentAddress?: string;
   createdAt?: string;
   photo?: string;
+  totalFee?: number;
+  paidAmount?: number;
+  duesAmount?: number;
+  admissionFees?: number | string;
 };
 
 type StudentCenter = {
@@ -61,6 +65,10 @@ type StudentMeResponse = {
     course?: string;
     dob?: string;
     status?: string;
+    totalFee?: number;
+    paidAmount?: number;
+    duesAmount?: number;
+    admissionFees?: number | string;
   };
 };
 
@@ -106,6 +114,10 @@ export default function StudentDashboardPage() {
           currentAddress: data.student.currentAddress,
           createdAt: data.student.createdAt,
           photo: data.student.photo,
+          totalFee: Number(data.student.totalFee ?? 0),
+          paidAmount: Number(data.student.paidAmount ?? 0),
+          duesAmount: Number(data.student.duesAmount ?? 0),
+          admissionFees: data.student.admissionFees,
         };
         setStudent(normalizedStudent);
 
