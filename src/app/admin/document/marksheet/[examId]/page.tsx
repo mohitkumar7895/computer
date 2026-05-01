@@ -11,9 +11,11 @@ export default function AdminMarksheetPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPrintMode = searchParams.get("print") === "1";
+  const isZipPrintMode = searchParams.get("zipPrint") === "1";
   const shouldDownload = searchParams.get("download") === "1";
   const [data, setData] = useState<any>(null);
   const [bg, setBg] = useState("");
+  const [bgLoaded, setBgLoaded] = useState(false);
   const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
 
@@ -32,41 +34,39 @@ export default function AdminMarksheetPage() {
       })
       .catch(() => {
         setBg("");
-      });
+      })
+      .finally(() => setBgLoaded(true));
   }, [examId, router]);
 
   useEffect(() => {
     if (!data || !shouldDownload) return;
-    const timer = window.setTimeout(async () => {
+    if (!(isPrintMode || isZipPrintMode) && !bgLoaded) return;
+    const t = window.setTimeout(async () => {
       const element = document.getElementById("cert-a4");
       if (!element) return;
       try {
-        const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-          import("html2canvas"),
+        const [{ toPng }, { default: jsPDF }] = await Promise.all([
+          import("html-to-image"),
           import("jspdf"),
         ]);
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-        });
-        const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        const image = await toPng(element, { cacheBust: true, pixelRatio: 2 });
         const pdf = new jsPDF("p", "mm", "a4");
-        pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
-        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "marksheet");
-        pdf.save(`${regNo.replace(/\s+/g, "_")}_Marksheet.pdf`);
+        pdf.addImage(image, "PNG", 0, 0, 210, 297);
+        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "marksheet").replace(/\s+/g, "_");
+        const suffix = (isPrintMode || isZipPrintMode) ? "Marksheet_Print" : "Marksheet";
+        pdf.save(`${regNo}_${suffix}.pdf`);
       } catch (error) {
         console.error("Marksheet download failed", error);
       }
     }, 350);
-    return () => window.clearTimeout(timer);
-  }, [data, shouldDownload]);
+    return () => window.clearTimeout(t);
+  }, [data, shouldDownload, isPrintMode, isZipPrintMode, bgLoaded]);
 
   useEffect(() => {
-    if (!data || !isPrintMode) return;
+    if (!data || !isPrintMode || isZipPrintMode) return;
     const t = window.setTimeout(() => window.print(), 350);
     return () => window.clearTimeout(t);
-  }, [data, isPrintMode]);
+  }, [data, isPrintMode, isZipPrintMode]);
 
   if (!data) return <div className="p-10 font-bold text-slate-400 animate-pulse uppercase tracking-widest text-center">Processing Statement of Marks...</div>;
 
@@ -83,8 +83,8 @@ export default function AdminMarksheetPage() {
         </button>
       </div>
 
-      <div className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
-        {!isPrintMode && bg ? (
+      <div id="cert-a4" className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
+        {!(isPrintMode || isZipPrintMode) && bg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={bg} alt="Marksheet background" className="absolute inset-0 w-full h-full object-cover" />
         ) : null}

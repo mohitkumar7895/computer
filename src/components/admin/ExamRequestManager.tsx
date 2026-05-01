@@ -67,6 +67,23 @@ interface StudentCandidate {
   profileImage?: string;
 }
 
+type ZipDocType =
+  | "admitCard"
+  | "examCopy"
+  | "certificate"
+  | "marksheet"
+  | "certificatePrint"
+  | "marksheetPrint";
+
+const ZIP_DOC_SUFFIX: Record<ZipDocType, string> = {
+  admitCard: "Admit Card",
+  examCopy: "ExamCopy",
+  certificate: "Certificate",
+  marksheet: "Marksheet",
+  certificatePrint: "Certificate Print",
+  marksheetPrint: "Marksheet Print",
+};
+
 export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: string, role?: "admin" | "atc" }) {
   const [requests, setRequests] = useState<ExamRequest[]>([]);
   const [availableStudents, setAvailableStudents] = useState<StudentCandidate[]>([]);
@@ -103,7 +120,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
-  const [documentLoadingId, setDocumentLoadingId] = useState<string | null>(null);
+  const [zipLoading, setZipLoading] = useState(false);
+  const [selectedZipDocs, setSelectedZipDocs] = useState<ZipDocType[]>(["certificate", "marksheet"]);
   const { loading: authLoading, user: authUser } = useAuth();
   const showRosterTab = role === "atc";
 
@@ -363,31 +381,187 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     setShowResultModal(true);
   };
 
-  const triggerSingleDocumentDownload = async (
-    examId: string,
-    docType: "certificatePrint" | "marksheetPrint"
-  ) => {
-    setDocumentLoadingId(`${examId}:${docType}`);
+  const toggleZipDoc = (doc: ZipDocType) => {
+    setSelectedZipDocs((prev) => (
+      prev.includes(doc) ? prev.filter((d) => d !== doc) : [...prev, doc]
+    ));
+  };
+
+  const downloadSelectedZip = async () => {
+    if (selectedExams.length === 0) {
+      alert("Please select students first.");
+      return;
+    }
+    if (selectedZipDocs.length === 0) {
+      alert("Please select at least one document type.");
+      return;
+    }
+    setZipLoading(true);
     try {
-      const res = await apiFetch("/api/admin/exams/documents-zip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examIds: [examId], docTypes: [docType] }),
-      });
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const [{ default: JSZip }, { toPng }, { default: jsPDF }] = await Promise.all([
+        import("jszip"),
+        import("html-to-image"),
+        import("jspdf"),
+      ]);
+
+      const zip = new JSZip();
+      const examMap = new Map(requests.map((r) => [r._id, r]));
+      let addedFiles = 0;
+
+      const renderPageAsPdf = async (url: string, preferredSelector: string) => {
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.left = "-100000px";
+        iframe.style.top = "0";
+        iframe.style.width = "1800px";
+        iframe.style.height = "2600px";
+        iframe.style.opacity = "0";
+        iframe.src = url;
+        document.body.appendChild(iframe);
+
+        await new Promise<void>((resolve, reject) => {
+          const t = window.setTimeout(() => reject(new Error(`Load timeout: ${url}`)), 20000);
+          iframe.onload = () => {
+            window.clearTimeout(t);
+            resolve();
+          };
+          iframe.onerror = () => {
+            window.clearTimeout(t);
+            reject(new Error(`Load failed: ${url}`));
+          };
+        });
+
+        const waitForNode = async () => {
+          const started = Date.now();
+          while (Date.now() - started < 15000) {
+            const doc = iframe.contentDocument;
+            const node =
+              (doc?.querySelector(preferredSelector) as HTMLElement | null) ||
+              (doc?.querySelector("#cert-a4") as HTMLElement | null) ||
+              (doc?.querySelector("#admit-card-view") as HTMLElement | null);
+            if (node) return node;
+            await new Promise((resolve) => window.setTimeout(resolve, 250));
+          }
+          return null;
+        };
+
+        const node = await waitForNode();
+        if (!node) {
+          document.body.removeChild(iframe);
+          throw new Error(`Document root not found: ${url}`);
+        }
+
+        // Wait for fonts/images so capture matches visible design.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (iframe.contentDocument as any)?.fonts?.ready;
+        } catch {
+          // ignore
+        }
+        const images = Array.from(iframe.contentDocument?.images || []);
+        await Promise.all(
+          images.map((img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise<void>((resolve) => {
+                  img.onload = () => resolve();
+                  img.onerror = () => resolve();
+                })
+          )
+        );
+
+        // Force A4 frame before capture so ZIP output matches opened page layout.
+        node.style.width = "210mm";
+        node.style.minWidth = "210mm";
+        node.style.maxWidth = "210mm";
+        node.style.height = "297mm";
+        node.style.minHeight = "297mm";
+        node.style.maxHeight = "297mm";
+        node.style.aspectRatio = "210 / 297";
+
+        await new Promise((resolve) => window.setTimeout(resolve, 150));
+
+        const A4_W = 2480;
+        const A4_H = 3508;
+        const png = await toPng(node, {
+          cacheBust: true,
+          pixelRatio: 1,
+          backgroundColor: "#ffffff",
+          width: A4_W,
+          height: A4_H,
+          canvasWidth: A4_W,
+          canvasHeight: A4_H,
+        });
+        document.body.removeChild(iframe);
+
+        const pdf = new jsPDF("p", "mm", "a4");
+        // 1:1 A4 mapping for exact visual alignment.
+        pdf.addImage(png, "PNG", 0, 0, 210, 297);
+        return pdf.output("arraybuffer");
+      };
+
+      for (const examId of selectedExams) {
+        const exam = examMap.get(examId);
+        if (!exam) continue;
+        const regNo = (exam.studentId?.registrationNo || "UNKNOWN").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+
+        for (const docType of selectedZipDocs) {
+          const filename = `${regNo}_${ZIP_DOC_SUFFIX[docType]}.pdf`;
+          try {
+            if (docType === "examCopy") {
+              const data = exam.offlineExamCopy;
+              const match = typeof data === "string" ? data.match(/^data:(.+?);base64,(.+)$/) : null;
+              if (match && match[1].includes("pdf")) {
+                zip.file(filename, Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0)));
+                addedFiles++;
+              }
+              continue;
+            }
+
+            let pageUrl = "";
+            let selector = "#cert-a4";
+            if (docType === "admitCard") {
+              pageUrl = `/admin/document/admit-card/${examId}`;
+              selector = "#admit-card-view";
+            } else if (docType === "certificate") {
+              pageUrl = `/admin/document/certificate/${examId}`;
+            } else if (docType === "marksheet") {
+              pageUrl = `/admin/document/marksheet/${examId}`;
+            } else if (docType === "certificatePrint") {
+              pageUrl = `/admin/document/certificate/${examId}?zipPrint=1`;
+            } else if (docType === "marksheetPrint") {
+              pageUrl = `/admin/document/marksheet/${examId}?zipPrint=1`;
+            }
+
+            if (!pageUrl) continue;
+            const pdfBuffer = await renderPageAsPdf(pageUrl, selector);
+            zip.file(filename, pdfBuffer);
+            addedFiles++;
+          } catch (error) {
+            console.error(`ZIP item failed: ${filename}`, error);
+          }
+        }
+      }
+
+      if (addedFiles === 0) {
+        alert("No files could be generated. Please verify selected documents.");
+        return;
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "";
+      a.download = `student-documents-${Date.now()}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Document download failed", error);
+      console.error(error);
+      alert("ZIP download failed.");
     } finally {
-      setDocumentLoadingId(null);
+      setZipLoading(false);
     }
   };
 
@@ -465,6 +639,40 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
+
+        {role === "admin" && atcTab === "history" && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm mb-6">
+            <div className="flex flex-wrap items-center gap-5">
+              {[
+                { id: "admitCard" as ZipDocType, label: "Admit Card" },
+                { id: "examCopy" as ZipDocType, label: "Exam Copy" },
+                { id: "certificate" as ZipDocType, label: "Certificate" },
+                { id: "marksheet" as ZipDocType, label: "Marksheet" },
+                { id: "certificatePrint" as ZipDocType, label: "Certificate Print" },
+                { id: "marksheetPrint" as ZipDocType, label: "Marksheet Print" },
+              ].map((opt) => (
+                <label key={opt.id} className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                    checked={selectedZipDocs.includes(opt.id)}
+                    onChange={() => toggleZipDoc(opt.id)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={() => void downloadSelectedZip()}
+                disabled={zipLoading || selectedExams.length === 0}
+                className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {zipLoading ? "Preparing ZIP..." : `Download Selected ZIP (${selectedExams.length})`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {showRosterTab && atcTab === "new" ? (
           <div className="animate-in fade-in duration-300">
@@ -797,21 +1005,19 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                <div className="flex flex-col gap-1.5">
                                  <button
                                    onClick={() => {
-                                     window.open(`/admin/document/certificate/${exam._id}?download=1`, "_blank");
-                                     void triggerSingleDocumentDownload(exam._id, "certificatePrint");
+                                      window.open(`/admin/document/certificate/${exam._id}?download=1`, "_blank");
                                    }}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition uppercase shadow-sm"
                                  >
-                                    {documentLoadingId === `${exam._id}:certificatePrint` ? "Downloading..." : "Download Certificate"}
+                                    Download Certificate
                                  </button>
                                  <button
                                    onClick={() => {
-                                     window.open(`/admin/document/marksheet/${exam._id}?download=1`, "_blank");
-                                      void triggerSingleDocumentDownload(exam._id, "marksheetPrint");
+                                      window.open(`/admin/document/marksheet/${exam._id}?download=1`, "_blank");
                                    }}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition uppercase shadow-sm"
                                  >
-                                    {documentLoadingId === `${exam._id}:marksheetPrint` ? "Downloading..." : "Download Marksheet"}
+                                    Download Marksheet
                                  </button>
                                </div>
                              )}

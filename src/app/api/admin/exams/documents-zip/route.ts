@@ -23,12 +23,12 @@ type DocType =
   | "marksheetPrint";
 
 const DOC_SUFFIX: Record<DocType, string> = {
-  admitCard: "AdmitCard.pdf",
+  admitCard: "Admit Card.pdf",
   examCopy: "ExamCopy.pdf",
   certificate: "Certificate.pdf",
   marksheet: "Marksheet.pdf",
-  certificatePrint: "Certificate_Print.pdf",
-  marksheetPrint: "Marksheet_Print.pdf",
+  certificatePrint: "Certificate Print.pdf",
+  marksheetPrint: "Marksheet Print.pdf",
 };
 
 const ALLOWED_DOCS = new Set<DocType>(Object.keys(DOC_SUFFIX) as DocType[]);
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
     const admin = await verifyAdmin();
     if (!admin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json() as { examIds?: string[]; docTypes?: DocType[] };
+    const body = await request.json() as { examIds?: string[]; docTypes?: DocType[]; forceZip?: boolean };
     const examIds = Array.isArray(body.examIds) ? body.examIds.filter(Boolean) : [];
     const docTypes = Array.isArray(body.docTypes)
       ? body.docTypes.filter((d): d is DocType => ALLOWED_DOCS.has(d as DocType))
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
     const marksheetByExamId = new Map(marksheets.map((m) => [String(m.examId), m]));
     const certificateByExamId = new Map(certificates.map((c) => [String(c.examId), c]));
 
-    if (examIds.length === 1 && docTypes.length === 1) {
+    if (examIds.length === 1 && docTypes.length === 1 && !body.forceZip) {
       const exam = exams[0] as unknown as Record<string, unknown>;
       const student = exam.studentId as { name?: string; registrationNo?: string; course?: string };
       const regNo = toSafeRegNo(student?.registrationNo);

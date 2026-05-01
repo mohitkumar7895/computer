@@ -2,17 +2,39 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { GraduationCap, Award, MapPin, Calendar, ShieldCheck, User } from "lucide-react";
+import Image from "next/image";
+import { GraduationCap, ShieldCheck, User } from "lucide-react";
 
 import { useBrand } from "@/context/BrandContext";
+
+type CertificatePageData = {
+  studentId?: {
+    registrationNo?: string;
+    photo?: string;
+    name?: string;
+    fatherName?: string;
+    motherName?: string;
+  };
+  enrollmentNo?: string;
+  serialNo?: string;
+  issueDate?: string;
+  courseName?: string;
+  centerName?: string;
+  centerCode?: string;
+  grade?: string;
+  session?: string;
+};
 
 export default function AdminCertificatePage() {
   const { examId } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPrintMode = searchParams.get("print") === "1";
+  const isZipPrintMode = searchParams.get("zipPrint") === "1";
   const shouldDownload = searchParams.get("download") === "1";
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<CertificatePageData | null>(null);
+  const [bg, setBg] = useState("");
+  const [bgLoaded, setBgLoaded] = useState(false);
   const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
   const brandName = rawBrandName.toUpperCase();
 
@@ -21,47 +43,53 @@ export default function AdminCertificatePage() {
       .then((res) => res.json())
       .then((d) => (d.data ? setData(d.data) : router.push("/admin/panel")))
       .catch(() => router.push("/admin/panel"));
+
+    fetch("/api/public/backgrounds")
+      .then((res) => res.json())
+      .then((bgs) => {
+        const nextBg = typeof bgs.certificate === "string" && bgs.certificate.trim() !== "-" ? bgs.certificate : "";
+        setBg(nextBg);
+      })
+      .catch(() => setBg(""))
+      .finally(() => setBgLoaded(true));
   }, [examId, router]);
 
   useEffect(() => {
     if (!data || !shouldDownload) return;
-    const timer = window.setTimeout(async () => {
+    if (!(isPrintMode || isZipPrintMode) && !bgLoaded) return;
+    const t = window.setTimeout(async () => {
       const element = document.getElementById("cert-a4");
       if (!element) return;
       try {
-        const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-          import("html2canvas"),
+        const [{ toPng }, { default: jsPDF }] = await Promise.all([
+          import("html-to-image"),
           import("jspdf"),
         ]);
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-        });
-        const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        const image = await toPng(element, { cacheBust: true, pixelRatio: 2 });
         const pdf = new jsPDF("p", "mm", "a4");
-        pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
-        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "certificate");
-        pdf.save(`${regNo.replace(/\s+/g, "_")}_Certificate.pdf`);
+        pdf.addImage(image, "PNG", 0, 0, 210, 297);
+        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "certificate").replace(/\s+/g, "_");
+        const suffix = (isPrintMode || isZipPrintMode) ? "Certificate_Print" : "Certificate";
+        pdf.save(`${regNo}_${suffix}.pdf`);
       } catch (error) {
         console.error("Certificate download failed", error);
       }
     }, 350);
-    return () => window.clearTimeout(timer);
-  }, [data, shouldDownload]);
+    return () => window.clearTimeout(t);
+  }, [data, shouldDownload, isPrintMode, isZipPrintMode, bgLoaded]);
 
   useEffect(() => {
-    if (!data || !isPrintMode) return;
+    if (!data || !isPrintMode || isZipPrintMode) return;
     const t = window.setTimeout(() => window.print(), 350);
     return () => window.clearTimeout(t);
-  }, [data, isPrintMode]);
+  }, [data, isPrintMode, isZipPrintMode]);
 
   if (!data) return <div className="p-10 font-bold text-slate-400 animate-pulse uppercase tracking-widest text-center">Preparing Authenticated Document...</div>;
 
   return (
     <div className="min-h-screen bg-slate-100 p-8 print:p-0 print:bg-white transition-colors duration-500">
       {/* Control Bar */}
-      <div className="mx-auto w-[210mm] mb-6 print:hidden flex justify-between items-center bg-white p-4 rounded-[1.5rem] shadow-xl border border-white">
+      <div className="mx-auto w-[210mm] mb-6 print:hidden flex justify-between items-center bg-white p-4 rounded-3xl shadow-xl border border-white">
         <div className="flex items-center gap-3">
            <button onClick={() => router.back()} className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition">Back</button>
            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Document Preview: Certificate</p>
@@ -73,12 +101,15 @@ export default function AdminCertificatePage() {
 
       {/* A4 Document Container */}
       <div id="cert-a4" className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
+        {!(isPrintMode || isZipPrintMode) && bg ? (
+          <Image src={bg} alt="" fill unoptimized className="object-cover" />
+        ) : null}
         
         {/* Borders */}
-        <div className="absolute inset-[8mm] border-[1px] border-amber-200 pointer-events-none" />
+        <div className="absolute inset-[8mm] border border-amber-200 pointer-events-none" />
         <div className="absolute inset-[10mm] border-[3px] border-double border-amber-600 pointer-events-none" />
-        {!isPrintMode && <div className="absolute top-0 right-0 w-48 h-48 bg-amber-50 rounded-bl-[100%] opacity-30 -mr-16 -mt-16" />}
-        {!isPrintMode && <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-tr-[100%] opacity-20 -ml-24 -mb-24" />}
+        {!(isPrintMode || isZipPrintMode) && <div className="absolute top-0 right-0 w-48 h-48 bg-amber-50 rounded-bl-[100%] opacity-30 -mr-16 -mt-16" />}
+        {!(isPrintMode || isZipPrintMode) && <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-tr-[100%] opacity-20 -ml-24 -mb-24" />}
 
         {/* Header Section */}
         <div className="relative z-10 flex flex-col items-center text-center mt-8">
@@ -91,8 +122,8 @@ export default function AdminCertificatePage() {
            </p>
            
            <div className="relative mb-12">
-              <div className="h-[1px] w-48 bg-amber-200 absolute left-full top-1/2 ml-4" />
-              <div className="h-[1px] w-48 bg-amber-200 absolute right-full top-1/2 mr-4" />
+              <div className="h-px w-48 bg-amber-200 absolute left-full top-1/2 ml-4" />
+              <div className="h-px w-48 bg-amber-200 absolute right-full top-1/2 mr-4" />
               <h2 className="text-5xl font-serif text-amber-700 italic px-8">Diploma Certificate</h2>
            </div>
         </div>
@@ -102,7 +133,7 @@ export default function AdminCertificatePage() {
            {/* Student Photo */}
            <div className="absolute top-0 right-0 w-32 h-36 border-4 border-white shadow-xl ring-1 ring-slate-100 rounded-xl overflow-hidden mb-6 group transition-all duration-300">
              {data.studentId?.photo ? (
-               <img src={data.studentId.photo} alt="" className="w-full h-full object-cover" />
+               <Image src={data.studentId.photo} alt="" fill unoptimized className="object-cover" />
              ) : (
                <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-200"><User size={40} /></div>
              )}
@@ -137,7 +168,11 @@ export default function AdminCertificatePage() {
                  </div>
                  <div className="space-y-1">
                     <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Issue Date</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{new Date(data.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    <p className="text-sm font-black text-slate-800 uppercase leading-none">
+                      {data.issueDate
+                        ? new Date(data.issueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                        : "N/A"}
+                    </p>
                  </div>
                  <div className="space-y-1 text-right">
                     <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Academic Session</p>
@@ -186,9 +221,9 @@ export default function AdminCertificatePage() {
         </div>
 
         {/* Diagonal Watermark */}
-        {!isPrintMode && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-[35deg]">
-             <p className="text-[120px] font-black uppercase text-slate-900 tracking-[0.1em]">{brandName}</p>
+        {!(isPrintMode || isZipPrintMode) && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-35">
+             <p className="text-[120px] font-black uppercase text-slate-900 tracking-widest">{brandName}</p>
           </div>
         )}
       </div>

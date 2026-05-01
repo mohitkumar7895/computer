@@ -33,6 +33,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const FALLBACK_AUTH_CONTEXT: AuthContextType = {
+  user: null,
+  token: null,
+  loading: false,
+  sessionReady: true,
+  login: () => {
+    // no-op fallback when provider is unexpectedly missing
+  },
+  logout: async () => {
+    // no-op fallback when provider is unexpectedly missing
+  },
+  refreshUser: async () => {
+    // no-op fallback when provider is unexpectedly missing
+  },
+};
+
 const AUTH_TOKEN_KEY = "auth_token";
 const AUTH_USER_KEY = "auth_user";
 
@@ -257,7 +273,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    if (typeof window !== "undefined") {
+      // Keep app usable in unexpected render paths (e.g. transient iframe/router states).
+      console.error("useAuth used outside AuthProvider. Falling back to default auth state.");
+    }
+    return FALLBACK_AUTH_CONTEXT;
   }
   return context;
 };
