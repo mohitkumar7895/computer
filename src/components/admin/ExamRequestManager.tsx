@@ -35,6 +35,9 @@ interface ExamRequest {
   setId?: string;
   approvalStatus: "pending" | "approved" | "rejected";
   status: "pending" | "completed";
+  resultDeclared?: boolean;
+  marksheetReleased?: boolean;
+  certificateReleased?: boolean;
   admitCardReleased?: boolean;
   totalScore?: number;
   maxScore?: number;
