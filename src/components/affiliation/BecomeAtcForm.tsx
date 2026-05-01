@@ -111,6 +111,7 @@ export default function BecomeAtcForm() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
   const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfraRow>>(emptyInfra);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     apiFetch("/api/public/settings?key=qr_code")
@@ -143,7 +144,9 @@ export default function BecomeAtcForm() {
     if (!form.processFee) r.push("Please select affiliation process fee.");
     if (!form.trainingPartnerName.trim()) r.push("Training partner name is required.");
     if (!form.trainingPartnerAddress.trim()) r.push("Training partner address is required.");
+    if (!form.postalAddressOffice.trim()) r.push("Postal address is required.");
     if (!form.totalName.trim()) r.push("Tehsil / Taluka name is required.");
+    if (form.zones.length === 0) r.push("Please select at least one zone.");
     if (!form.district.trim()) r.push("District is required.");
     if (!form.state) r.push("State is required.");
     if (!/^\d{6}$/.test(form.pin)) r.push("PIN must be 6 digits.");
@@ -177,16 +180,63 @@ export default function BecomeAtcForm() {
     if (instituteDocument && instituteDocument.size > 500 * 1024) r.push("Institute document must be under 500 KB.");
     if (screenshot && screenshot.type === "application/pdf" && screenshot.size > 500 * 1024) r.push("Payment screenshot PDF must be under 500 KB.");
 
-    return r;
+    const requiredFieldMap: Record<string, boolean> = {
+      processFee: !form.processFee,
+      trainingPartnerName: !form.trainingPartnerName.trim(),
+      trainingPartnerAddress: !form.trainingPartnerAddress.trim(),
+      postalAddressOffice: !form.postalAddressOffice.trim(),
+      totalName: !form.totalName.trim(),
+      district: !form.district.trim(),
+      state: !form.state,
+      pin: !form.pin.trim(),
+      mobile: !form.mobile.trim(),
+      email: !form.email.trim(),
+      statusOfInstitution: !form.statusOfInstitution,
+      yearOfEstablishment: !form.yearOfEstablishment,
+      chiefName: !form.chiefName.trim(),
+      designation: !form.designation.trim(),
+      educationQualification: !form.educationQualification.trim(),
+      professionalExperience: !form.professionalExperience.trim(),
+      dob: !form.dob.trim(),
+      aadharNo: !form.aadharNo.trim(),
+      photo: !photo,
+      signature: !signature,
+      aadharDoc: !aadharDoc,
+      paymentMode: !form.paymentMode,
+      paidAmount: form.paymentMode === "gpay" && !form.paidAmount.trim(),
+      transactionNo: form.paymentMode === "gpay" && !form.transactionNo.trim(),
+      paymentScreenshot: form.paymentMode === "gpay" && !screenshot,
+      zones: form.zones.length === 0,
+    };
+    const requiredSet = new Set<string>();
+    Object.entries(requiredFieldMap).forEach(([key, invalid]) => {
+      if (invalid) requiredSet.add(key);
+    });
+    return { list: r, requiredSet };
   }, [form, screenshot, photo, signature, logo, aadharDoc, marksheetDoc, otherDocs, instituteDocument]);
 
-  const setField = (field: keyof FormState, value: string) =>
+  const setField = (field: keyof FormState, value: string) => {
     setForm((c) => ({ ...c, [field]: value }));
+    if (invalidFields.has(field)) {
+      setInvalidFields((prev) => {
+        const next = new Set(prev);
+        next.delete(field);
+        return next;
+      });
+    }
+  };
+
+  const requiredHint = (field: string) =>
+    invalidFields.has(field) ? <p className="mt-1 text-xs font-semibold text-red-700">Required field</p> : null;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    if (errors.length) { setError(errors[0]); return; }
+    if (errors.list.length) {
+      setError(errors.list[0]);
+      setInvalidFields(errors.requiredSet);
+      return;
+    }
     setLoading(true);
     try {
       const payload = new FormData();
@@ -231,6 +281,7 @@ export default function BecomeAtcForm() {
     setForm(initialFormState); setInfra(emptyInfra);
     setPhoto(null); setLogo(null); setSignature(null); setAadharDoc(null); setMarksheetDoc(null); setOtherDocs(null);
     setScreenshot(null); setInstituteDocument(null); setError(null); setReceiptData(null);
+    setInvalidFields(new Set());
   };
 
   if (receiptData && !showSuccessModal) {
@@ -277,7 +328,7 @@ export default function BecomeAtcForm() {
             <div>
               <Label>Affiliation Process Fee *</Label>
               <SelectWrapper>
-                <select className={selectCls} value={form.processFee} onChange={(e) => setField("processFee", e.target.value)}>
+                <select className={`${selectCls} ${invalidFields.has("processFee") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} value={form.processFee} onChange={(e) => setField("processFee", e.target.value)}>
                   <option value="">— Select Plan —</option>
                   {feeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   {form.processFee && !feeOptions.some((o) => o.value === form.processFee) && (
@@ -285,20 +336,23 @@ export default function BecomeAtcForm() {
                   )}
                 </select>
               </SelectWrapper>
+              {requiredHint("processFee")}
             </div>
 
             {/* Training Partner Name */}
             <div className="sm:col-span-2">
               <Label>Training Partner Name *</Label>
-              <input className={inputCls} placeholder="Enter full name of the institute" value={form.trainingPartnerName}
+              <input className={`${inputCls} ${invalidFields.has("trainingPartnerName") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="Enter full name of the institute" value={form.trainingPartnerName}
                 onChange={(e) => setField("trainingPartnerName", e.target.value)} />
+              {requiredHint("trainingPartnerName")}
             </div>
 
             {/* Address */}
             <div className="sm:col-span-2">
               <Label>Training Partner Address *</Label>
-              <input className={inputCls} placeholder="Full address of the institute" value={form.trainingPartnerAddress}
+              <input className={`${inputCls} ${invalidFields.has("trainingPartnerAddress") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="Full address of the institute" value={form.trainingPartnerAddress}
                 onChange={(e) => setField("trainingPartnerAddress", e.target.value)} />
+              {requiredHint("trainingPartnerAddress")}
             </div>
 
 
@@ -307,20 +361,22 @@ export default function BecomeAtcForm() {
               <Label>Tehsil / Taluka Name *</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="Tehsil or Taluka name"
+                <input className={`${inputCls} pl-9 ${invalidFields.has("totalName") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="Tehsil or Taluka name"
                   value={form.totalName} onChange={(e) => setField("totalName", e.target.value)} />
               </div>
+              {requiredHint("totalName")}
             </div>
 
             {/* State */}
             <div>
               <Label>State *</Label>
               <SelectWrapper>
-                <select className={selectCls} value={form.state} onChange={(e) => setStateField(e.target.value)}>
+                <select className={`${selectCls} ${invalidFields.has("state") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} value={form.state} onChange={(e) => setStateField(e.target.value)}>
                   <option value="">— Select State —</option>
                   {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </SelectWrapper>
+              {requiredHint("state")}
             </div>
 
             {/* District */}
@@ -328,7 +384,7 @@ export default function BecomeAtcForm() {
               <Label>District *</Label>
               <SelectWrapper>
                 <select
-                  className={selectCls}
+                  className={`${selectCls} ${invalidFields.has("district") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`}
                   value={form.district}
                   onChange={(e) => setField("district", e.target.value)}
                   disabled={!form.state || districtOptions.length === 0}
@@ -345,13 +401,15 @@ export default function BecomeAtcForm() {
                   ))}
                 </select>
               </SelectWrapper>
+              {requiredHint("district")}
             </div>
 
             {/* PIN */}
             <div>
               <Label>PIN Code *</Label>
-              <input className={inputCls} placeholder="6-digit PIN code" maxLength={6}
+              <input className={`${inputCls} ${invalidFields.has("pin") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="6-digit PIN code" maxLength={6}
                 value={form.pin} onChange={(e) => setField("pin", e.target.value.replace(/\D/g, "").slice(0, 6))} />
+              {requiredHint("pin")}
             </div>
 
             {/* Country (readonly) */}
@@ -363,8 +421,9 @@ export default function BecomeAtcForm() {
             {/* Postal Address Office */}
             <div className="sm:col-span-2">
               <Label>Postal Address (Office) *</Label>
-              <input className={inputCls} placeholder="Office mailing address" value={form.postalAddressOffice}
+              <input className={`${inputCls} ${invalidFields.has("postalAddressOffice") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="Office mailing address" value={form.postalAddressOffice}
                 onChange={(e) => setField("postalAddressOffice", e.target.value)} />
+              {requiredHint("postalAddressOffice")}
             </div>
 
             {/* Mobile */}
@@ -372,9 +431,10 @@ export default function BecomeAtcForm() {
               <Label>Mobile Number *</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="10-digit mobile number"
+                <input className={`${inputCls} pl-9 ${invalidFields.has("mobile") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="10-digit mobile number"
                   value={form.mobile} onChange={(e) => setField("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} />
               </div>
+              {requiredHint("mobile")}
             </div>
 
             {/* Email */}
@@ -382,9 +442,10 @@ export default function BecomeAtcForm() {
               <Label>Email Address *</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="email" className={inputCls + " pl-9"} placeholder="email@example.com"
+                <input type="email" className={`${inputCls} pl-9 ${invalidFields.has("email") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="email@example.com"
                   value={form.email} onChange={(e) => setField("email", e.target.value)} />
               </div>
+              {requiredHint("email")}
             </div>
 
             {/* Status of Institution */}
@@ -408,19 +469,20 @@ export default function BecomeAtcForm() {
             <div>
               <Label>Year of Establishment *</Label>
               <SelectWrapper>
-                <select className={selectCls} value={form.yearOfEstablishment} onChange={(e) => setField("yearOfEstablishment", e.target.value)}>
+                <select className={`${selectCls} ${invalidFields.has("yearOfEstablishment") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} value={form.yearOfEstablishment} onChange={(e) => setField("yearOfEstablishment", e.target.value)}>
                   <option value="">— Select Year —</option>
                   {getYearOptions(50).map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
               </SelectWrapper>
+              {requiredHint("yearOfEstablishment")}
             </div>
 
             {/* Institute Document */}
             <div className="sm:col-span-2">
               <Label>Institute Document (Optional) - Max 500KB (PDF/JPG/PNG)</Label>
-              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <label className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition ${invalidFields.has("photo") ? "border-red-600 bg-red-50/60" : "border-slate-300"}`}>
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {instituteDocument ? instituteDocument.name : "Click to upload JPG / PDF"}
@@ -428,6 +490,7 @@ export default function BecomeAtcForm() {
                 <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setInstituteDocument(e.target.files?.[0] ?? null)} />
               </label>
             </div>
+            {requiredHint("statusOfInstitution")}
           </div>
         </SectionCard>
 
@@ -456,6 +519,7 @@ export default function BecomeAtcForm() {
               </label>
             ))}
           </div>
+          {requiredHint("zones")}
         </SectionCard>
 
         {/* ── SECTION 2: Chief Executive ─────────────────────────── */}
@@ -465,54 +529,60 @@ export default function BecomeAtcForm() {
               <Label>Full Name *</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="Head's full name" value={form.chiefName}
+                <input className={`${inputCls} pl-9 ${invalidFields.has("chiefName") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="Head's full name" value={form.chiefName}
                   onChange={(e) => setField("chiefName", e.target.value)} />
               </div>
+              {requiredHint("chiefName")}
             </div>
 
             <div>
               <Label>Designation / Position *</Label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="e.g. Director, Principal" value={form.designation}
+                <input className={`${inputCls} pl-9 ${invalidFields.has("designation") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="e.g. Director, Principal" value={form.designation}
                   onChange={(e) => setField("designation", e.target.value)} />
               </div>
+              {requiredHint("designation")}
             </div>
 
             <div>
               <Label>Education Qualification *</Label>
               <div className="relative">
                 <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="e.g. M.Sc, B.Ed, MBA" value={form.educationQualification}
+                <input className={`${inputCls} pl-9 ${invalidFields.has("educationQualification") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="e.g. M.Sc, B.Ed, MBA" value={form.educationQualification}
                   onChange={(e) => setField("educationQualification", e.target.value)} />
               </div>
+              {requiredHint("educationQualification")}
             </div>
 
             <div>
               <Label>Professional Experience *</Label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="e.g. 5 Years" value={form.professionalExperience}
+                <input className={`${inputCls} pl-9 ${invalidFields.has("professionalExperience") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="e.g. 5 Years" value={form.professionalExperience}
                   onChange={(e) => setField("professionalExperience", e.target.value)} />
               </div>
+              {requiredHint("professionalExperience")}
             </div>
 
             <div>
               <Label>Date of Birth *</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="date" className={inputCls + " pl-9"} value={form.dob}
+                <input type="date" className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} value={form.dob}
                   onChange={(e) => setField("dob", e.target.value)} />
               </div>
+              {requiredHint("dob")}
             </div>
 
             <div>
               <Label>Aadhar Number *</Label>
               <div className="relative">
                 <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input className={inputCls + " pl-9"} placeholder="12-digit Aadhar number" maxLength={12}
+                <input className={`${inputCls} pl-9 ${invalidFields.has("aadharNo") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} placeholder="12-digit Aadhar number" maxLength={12}
                   value={form.aadharNo} onChange={(e) => setField("aadharNo", e.target.value.replace(/\D/g, "").slice(0, 12))} />
               </div>
+              {requiredHint("aadharNo")}
             </div>
 
             <div>
@@ -522,13 +592,21 @@ export default function BecomeAtcForm() {
                 <span className="text-sm text-slate-500 truncate">
                   {photo ? photo.name : "Click to choose photo"}
                 </span>
-                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => {
+                  setPhoto(e.target.files?.[0] ?? null);
+                  setInvalidFields((prev) => {
+                    const next = new Set(prev);
+                    next.delete("photo");
+                    return next;
+                  });
+                }} />
               </label>
+              {requiredHint("photo")}
             </div>
 
             <div>
               <Label>Logo (Optional) - Max 100KB (JPG/PNG)</Label>
-              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <label className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition ${invalidFields.has("signature") ? "border-red-600 bg-red-50/60" : "border-slate-300"}`}>
                 <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {logo ? logo.name : "Click to choose logo"}
@@ -544,19 +622,35 @@ export default function BecomeAtcForm() {
                 <span className="text-sm text-slate-500 truncate">
                   {signature ? signature.name : "Click to choose signature"}
                 </span>
-                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => {
+                  setSignature(e.target.files?.[0] ?? null);
+                  setInvalidFields((prev) => {
+                    const next = new Set(prev);
+                    next.delete("signature");
+                    return next;
+                  });
+                }} />
               </label>
+              {requiredHint("signature")}
             </div>
 
             <div>
               <Label>Aadhar Card (PDF) * - Max 500KB</Label>
-              <label className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition">
+              <label className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed bg-slate-50 cursor-pointer hover:border-[#0a0aa1]/40 hover:bg-slate-100 transition ${invalidFields.has("aadharDoc") ? "border-red-600 bg-red-50/60" : "border-slate-300"}`}>
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {aadharDoc ? aadharDoc.name : "Click to choose aadhar PDF"}
                 </span>
-                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setAadharDoc(e.target.files?.[0] ?? null)} />
+                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => {
+                  setAadharDoc(e.target.files?.[0] ?? null);
+                  setInvalidFields((prev) => {
+                    const next = new Set(prev);
+                    next.delete("aadharDoc");
+                    return next;
+                  });
+                }} />
               </label>
+              {requiredHint("aadharDoc")}
             </div>
 
             <div>
@@ -633,10 +727,12 @@ export default function BecomeAtcForm() {
               { value: "gpay", label: "Google Pay / UPI QR", icon: "💳" },
               { value: "online", label: "Online Payment", icon: "🌐" },
             ].map((opt) => (
-              <label key={opt.value}
+                <label key={opt.value}
                 className={`flex items-center gap-3 px-5 py-3 rounded-xl border-2 cursor-pointer transition select-none
                   ${form.paymentMode === opt.value
                     ? "border-amber-500 bg-amber-50 shadow-sm"
+                    : invalidFields.has("paymentMode")
+                      ? "border-red-700 bg-red-50/60"
                     : "border-slate-200 bg-white hover:border-amber-300"}`}>
                 <input type="radio" name="paymentMode" className="sr-only"
                   checked={form.paymentMode === opt.value} onChange={() => setField("paymentMode", opt.value)} />
@@ -648,6 +744,7 @@ export default function BecomeAtcForm() {
               </label>
             ))}
           </div>
+          {requiredHint("paymentMode")}
 
           {/* Payment Instructions & QR */}
           {form.paymentMode === "gpay" && (
@@ -700,21 +797,23 @@ export default function BecomeAtcForm() {
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-sm">₹</span>
                     <input 
-                      className="w-full pl-7 pr-4 py-2 rounded-xl border border-amber-200 bg-white text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition"
+                      className={`w-full pl-7 pr-4 py-2 rounded-xl border bg-white text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition ${invalidFields.has("paidAmount") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : "border-amber-200"}`}
                       placeholder="Enter amount paid"
                       value={form.paidAmount}
                       onChange={(e) => setField("paidAmount", e.target.value.replace(/\D/g, ""))}
                     />
                   </div>
+                  {requiredHint("paidAmount")}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-amber-700 uppercase mb-1">Transaction No / UTR *</label>
                   <input 
-                    className="w-full px-4 py-2 rounded-xl border border-amber-200 bg-white text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition"
+                    className={`w-full px-4 py-2 rounded-xl border bg-white text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition ${invalidFields.has("transactionNo") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : "border-amber-200"}`}
                     placeholder="Enter 12-digit UTR or Txn ID"
                     value={form.transactionNo}
                     onChange={(e) => setField("transactionNo", e.target.value)}
                   />
+                  {requiredHint("transactionNo")}
                 </div>
               </div>
             </div>
@@ -727,7 +826,7 @@ export default function BecomeAtcForm() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className={`flex flex-col items-center justify-center gap-2 w-full p-6 rounded-2xl border-2 border-dashed transition cursor-pointer
-                ${screenshot ? "border-green-400 bg-green-50" : "border-slate-200 bg-slate-50 hover:border-amber-400 hover:bg-amber-50"}`}>
+                ${screenshot ? "border-green-400 bg-green-50" : invalidFields.has("paymentScreenshot") ? "border-red-700 bg-red-50/60" : "border-slate-200 bg-slate-50 hover:border-amber-400 hover:bg-amber-50"}`}>
                 <Camera className={`w-8 h-8 ${screenshot ? "text-green-500" : "text-slate-400"}`} />
                 <div className="text-center">
                   <span className={`text-sm font-bold block ${screenshot ? "text-green-700" : "text-slate-600"}`}>
@@ -738,8 +837,16 @@ export default function BecomeAtcForm() {
                   </span>
                 </div>
                 <input type="file" accept="image/*,application/pdf" className="hidden" 
-                  onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)} />
+                  onChange={(e) => {
+                    setScreenshot(e.target.files?.[0] ?? null);
+                    setInvalidFields((prev) => {
+                      const next = new Set(prev);
+                      next.delete("paymentScreenshot");
+                      return next;
+                    });
+                  }} />
               </label>
+              {requiredHint("paymentScreenshot")}
 
               {screenshot && screenshot.type.startsWith("image/") && (
                 <div className="relative rounded-2xl border border-slate-200 bg-white overflow-hidden p-2 flex flex-col items-center">
@@ -757,9 +864,9 @@ export default function BecomeAtcForm() {
 
         {/* ── Error Banner ───────────────────────────────────────── */}
         {error && (
-          <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-4 text-sm font-medium shadow-sm">
-            <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-red-600 font-bold text-xs">!</span>
+          <div className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-100 rounded-2xl px-5 py-4 text-sm font-medium shadow-sm">
+            <div className="w-5 h-5 rounded-full bg-red-800 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="text-red-100 font-bold text-xs">!</span>
             </div>
             {error}
           </div>

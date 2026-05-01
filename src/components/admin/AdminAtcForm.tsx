@@ -235,6 +235,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (!form.trainingPartnerName.trim()) r.push("Training partner name is required.");
     if (!form.trainingPartnerAddress.trim()) r.push("Training partner address is required.");
     if (!form.postalAddressOffice.trim()) r.push("Postal address is required.");
+    if (!form.totalName.trim()) r.push("Tehsil / Taluka name is required.");
     if (form.zones.length === 0) r.push("Please select at least one zone.");
     if (!form.district.trim()) r.push("District is required.");
     if (!form.state) r.push("State is required.");
@@ -252,6 +253,10 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (!signature && !sigPreview) r.push("Signature is required.");
     if (!aadharDoc && !aadharPreview) r.push("Aadhar card PDF is required.");
     if (!form.paymentMode) r.push("Please select payment mode.");
+    if (form.paymentMode === "gpay") {
+      if (!form.paidAmount.trim()) r.push("Please enter paid amount.");
+      if (!form.transactionNo.trim()) r.push("Please enter transaction / UTR number.");
+    }
     
     // For visual highlighting
     const fieldMap: Record<string, boolean> = {
@@ -273,9 +278,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       professionalExperience: !form.professionalExperience.trim(),
       dob: !form.dob.trim(),
       paymentMode: !form.paymentMode,
+      paidAmount: form.paymentMode === "gpay" && !form.paidAmount.trim(),
+      transactionNo: form.paymentMode === "gpay" && !form.transactionNo.trim(),
       photo: !photo && !photoPreview,
       signature: !signature && !sigPreview,
       aadharDoc: !aadharDoc && !aadharPreview,
+      zones: form.zones.length === 0,
     };
     
     const invalidSet = new Set<string>();
@@ -294,6 +302,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       });
     }
   };
+
+  const requiredHint = (field: string) =>
+    invalidFields.has(field) ? <p className="mt-1 text-xs font-bold text-red-900">Required field</p> : null;
 
   const onReset = () => {
     if (mode === "edit" && initialData) {
@@ -336,6 +347,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       setOtherPreview(initialData.otherDocs ?? null);
       setScreenshotPreview(initialData.paymentScreenshot ?? null);
       setDocPreview(initialData.instituteDocument ?? null);
+      setInvalidFields(new Set());
       return;
     }
 
@@ -344,6 +356,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     setScreenshot(null); setInstituteDocument(null); setMessage(null);
     setPhotoPreview(null); setLogoPreview(null); setSigPreview(null); setAadharPreview(null); setMarksheetPreview(null); setOtherPreview(null);
     setScreenshotPreview(null); setDocPreview(null);
+    setInvalidFields(new Set());
   };
 
   const handleCancelClick = () => {
@@ -362,6 +375,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (errors.list.length) { 
       setMessage({ type: "error", text: errors.list[0] }); 
       setInvalidFields(errors.set);
+      requestAnimationFrame(() => {
+        const firstInvalid = document.querySelector(
+          "input.border-red-800, select.border-red-800, label.border-red-800"
+        ) as HTMLElement | null;
+        firstInvalid?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return; 
     }
@@ -498,7 +517,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <Label>Affiliation Process Fee *</Label>
             <SelectWrapper>
               <select 
-                className={`${selectCls} ${invalidFields.has("processFee") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${selectCls} ${invalidFields.has("processFee") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 value={form.processFee} 
                 onChange={(e) => setField("processFee", e.target.value)}
               >
@@ -509,22 +528,25 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 )}
               </select>
             </SelectWrapper>
+            {requiredHint("processFee")}
           </div>
 
           <div className="sm:col-span-2">
             <Label>Training Partner Name *</Label>
             <input 
-              className={`${inputCls} ${invalidFields.has("trainingPartnerName") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              className={`${inputCls} ${invalidFields.has("trainingPartnerName") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
               placeholder="Enter full name of the institute" value={form.trainingPartnerName}
               onChange={(e) => setField("trainingPartnerName", e.target.value)} />
+            {requiredHint("trainingPartnerName")}
           </div>
 
           <div className="sm:col-span-2">
             <Label>Training Partner Address *</Label>
             <input 
-              className={`${inputCls} ${invalidFields.has("trainingPartnerAddress") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              className={`${inputCls} ${invalidFields.has("trainingPartnerAddress") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
               placeholder="Full address of the institute" value={form.trainingPartnerAddress}
               onChange={(e) => setField("trainingPartnerAddress", e.target.value)} />
+            {requiredHint("trainingPartnerAddress")}
           </div>
 
 
@@ -533,30 +555,32 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className={`${inputCls} pl-9 ${invalidFields.has("totalName") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("totalName") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="Tehsil or Taluka name"
                 value={form.totalName} onChange={(e) => setField("totalName", e.target.value)} />
             </div>
+            {requiredHint("totalName")}
           </div>
 
           <div>
             <Label>State *</Label>
             <SelectWrapper>
               <select 
-                className={`${selectCls} ${invalidFields.has("state") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${selectCls} ${invalidFields.has("state") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 value={form.state} onChange={(e) => setStateField(e.target.value)}
               >
                 <option value="">— Select State —</option>
                 {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </SelectWrapper>
+            {requiredHint("state")}
           </div>
 
           <div>
             <Label>District *</Label>
             <SelectWrapper>
               <select
-                className={`${selectCls} ${invalidFields.has("district") ? "border-red-700 ring-2 ring-red-700/10" : ""}`}
+                className={`${selectCls} ${invalidFields.has("district") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`}
                 value={form.district}
                 onChange={(e) => setField("district", e.target.value)}
                 disabled={!form.state || districtOptions.length === 0}
@@ -571,14 +595,16 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 {districtOptions.map((district) => <option key={district} value={district}>{district}</option>)}
               </select>
             </SelectWrapper>
+            {requiredHint("district")}
           </div>
 
           <div>
             <Label>PIN Code *</Label>
             <input 
-              className={`${inputCls} ${invalidFields.has("pin") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              className={`${inputCls} ${invalidFields.has("pin") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
               placeholder="6-digit PIN code" maxLength={6}
               value={form.pin} onChange={(e) => setField("pin", e.target.value.replace(/\D/g, "").slice(0, 6))} />
+            {requiredHint("pin")}
           </div>
 
           <div>
@@ -589,9 +615,10 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
           <div className="sm:col-span-2">
             <Label>Postal Address (Office) *</Label>
             <input 
-              className={`${inputCls} ${invalidFields.has("postalAddressOffice") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+              className={`${inputCls} ${invalidFields.has("postalAddressOffice") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
               placeholder="Office mailing address" value={form.postalAddressOffice}
               onChange={(e) => setField("postalAddressOffice", e.target.value)} />
+            {requiredHint("postalAddressOffice")}
           </div>
 
           <div>
@@ -599,10 +626,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className={`${inputCls} pl-9 ${invalidFields.has("mobile") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("mobile") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="10-digit mobile number"
                 value={form.mobile} onChange={(e) => setField("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} />
             </div>
+            {requiredHint("mobile")}
           </div>
 
           <div>
@@ -611,22 +639,23 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
                 type="email" 
-                className={`${inputCls} pl-9 ${invalidFields.has("email") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("email") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="email@example.com"
                 value={form.email} onChange={(e) => setField("email", e.target.value)} />
             </div>
+            {requiredHint("email")}
           </div>
 
           <div>
             <Label>Status of Institution *</Label>
-            <div className="flex gap-2 flex-wrap pt-1">
+            <div className={`flex gap-2 flex-wrap pt-1 rounded-xl ${invalidFields.has("statusOfInstitution") ? "bg-red-950/10 border border-red-800 p-2" : ""}`}>
               {["Trust", "Society", "Other"].map((s) => (
                 <label key={s}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold cursor-pointer transition select-none
                     ${form.statusOfInstitution === s
                       ? "bg-[#0a0aa1] text-white border-[#0a0aa1] shadow-sm"
                       : invalidFields.has("statusOfInstitution")
-                        ? "bg-red-50 text-red-600 border-red-200"
+                        ? "bg-red-950 text-red-100 border-red-800"
                         : "bg-white text-slate-600 border-slate-200 hover:border-[#0a0aa1]/40"}`}>
                   <input type="radio" name="statusOfInstitution" className="sr-only"
                     checked={form.statusOfInstitution === s} onChange={() => setField("statusOfInstitution", s)} />
@@ -634,13 +663,14 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 </label>
               ))}
             </div>
+            {requiredHint("statusOfInstitution")}
           </div>
 
           <div>
             <Label>Year of Establishment *</Label>
             <SelectWrapper>
               <select 
-                className={`${selectCls} ${invalidFields.has("yearOfEstablishment") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${selectCls} ${invalidFields.has("yearOfEstablishment") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 value={form.yearOfEstablishment} onChange={(e) => setField("yearOfEstablishment", e.target.value)}
               >
                 <option value="">— Select Year —</option>
@@ -649,6 +679,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 ))}
               </select>
             </SelectWrapper>
+            {requiredHint("yearOfEstablishment")}
           </div>
 
           <div className="sm:col-span-2">
@@ -683,7 +714,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
       {/* ── SECTION: Zones ──────────────────────────────────────── */}
       <SectionCard icon={Layers} title="Zones (Select one or multiple)" subtitle="Select the zones for this center" color="#f59e0b">
-        <div className="flex flex-wrap gap-3 pt-1">
+        <div className={`flex flex-wrap gap-3 pt-1 rounded-xl ${invalidFields.has("zones") ? "bg-red-950/10 border border-red-800 p-2" : ""}`}>
           {["Software Zone", "Hardware Zone", "Vocational Zone", "Other"].map((z) => (
             <label key={z}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition select-none
@@ -706,6 +737,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             </label>
           ))}
         </div>
+        {requiredHint("zones")}
       </SectionCard>
 
       {/* ── SECTION 2: Chief Executive ─────────────────────────── */}
@@ -716,10 +748,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className={`${inputCls} pl-9 ${invalidFields.has("chiefName") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("chiefName") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="Head's full name" value={form.chiefName}
                 onChange={(e) => setField("chiefName", e.target.value)} />
             </div>
+            {requiredHint("chiefName")}
           </div>
 
           <div>
@@ -727,10 +760,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className={`${inputCls} pl-9 ${invalidFields.has("designation") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("designation") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="e.g. Director, Principal" value={form.designation}
                 onChange={(e) => setField("designation", e.target.value)} />
             </div>
+            {requiredHint("designation")}
           </div>
 
           <div>
@@ -738,10 +772,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="relative">
               <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className={`${inputCls} pl-9 ${invalidFields.has("educationQualification") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("educationQualification") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="e.g. M.Sc, B.Ed, MBA" value={form.educationQualification}
                 onChange={(e) => setField("educationQualification", e.target.value)} />
             </div>
+            {requiredHint("educationQualification")}
           </div>
 
           <div>
@@ -749,10 +784,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className={`${inputCls} pl-9 ${invalidFields.has("professionalExperience") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("professionalExperience") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 placeholder="e.g. 5 Years" value={form.professionalExperience}
                 onChange={(e) => setField("professionalExperience", e.target.value)} />
             </div>
+            {requiredHint("professionalExperience")}
           </div>
 
           <div>
@@ -761,10 +797,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
                 type="date" 
-                className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-700 ring-2 ring-red-700/10" : ""}`} 
+                className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 value={form.dob}
                 onChange={(e) => setField("dob", e.target.value)} />
             </div>
+            {requiredHint("dob")}
           </div>
 
           <div>
@@ -772,7 +809,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="space-y-2">
               <label 
                 className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
-                  ${invalidFields.has("photo") ? "border-red-400 bg-red-50 ring-2 ring-red-500/10" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
+                  ${invalidFields.has("photo") ? "border-red-800 bg-red-950/10 ring-2 ring-red-800/20" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
                 <Camera className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {photo ? photo.name : photoPreview ? "Photo Uploaded" : "Click to choose photo"}
@@ -786,6 +823,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                     }
                   }} />
               </label>
+              {requiredHint("photo")}
               {(photo || photoPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-50/50 border border-blue-100 w-full animate-in fade-in slide-in-from-top-1">
                    <div className="w-16 h-16 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md">
@@ -817,8 +855,8 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               </label>
               {(logo || logoPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 w-full animate-in fade-in slide-in-from-top-1">
-                   <div className="w-16 h-16 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md flex items-center justify-center p-1">
-                      <Image src={logo ? URL.createObjectURL(logo) : logoPreview!} alt="Logo" width={64} height={64} unoptimized className="max-w-full max-h-full object-contain" />
+                   <div className="w-20 h-20 rounded-xl border-2 border-white bg-white overflow-hidden shrink-0 shadow-md flex items-center justify-center p-1.5">
+                      <Image src={logo ? URL.createObjectURL(logo) : logoPreview!} alt="Logo" width={80} height={80} unoptimized className="max-w-full max-h-full object-contain" />
                    </div>
                    <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Logo Preview</p>
@@ -837,7 +875,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="space-y-2">
               <label 
                 className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
-                  ${invalidFields.has("signature") ? "border-red-400 bg-red-50 ring-2 ring-red-500/10" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
+                  ${invalidFields.has("signature") ? "border-red-800 bg-red-950/10 ring-2 ring-red-800/20" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {signature ? signature.name : sigPreview ? "Signature Uploaded" : "Click to choose signature"}
@@ -851,6 +889,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                     }
                   }} />
               </label>
+              {requiredHint("signature")}
               {(signature || sigPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50/50 border border-amber-100 w-full animate-in fade-in slide-in-from-top-1">
                    <div className="w-20 h-12 rounded-lg border-2 border-white bg-white overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
@@ -873,7 +912,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
             <div className="space-y-2">
               <label 
                 className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border border-dashed cursor-pointer transition
-                  ${invalidFields.has("aadharDoc") ? "border-red-400 bg-red-50 ring-2 ring-red-500/10" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
+                  ${invalidFields.has("aadharDoc") ? "border-red-800 bg-red-950/10 ring-2 ring-red-800/20" : "border-slate-300 bg-slate-50 hover:border-[#0a0aa1]/40 hover:bg-slate-100"}`}>
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-500 truncate">
                   {aadharDoc ? aadharDoc.name : aadharPreview ? "Aadhar Uploaded" : "Click to choose aadhar PDF"}
@@ -887,6 +926,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                     }
                   }} />
               </label>
+              {requiredHint("aadharDoc")}
               {(aadharDoc || aadharPreview) && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-red-50/50 border border-red-100 w-full animate-in fade-in slide-in-from-top-1">
                    <div className="w-12 h-12 rounded-xl bg-white border border-red-100 flex items-center justify-center shrink-0 shadow-sm">
@@ -991,7 +1031,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
              <Label>Payment Mode *</Label>
-             <div className="flex flex-wrap gap-3">
+             <div className={`flex flex-wrap gap-3 rounded-xl ${invalidFields.has("paymentMode") ? "bg-red-950/10 border border-red-800 p-2" : ""}`}>
               {[
                 { value: "gpay", label: "Google Pay (Manual)" },
                 { value: "online", label: "Online (Manual)" },
@@ -1001,7 +1041,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                     ${form.paymentMode === opt.value
                       ? "border-amber-500 bg-amber-50 shadow-sm"
                       : invalidFields.has("paymentMode")
-                        ? "border-red-200 bg-red-50"
+                        ? "border-red-800 bg-red-950/10"
                         : "border-slate-200 bg-white hover:border-amber-300"}`}>
                   <input type="radio" name="paymentMode" className="sr-only"
                     checked={form.paymentMode === opt.value} onChange={() => setField("paymentMode", opt.value)} />
@@ -1009,6 +1049,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 </label>
               ))}
             </div>
+            {requiredHint("paymentMode")}
 
             {form.paymentMode === "gpay" && (
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-4">
@@ -1038,13 +1079,15 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Paid Amount *</Label>
-                    <input className={inputCls} placeholder="₹ Amount" value={form.paidAmount}
+                    <input className={`${inputCls} ${invalidFields.has("paidAmount") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} placeholder="₹ Amount" value={form.paidAmount}
                       onChange={(e) => setField("paidAmount", e.target.value.replace(/\D/g, ""))} />
+                    {requiredHint("paidAmount")}
                   </div>
                   <div>
                     <Label>Txn No / UTR *</Label>
-                    <input className={inputCls} placeholder="UTR ID" value={form.transactionNo}
+                    <input className={`${inputCls} ${invalidFields.has("transactionNo") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} placeholder="UTR ID" value={form.transactionNo}
                       onChange={(e) => setField("transactionNo", e.target.value)} />
+                    {requiredHint("transactionNo")}
                   </div>
                 </div>
               </div>
@@ -1130,8 +1173,8 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
       {/* ── Message Banner ───────────────────────────────────────── */}
       {message && (
-        <div className={`flex items-start gap-3 border rounded-2xl px-5 py-4 text-sm font-medium shadow-sm ${message.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
-          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${message.type === "success" ? "bg-green-100" : "bg-red-100"}`}>
+        <div className={`flex items-start gap-3 border rounded-2xl px-5 py-4 text-sm font-medium shadow-sm ${message.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-950 border-red-700 text-red-100"}`}>
+          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${message.type === "success" ? "bg-green-100" : "bg-red-800"}`}>
             {message.type === "success" ? <CheckCircle className="w-3.5 h-3.5" /> : <span className="font-bold text-xs">!</span>}
           </div>
           {message.text}

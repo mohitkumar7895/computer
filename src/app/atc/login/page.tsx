@@ -57,9 +57,9 @@ export default function AtcLoginPage() {
       <div className="mx-auto w-full max-w-lg">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden p-6 sm:p-10">
           <div className="text-center mb-8">
-            <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 mb-4 shadow-sm overflow-hidden mx-auto">
+            <div className="relative inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-slate-50 border border-slate-100 mb-4 shadow-sm overflow-hidden mx-auto">
               {brandLogo ? (
-                 <Image src={brandLogo} alt={brandName} fill className="object-contain p-2" />
+                 <Image src={brandLogo} alt={brandName} fill className="object-contain scale-125" />
               ) : (
                  <Building2 className="w-10 h-10 text-slate-300" />
               )}

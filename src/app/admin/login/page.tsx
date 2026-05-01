@@ -53,9 +53,9 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
+          <div className="relative inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-4 shadow-lg overflow-hidden">
             {brandLogo ? (
-               <Image src={brandLogo} alt={brandName} fill className="object-contain p-2" />
+               <Image src={brandLogo} alt={brandName} fill className="object-contain scale-125" />
             ) : (
                <ShieldCheck className="w-10 h-10 text-white" />
             )}

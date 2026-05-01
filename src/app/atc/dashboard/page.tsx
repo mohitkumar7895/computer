@@ -237,18 +237,18 @@ export default function AtcDashboardPage() {
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a2e1a] to-[#0a7a3b] text-white flex flex-col shadow-2xl z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/10 flex items-center justify-center">
+        <div className="px-4 py-1 border-b border-white/10 flex items-start justify-between">
+          <div className="flex-1 flex flex-col items-center text-center gap-0">
+            <div className="h-24 w-24 shrink-0 overflow-hidden flex items-center justify-center">
               {brandLogo ? (
-                <Image src={brandLogo} alt={brandName} width={40} height={40} unoptimized className="h-full w-full object-contain p-1" />
+                <Image src={brandLogo} alt={brandName} width={96} height={96} unoptimized className="h-full w-full object-contain scale-[1.75]" />
               ) : (
                 <Building2 className="w-5 h-5 text-white" />
               )}
             </div>
-            <div className="overflow-hidden">
-              <p className="font-bold text-sm leading-tight truncate">{brandName || "Institution Brand"}</p>
-              <p className="text-green-300 text-[10px] font-black uppercase tracking-widest">{user.tpCode}</p>
+            <div className="-mt-2 overflow-hidden w-full">
+              <p className="font-bold text-sm leading-none">{brandName || "Institution Brand"}</p>
+              <p className="text-green-300 text-[10px] font-black uppercase tracking-widest mt-0">{user.tpCode}</p>
             </div>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition">
@@ -256,7 +256,7 @@ export default function AtcDashboardPage() {
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-3 py-4 space-y-2">
           <button
             onClick={() => { setTab("dashboard"); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "dashboard" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
@@ -325,7 +325,7 @@ export default function AtcDashboardPage() {
           </button>
         </nav>
 
-        <div className="px-4 py-6 border-t border-white/10">
+        <div className="px-3 py-4 border-t border-white/10">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition"

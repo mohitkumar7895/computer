@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { 
-  GraduationCap, BookOpen, ScrollText, User, 
-  Settings, LogOut, CheckCircle, Calendar, 
-  MapPin, Phone, Mail, Award, Clock, Download,
+  GraduationCap, BookOpen, User,
+  LogOut, CheckCircle, Calendar,
+  MapPin, Phone, Mail, Award,
   Fingerprint, CreditCard, ShieldCheck, LayoutDashboard,
-  Menu, XCircle, Bell, ChevronRight, Share2, ReceiptText,
+  Menu, Bell, ReceiptText,
   Eye, EyeOff, Lock, ShieldAlert
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import ExamManager from "@/components/student/ExamManager";
 import StudentStudyMaterial from "@/components/student/StudentStudyMaterial";
 import StudentIdCard from "@/components/common/StudentIdCard";
@@ -21,14 +22,56 @@ import { useBrand } from "@/context/BrandContext";
 import { cookieFetch } from "@/lib/auth-client";
 import { apiFetch } from "@/utils/api";
 
+type StudentRecord = {
+  _id: string;
+  name: string;
+  registrationNo: string;
+  tpCode?: string;
+  course: string;
+  status: string;
+  fatherName?: string;
+  mobile?: string;
+  email?: string;
+  dob: string;
+  state?: string;
+  district?: string;
+  currentAddress?: string;
+  createdAt?: string;
+  photo?: string;
+};
+
+type StudentCenter = {
+  tpCode?: string;
+  trainingPartnerName?: string;
+  trainingPartnerAddress?: string;
+  mobile?: string;
+  signature?: string;
+};
+
+type StudentIdBackgrounds = {
+  id_front?: string;
+  id_back?: string;
+};
+
+type StudentMeResponse = {
+  student: Partial<StudentRecord> & {
+    _id?: string;
+    name?: string;
+    registrationNo?: string;
+    course?: string;
+    dob?: string;
+    status?: string;
+  };
+};
+
 export default function StudentDashboardPage() {
   const { brandName, brandLogo } = useBrand();
   usePageTitle("student");
   const router = useRouter();
-  const [student, setStudent] = useState<any>(null);
+  const [student, setStudent] = useState<StudentRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bgs, setBgs] = useState<any>({});
-  const [center, setCenter] = useState<any>(null);
+  const [bgs, setBgs] = useState<StudentIdBackgrounds>({});
+  const [center, setCenter] = useState<StudentCenter | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "exams" | "study" | "idcard" | "profile" | "fees">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
@@ -46,17 +89,34 @@ export default function StudentDashboardPage() {
     apiFetch("/api/student/me")
       .then(async (res) => {
         if (!res.ok) { router.push("/student/login"); return; }
-        const data = await res.json();
-        setStudent(data.student);
+        const data = (await res.json()) as StudentMeResponse;
+        const normalizedStudent: StudentRecord = {
+          _id: data.student._id ?? "",
+          name: data.student.name ?? "",
+          registrationNo: data.student.registrationNo ?? "",
+          course: data.student.course ?? "N/A",
+          dob: data.student.dob ?? "N/A",
+          status: data.student.status ?? "N/A",
+          tpCode: data.student.tpCode,
+          fatherName: data.student.fatherName,
+          mobile: data.student.mobile,
+          email: data.student.email,
+          state: data.student.state,
+          district: data.student.district,
+          currentAddress: data.student.currentAddress,
+          createdAt: data.student.createdAt,
+          photo: data.student.photo,
+        };
+        setStudent(normalizedStudent);
 
         // Fetch backgrounds
         apiFetch("/api/public/backgrounds").then(r => r.json()).then(setBgs).catch(() => {});
         
         // Fetch his center details if he has a tpCode
-        if (data.student.tpCode) {
+        if (normalizedStudent.tpCode) {
            apiFetch(`/api/public/centers`).then(r => r.json()).then((cData: Array<{ tpCode?: string }>) => {
-              const myCenter = cData?.find((a) => a.tpCode === data.student.tpCode);
-              setCenter(myCenter);
+              const myCenter = cData?.find((a) => a.tpCode === normalizedStudent.tpCode);
+              setCenter(myCenter ?? null);
            }).catch(() => {});
         }
       })
@@ -100,7 +160,7 @@ export default function StudentDashboardPage() {
 
   if (!student) return null;
 
-  const NavItem = ({ tab, icon: Icon, label }: { tab: typeof activeTab, icon: any, label: string }) => (
+  const NavItem = ({ tab, icon: Icon, label }: { tab: typeof activeTab, icon: LucideIcon, label: string }) => (
     <button
       onClick={() => {
         setActiveTab(tab);
@@ -131,26 +191,26 @@ export default function StudentDashboardPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl text-white text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-100 px-6 py-3 rounded-2xl shadow-2xl text-white text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>
           {toast.msg}
         </div>
       )}
 
       {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-[#0a0a2e] to-[#0a0aa1] text-white z-50 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex flex-col h-full p-6">
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-linear-to-b from-[#0a0a2e] to-[#0a0aa1] text-white z-50 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:block ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex flex-col h-full p-2">
           {/* Logo Section */}
-          <div className="flex items-center gap-4 mb-10 px-2 lg:mt-0">
-            <div className="h-12 w-12 overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl flex items-center justify-center shadow-xl transform transition-transform group hover:rotate-6">
+          <div className="flex flex-col items-center text-center gap-0 mb-1 px-1 lg:mt-0">
+            <div className="h-24 w-24 overflow-hidden flex items-center justify-center">
               {brandLogo ? (
-                <Image src={brandLogo} alt={brandName} width={48} height={48} unoptimized className="h-full w-full object-contain p-1" />
+                <Image src={brandLogo} alt={brandName} width={96} height={96} unoptimized className="h-full w-full object-contain scale-[1.75]" />
               ) : (
                 <GraduationCap className="text-blue-400 w-7 h-7" />
               )}
             </div>
-            <div>
-              <p className="font-black text-lg leading-tight tracking-tight uppercase">{brandName || "Institution Brand"}</p>
-              <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-0.5">Student Access</p>
+            <div className="w-full -mt-2">
+              <p className="font-black text-lg leading-none tracking-tight uppercase">{brandName || "Institution Brand"}</p>
+              <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-0">Student Access</p>
             </div>
           </div>
 
@@ -165,8 +225,8 @@ export default function StudentDashboardPage() {
           </nav>
 
           {/* Support Section */}
-          <div className="mt-auto pt-6 border-t border-white/10">
-            <div className="bg-white/5 rounded-2xl p-5 border border-white/10 mb-6">
+          <div className="mt-auto pt-4 border-t border-white/10">
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/10 mb-4">
               <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest mb-1">Support Plan</p>
               <p className="text-xs font-bold text-white mb-2 italic">Need academic help?</p>
               <button className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition">
@@ -175,7 +235,7 @@ export default function StudentDashboardPage() {
             </div>
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-all font-bold text-sm"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-all font-bold text-sm"
             >
               <LogOut className="w-4 h-4" /> Logout
             </button>
@@ -202,13 +262,13 @@ export default function StudentDashboardPage() {
               <Bell size={20} />
               <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             </button>
-            <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
+            <div className="h-8 w-px bg-slate-200 hidden sm:block" />
             <div className="flex items-center gap-4 pr-1">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black text-slate-800 tracking-tight uppercase">{student.name}</p>
                 <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-0.5">Verified Account</p>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-0.5 shadow-lg shadow-blue-100 ring-2 ring-white">
+              <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 p-0.5 shadow-lg shadow-blue-100 ring-2 ring-white">
                 <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-white text-xs font-black">
                    {student.name.charAt(0).toUpperCase()}
                 </div>
@@ -225,7 +285,7 @@ export default function StudentDashboardPage() {
             {activeTab === "dashboard" && (
               <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Welcome Banner */}
-                <div className="relative bg-gradient-to-br from-[#0a0a2e] via-[#0a0aa1] to-blue-600 rounded-[3rem] p-10 lg:p-14 text-white shadow-2xl shadow-blue-900/20 overflow-hidden group">
+                <div className="relative bg-linear-to-br from-[#0a0a2e] via-[#0a0aa1] to-blue-600 rounded-[3rem] p-10 lg:p-14 text-white shadow-2xl shadow-blue-900/20 overflow-hidden group">
                    <div className="relative z-10 max-w-2xl">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full border border-white/20 backdrop-blur-md mb-8">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
@@ -238,10 +298,10 @@ export default function StudentDashboardPage() {
                       Welcome, <span className="text-white font-bold">{student.name}</span>. You are currently enrolled in our specialized <span className="text-white px-2 bg-white/10 rounded-lg">{student.course}</span> program.
                     </p>
                     <div className="flex flex-wrap gap-4">
-                      <button onClick={() => setActiveTab("exams")} className="px-8 py-4 bg-white text-blue-900 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95">
+                      <button onClick={() => setActiveTab("exams")} className="px-8 py-4 bg-white text-blue-900 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95">
                         Start Exam Logic
                       </button>
-                      <button onClick={() => setActiveTab("idcard")} className="px-8 py-4 bg-white/10 border border-white/20 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-white/20 transition-all">
+                      <button onClick={() => setActiveTab("idcard")} className="px-8 py-4 bg-white/10 border border-white/20 rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-white/20 transition-all">
                         View ID Details
                       </button>
                     </div>
@@ -261,7 +321,7 @@ export default function StudentDashboardPage() {
                      { l: 'Current Course', v: student.course, i: BookOpen, c: 'emerald' },
                      { l: 'Account Status', v: student.status, i: CheckCircle, c: 'green' }
                    ].map(card => (
-                     <div key={card.l} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm transition-all hover:shadow-xl hover:shadow-slate-200/50 group">
+                     <div key={card.l} className="bg-white p-6 rounded-4xl border border-slate-100 shadow-sm transition-all hover:shadow-xl hover:shadow-slate-200/50 group">
                         <div className={`w-12 h-12 rounded-2xl bg-${card.c}-50 flex items-center justify-center text-${card.c}-600 mb-6 group-hover:scale-110 transition-transform`}>
                           <card.i size={20} />
                         </div>
@@ -460,7 +520,7 @@ export default function StudentDashboardPage() {
                               <button 
                                  type="submit"
                                  disabled={passSaving}
-                                 className="px-10 py-4 bg-red-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-red-600/20 hover:bg-red-700 transition transform active:scale-95 disabled:opacity-50 flex items-center gap-3"
+                                 className="px-10 py-4 bg-red-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-red-600/20 hover:bg-red-700 transition transform active:scale-95 disabled:opacity-50 flex items-center gap-3"
                               >
                                  {passSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <ShieldAlert size={16} />}
                                  Authenticate & Update Password

@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { GraduationCap, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { useBrand } from "@/context/BrandContext";
 
 export default function StudentLoginPage() {
+  const { brandName, brandLogo } = useBrand();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,8 +42,12 @@ export default function StudentLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo/Icon */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl mb-4 transform -rotate-6 hover:rotate-0 transition-transform duration-300">
-            <GraduationCap size={40} />
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl mb-4 transform -rotate-6 hover:rotate-0 transition-transform duration-300 overflow-hidden">
+            {brandLogo ? (
+              <Image src={brandLogo} alt={brandName} width={88} height={88} unoptimized className="h-full w-full object-contain scale-125" />
+            ) : (
+              <GraduationCap size={44} />
+            )}
           </div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Student Portal</h1>
           <p className="text-slate-500 font-medium mt-1">Login to access your course & results</p>

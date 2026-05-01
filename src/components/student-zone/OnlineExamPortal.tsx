@@ -164,7 +164,7 @@ export default function OnlineExamPortal() {
 
   return (
     <section className="relative min-h-[calc(100vh-88px)] overflow-hidden bg-[#080815] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.2),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(168,85,247,0.18),_transparent_25%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.2),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.18),transparent_25%)]" />
       <div className="relative mx-auto flex min-h-[calc(100vh-88px)] w-full max-w-7xl flex-col justify-between px-4 py-10 sm:px-6 lg:px-8">
         <div className="space-y-6">
           <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur-xl">
