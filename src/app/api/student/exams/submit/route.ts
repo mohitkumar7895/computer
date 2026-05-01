@@ -29,8 +29,21 @@ export async function POST(request: Request) {
     const lifecycleStatus = lifecycleStatusForExam(examRecord);
     const { startsAt, endsAt } = buildExamWindow(examRecord);
     const nowMs = Date.now();
-    if (lifecycleStatus === "upcoming" && startsAt && nowMs < startsAt.getTime()) {
-      return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
+    // Keep submit behavior aligned with questions/start endpoint:
+    // if a student has already started the paper, allow submit even when
+    // schedule parsing still reports "upcoming" (timezone/schedule drift cases).
+    if (lifecycleStatus === "upcoming") {
+      const startedAtMs = examRecord.startedAt ? new Date(examRecord.startedAt).getTime() : null;
+      if (!startedAtMs && startsAt && nowMs < startsAt.getTime()) {
+        return NextResponse.json({ message: "Exam has not started yet." }, { status: 403 });
+      }
+      if (startedAtMs) {
+        const startedWindowMs =
+          startedAtMs + ((examRecord.durationMinutes || 60) * 60 * 1000) + (2 * 60 * 1000);
+        if (nowMs > startedWindowMs) {
+          return NextResponse.json({ message: "Exam time window is over." }, { status: 403 });
+        }
+      }
     }
     if (lifecycleStatus === "completed") {
       const hardEndMs = endsAt?.getTime() ?? nowMs;
