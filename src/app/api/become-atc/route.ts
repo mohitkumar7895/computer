@@ -1,16 +1,28 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
+import { resolveAffiliationFeeForPersist } from "@/lib/affiliationFee";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
 
   const requiredFields = [
-    "processFee", "trainingPartnerName", "trainingPartnerAddress",
-    "district", "state", "pin", "mobile", "email",
-    "statusOfInstitution", "yearOfEstablishment", "chiefName",
-    "designation", "educationQualification", "professionalExperience",
-    "dob", "paymentMode",
+    "affiliationYear",
+    "trainingPartnerName",
+    "trainingPartnerAddress",
+    "district",
+    "state",
+    "pin",
+    "mobile",
+    "email",
+    "statusOfInstitution",
+    "yearOfEstablishment",
+    "chiefName",
+    "designation",
+    "educationQualification",
+    "professionalExperience",
+    "dob",
+    "paymentMode",
   ];
 
   for (const field of requiredFields) {
@@ -21,6 +33,14 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+  }
+
+  const feeResolved = await resolveAffiliationFeeForPersist(
+    formData.get("zones"),
+    formData.get("affiliationYear"),
+  );
+  if (!feeResolved.ok) {
+    return NextResponse.json({ message: feeResolved.error }, { status: feeResolved.status });
   }
 
   const mobile = String(formData.get("mobile") ?? "");
@@ -77,11 +97,13 @@ export async function POST(request: Request) {
 
     const aadharNo = String(formData.get("aadharNo") ?? "").trim();
     const application = await AtcApplication.create({
-      processFee: String(formData.get("processFee") ?? ""),
+      processFee: feeResolved.processFee,
+      affiliationPlanYear: feeResolved.affiliationPlanYear,
+      feeCalculation: feeResolved.feeCalculation,
       trainingPartnerName: String(formData.get("trainingPartnerName") ?? ""),
       trainingPartnerAddress: String(formData.get("trainingPartnerAddress") ?? ""),
       postalAddressOffice: String(formData.get("postalAddressOffice") ?? ""),
-      zones: JSON.parse(String(formData.get("zones") ?? "[]")),
+      zones: feeResolved.zones,
       totalName: String(formData.get("totalName") ?? ""),
       district: String(formData.get("district") ?? ""),
       state: String(formData.get("state") ?? ""),

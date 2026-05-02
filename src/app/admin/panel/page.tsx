@@ -18,12 +18,15 @@ import ExamRequestManager from "@/components/admin/ExamRequestManager";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
-  DEFAULT_FEE_OPTIONS,
-  FeeOption,
-  getFeeLabel,
-  parseFeeOptions,
-  SETTINGS_PROCESS_FEE_KEY,
-} from "@/utils/atcSettings";
+  DEFAULT_AFFILIATION_YEAR_PLANS,
+  SETTINGS_AFFILIATION_YEAR_PLANS_KEY,
+  SETTINGS_AFFILIATION_ZONE_FEES_KEY,
+  parseAffiliationYearPlansJson,
+  parseAffiliationZoneFeesJson,
+  type FeeCalculationSnapshot,
+  type YearPlan,
+  type ZoneFeeRow,
+} from "@/utils/affiliationFeeShared";
 import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 import WalletRequestManager from "@/components/admin/WalletRequestManager";
@@ -40,6 +43,8 @@ interface Application {
   totalName?: string;
   chiefName: string; designation: string; status: "pending" | "approved" | "rejected";
   submittedByAdmin: boolean; processFee: string; yearOfEstablishment: string;
+  affiliationPlanYear?: number;
+  feeCalculation?: FeeCalculationSnapshot | null;
   paymentMode: string; statusOfInstitution: string; educationQualification: string;
   professionalExperience: string; dob: string; createdAt: string;
   paidAmount?: string;
@@ -143,12 +148,6 @@ const parseInfra = (infraStr: string | undefined): Record<string, { rooms: strin
   }
 };
 
-const FEE_LABEL: Record<string, string> = {
-  "2000": "TP 1 YEAR — ₹2,360",
-  "3000": "TP 2 YEARS — ₹3,540",
-  "5000": "TP 3 YEARS — ₹5,900",
-};
-
 type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds" | "walletRequests" | "walletPayment";
 
 const PrintField = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
@@ -189,9 +188,12 @@ export default function AdminPanelPage() {
   const [sigLoading, setSigLoading] = useState(false);
   const [sigSaving, setSigSaving] = useState(false);
 
-  const [feePlans, setFeePlans] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
+  const [yearPlansAdmin, setYearPlansAdmin] = useState<YearPlan[]>(DEFAULT_AFFILIATION_YEAR_PLANS);
+  const [zoneFeesAdmin, setZoneFeesAdmin] = useState<ZoneFeeRow[]>([]);
   const [feeSaving, setFeeSaving] = useState(false);
   const [feeSaveMsg, setFeeSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [zoneFeesSaving, setZoneFeesSaving] = useState(false);
+  const [zoneFeesSaveMsg, setZoneFeesSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [studentLoading, setStudentLoading] = useState(false);
@@ -296,7 +298,18 @@ export default function AdminPanelPage() {
     }
   };
 
-  const feeLabel = (value: string) => getFeeLabel(feePlans, value, FEE_LABEL);
+  const formatApplicationFee = (app: Application) => {
+    const fc = app.feeCalculation;
+    if (fc && typeof fc.payableAmount === "number") {
+      const amt = `₹${fc.payableAmount.toLocaleString("en-IN")}`;
+      return `${amt} (${fc.affiliationYear ?? "?"} yr, ${fc.discountPercent ?? 0}% disc.)`;
+    }
+    const raw = String(app.processFee ?? "").trim();
+    if (raw && /^\d+$/.test(raw)) {
+      return `₹${Number(raw).toLocaleString("en-IN")}`;
+    }
+    return raw || "—";
+  };
 
   const openCenterWallet = async (application: Application) => {
     if (!application.tpCode) {
@@ -430,9 +443,13 @@ export default function AdminPanelPage() {
       const sData = (await sRes.json()) as { value: string | null };
       setSigPreview(sData.value ?? null);
 
-      const fRes = await apiFetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`);
-      const fData = (await fRes.json()) as { value: string | null };
-      setFeePlans(parseFeeOptions(fData.value));
+      const ypRes = await apiFetch(`/api/admin/settings?key=${SETTINGS_AFFILIATION_YEAR_PLANS_KEY}`);
+      const ypData = (await ypRes.json()) as { value: string | null };
+      setYearPlansAdmin(parseAffiliationYearPlansJson(ypData.value));
+
+      const zfRes = await apiFetch(`/api/admin/settings?key=${SETTINGS_AFFILIATION_ZONE_FEES_KEY}`);
+      const zfData = (await zfRes.json()) as { value: string | null };
+      setZoneFeesAdmin(parseAffiliationZoneFeesJson(zfData.value));
 
       const cfRes = await apiFetch("/api/admin/settings?key=reg_format_center");
       const cfData = await cfRes.json();
@@ -815,7 +832,7 @@ export default function AdminPanelPage() {
         <tr><th>Education</th><td>${esc(application.educationQualification)}</td></tr>
         <tr><th>Experience</th><td>${esc(application.professionalExperience)}</td></tr>
         <tr><th>Date of Birth</th><td>${esc(application.dob)}</td></tr>
-        <tr><th>Application Fee Plan</th><td>${esc(feeLabel(application.processFee))}</td></tr>
+        <tr><th>Affiliation fee</th><td>${esc(formatApplicationFee(application))}</td></tr>
       </tbody></table>
 
       <h2>Payment Details</h2>
@@ -971,25 +988,33 @@ export default function AdminPanelPage() {
     finally { setBgSaving(null); }
   };
 
-  const updateFeePlan = (index: number, field: keyof FeeOption, value: string) => {
-    setFeePlans((prev) => prev.map((item, idx) => idx === index ? { ...item, [field]: value } : item));
+  const updateYearPlanAdmin = (index: number, field: keyof YearPlan, value: number) => {
+    setYearPlansAdmin((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, [field]: value } : item)),
+    );
   };
 
-  const addFeePlan = () => {
-    setFeePlans((prev) => [...prev, { value: "", label: "" }]);
+  const addYearPlanAdmin = () => {
+    setYearPlansAdmin((prev) => {
+      const nextYear = Math.max(0, ...prev.map((p) => p.year)) + 1;
+      return [...prev, { year: nextYear, discountPercent: 0 }];
+    });
   };
 
-  const removeFeePlan = (index: number) => {
-    setFeePlans((prev) => prev.filter((_, idx) => idx !== index));
+  const removeYearPlanAdmin = (index: number) => {
+    setYearPlansAdmin((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleFeePlansSave = async () => {
-    const validPlans = feePlans
-      .map((plan) => ({ value: plan.value.trim(), label: plan.label.trim() }))
-      .filter((plan) => plan.value && plan.label);
+  const handleYearPlansSave = async () => {
+    const validPlans = yearPlansAdmin
+      .map((p) => ({
+        year: Math.max(1, Math.floor(Number(p.year))),
+        discountPercent: Math.max(0, Math.min(100, Math.round(Number(p.discountPercent)))),
+      }))
+      .sort((a, b) => a.year - b.year);
 
     if (validPlans.length === 0 || !authUser) {
-      setFeeSaveMsg({ type: "error", text: "Please add at least one valid fee plan." });
+      setFeeSaveMsg({ type: "error", text: "Add at least one valid year plan." });
       return;
     }
 
@@ -998,28 +1023,97 @@ export default function AdminPanelPage() {
     try {
       const res = await apiFetch("/api/admin/settings", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ key: SETTINGS_PROCESS_FEE_KEY, value: JSON.stringify(validPlans) }),
+        body: JSON.stringify({
+          key: SETTINGS_AFFILIATION_YEAR_PLANS_KEY,
+          value: JSON.stringify(validPlans),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setFeeSaveMsg({ type: "error", text: data.message || "Failed to save fee plans." });
+        setFeeSaveMsg({ type: "error", text: data.message || "Failed to save year plans." });
         return;
       }
 
-      setFeePlans(validPlans);
-      setFeeSaveMsg({ type: "success", text: "Affiliation fee plans saved successfully." });
-      showToast("success", "Affiliation fee plans saved successfully.");
+      setYearPlansAdmin(validPlans);
+      setFeeSaveMsg({ type: "success", text: "Year & discount plans saved successfully." });
+      showToast("success", "Year & discount plans saved successfully.");
     } catch {
-      setFeeSaveMsg({ type: "error", text: "Unable to save fee plans." });
+      setFeeSaveMsg({ type: "error", text: "Unable to save year plans." });
     } finally {
       setFeeSaving(false);
     }
   };
 
+  const updateZoneFeeAdmin = (index: number, field: "name" | "amount", raw: string) => {
+    setZoneFeesAdmin((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== index) return item;
+        if (field === "name") return { ...item, name: raw };
+        const n = parseInt(raw.replace(/\D/g, ""), 10);
+        return { ...item, amount: Number.isFinite(n) ? Math.max(0, n) : 0 };
+      }),
+    );
+  };
 
+  const addZoneFeeAdmin = () => {
+    setZoneFeesAdmin((prev) => [...prev, { name: "", amount: 0 }]);
+  };
+
+  const removeZoneFeeAdmin = (index: number) => {
+    setZoneFeesAdmin((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleZoneFeesSave = async () => {
+    const validRows = zoneFeesAdmin
+      .map((r) => ({ name: r.name.trim(), amount: Math.max(0, Math.round(Number(r.amount))) }))
+      .filter((r) => r.name.length > 0);
+
+    if (validRows.length === 0 || !authUser) {
+      setZoneFeesSaveMsg({ type: "error", text: "Add at least one zone with a name and fee." });
+      return;
+    }
+
+    const seen = new Set<string>();
+    for (const r of validRows) {
+      const key = r.name.toLowerCase();
+      if (seen.has(key)) {
+        setZoneFeesSaveMsg({ type: "error", text: "Duplicate zone names are not allowed." });
+        return;
+      }
+      seen.add(key);
+    }
+
+    setZoneFeesSaving(true);
+    setZoneFeesSaveMsg(null);
+    try {
+      const res = await apiFetch("/api/admin/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          key: SETTINGS_AFFILIATION_ZONE_FEES_KEY,
+          value: JSON.stringify(validRows),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setZoneFeesSaveMsg({ type: "error", text: data.message || "Failed to save zones." });
+        return;
+      }
+
+      setZoneFeesAdmin(validRows);
+      setZoneFeesSaveMsg({ type: "success", text: "Zone fees saved successfully." });
+      showToast("success", "Zone fees saved successfully.");
+    } catch {
+      setZoneFeesSaveMsg({ type: "error", text: "Unable to save zone fees." });
+    } finally {
+      setZoneFeesSaving(false);
+    }
+  };
 
   const handlePasswordChange = async (e: FormEvent) => {
     e.preventDefault();
@@ -1419,9 +1513,9 @@ export default function AdminPanelPage() {
                         setPrefillApplication(null);
                         setTab("create");
                       }}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition shadow-lg shadow-blue-100"
+                      className="flex items-center gap-2 px-6 py-2.5 bg-white text-black border border-slate-300 rounded-xl text-xs font-black uppercase hover:bg-slate-50 transition shadow-sm"
                     >
-                      <PlusCircle className="w-4 h-4" /> New Center
+                      <PlusCircle className="w-4 h-4 text-black" /> New Center
                     </button>
                  </div>
 
@@ -1499,7 +1593,7 @@ export default function AdminPanelPage() {
                             </p>
                             <div className="flex flex-wrap items-center gap-3 mt-2">
                               <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
-                                {feeLabel(app.processFee)}
+                                {formatApplicationFee(app)}
                               </span>
                               {app.tpCode && (
                                 <span className="px-3 py-1 bg-slate-800 text-white rounded-lg font-black text-[11px] tracking-widest shadow-sm">
@@ -2027,47 +2121,48 @@ export default function AdminPanelPage() {
                   </div>
                 </div>
 
-
-
-                {/* Affiliation Fee Plans */}
+                {/* Affiliation zones — name + base fee (used in total × years − discount) */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                      <BookOpen className="w-5 h-5 text-emerald-600" />
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                      <Layers className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800">Affiliation Fee Plans</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Manage the plan options shown to centers during application.</p>
+                      <h3 className="font-bold text-slate-800">Affiliation zones &amp; fees</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Add or edit zone names and base fees (₹). Applicants see these on Become ATC; total = sum of selected zones × years, then discount.
+                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    {feePlans.map((plan, index) => (
-                      <div key={`${plan.value}-${index}`} className="grid grid-cols-12 gap-3 items-end">
-                        <div className="col-span-12 sm:col-span-3">
-                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Amount</label>
+                    {zoneFeesAdmin.map((row, index) => (
+                      <div key={`zone-${index}`} className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-12 sm:col-span-5">
+                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Zone name</label>
                           <input
                             type="text"
-                            value={plan.value}
-                            onChange={(e) => updateFeePlan(index, "value", e.target.value.replace(/\D/g, ""))}
+                            value={row.name}
+                            onChange={(e) => updateZoneFeeAdmin(index, "name", e.target.value)}
                             className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            placeholder="2000"
+                            placeholder="e.g. Software Zone"
                           />
                         </div>
-                        <div className="col-span-12 sm:col-span-8">
-                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Label</label>
+                        <div className="col-span-12 sm:col-span-6">
+                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Fee (₹)</label>
                           <input
                             type="text"
-                            value={plan.label}
-                            onChange={(e) => updateFeePlan(index, "label", e.target.value)}
+                            inputMode="numeric"
+                            value={row.amount === 0 ? "" : String(row.amount)}
+                            onChange={(e) => updateZoneFeeAdmin(index, "amount", e.target.value)}
                             className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            placeholder="TP FOR 1 YEAR — Rs. 2000 + 18% GST (Total ₹2,360)"
+                            placeholder="2000"
                           />
                         </div>
                         <div className="col-span-12 sm:col-span-1 flex items-center justify-end">
                           <button
                             type="button"
-                            onClick={() => removeFeePlan(index)}
+                            onClick={() => removeZoneFeeAdmin(index)}
                             className="rounded-2xl border border-red-200 bg-white px-3 py-3 text-red-600 text-sm font-semibold hover:bg-red-50 transition"
                           >
                             Remove
@@ -2078,10 +2173,98 @@ export default function AdminPanelPage() {
 
                     <button
                       type="button"
-                      onClick={addFeePlan}
+                      onClick={addZoneFeeAdmin}
                       className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
                     >
-                      <PlusCircle className="w-4 h-4" /> Add Plan
+                      <PlusCircle className="w-4 h-4" /> Add zone
+                    </button>
+
+                    {zoneFeesSaveMsg && (
+                      <div className={`rounded-2xl px-4 py-3 text-sm ${zoneFeesSaveMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                        {zoneFeesSaveMsg.text}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleZoneFeesSave}
+                        disabled={zoneFeesSaving}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 transition disabled:opacity-50"
+                      >
+                        {zoneFeesSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        {zoneFeesSaving ? "Saving..." : "Save zone fees"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-600">
+                    Renaming a zone only affects new applications. Old records keep the names used at submission time.
+                  </div>
+                </div>
+
+                {/* Affiliation year × discount plans */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <BookOpen className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">Affiliation year &amp; discount</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Set duration options (years) and discount % applied after (zone total × years).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {yearPlansAdmin.map((plan, index) => (
+                      <div key={`${plan.year}-${index}`} className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-12 sm:col-span-5">
+                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Years</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={plan.year}
+                            onChange={(e) =>
+                              updateYearPlanAdmin(index, "year", parseInt(e.target.value, 10) || 1)
+                            }
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                          />
+                        </div>
+                        <div className="col-span-12 sm:col-span-6">
+                          <label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                            Discount %
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={plan.discountPercent}
+                            onChange={(e) =>
+                              updateYearPlanAdmin(index, "discountPercent", parseInt(e.target.value, 10) || 0)
+                            }
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                          />
+                        </div>
+                        <div className="col-span-12 sm:col-span-1 flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => removeYearPlanAdmin(index)}
+                            className="rounded-2xl border border-red-200 bg-white px-3 py-3 text-red-600 text-sm font-semibold hover:bg-red-50 transition"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={addYearPlanAdmin}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Add row
                     </button>
 
                     {feeSaveMsg && (
@@ -2093,18 +2276,18 @@ export default function AdminPanelPage() {
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={handleFeePlansSave}
+                        onClick={handleYearPlansSave}
                         disabled={feeSaving}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition disabled:opacity-50"
                       >
                         {feeSaving ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        {feeSaving ? "Saving..." : "Save Fee Plans"}
+                        {feeSaving ? "Saving..." : "Save year plans"}
                       </button>
                     </div>
                   </div>
 
                   <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-600">
-                    Tip: Add plan amount and the full display label. The selected plan will be shown to applicants and in receipts automatically.
+                    Final payable = (sum of selected zones × years) − discount. Calculations always run on the server.
                   </div>
                 </div>
 

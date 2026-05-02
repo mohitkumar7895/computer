@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
+import { Fragment, type FormEvent, useMemo, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Building2, User, Layers, CreditCard, ChevronDown,
@@ -8,19 +8,17 @@ import {
   BookOpen, Briefcase, Calendar, Camera, Home, QrCode, X, FileText
 } from "lucide-react";
 import PaymentReceipt, { type ReceiptData, type InfraRow } from "./PaymentReceipt";
+import AffiliationZoneFeeBlock from "./AffiliationZoneFeeBlock";
 import {
-  FeeOption,
-  DEFAULT_FEE_OPTIONS,
   DISTRICTS_BY_STATE,
   getYearOptions,
-  parseFeeOptions,
-  SETTINGS_PROCESS_FEE_KEY,
 } from "@/utils/atcSettings";
+import type { FeeCalculationSnapshot, ZoneFeeRow } from "@/utils/affiliationFeeShared";
 import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
 
 type FormState = {
-  processFee: string; trainingPartnerName: string; trainingPartnerAddress: string;
+  affiliationYear: string; trainingPartnerName: string; trainingPartnerAddress: string;
   postalAddressOffice: string; zones: string[];
   totalName: string; district: string; state: string; pin: string; country: string;
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
@@ -30,7 +28,7 @@ type FormState = {
 };
 
 const initialFormState: FormState = {
-  processFee: "", trainingPartnerName: "", trainingPartnerAddress: "", postalAddressOffice: "", zones: [],
+  affiliationYear: "", trainingPartnerName: "", trainingPartnerAddress: "", postalAddressOffice: "", zones: [],
   totalName: "", district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
   educationQualification: "", professionalExperience: "", dob: "", aadharNo: "", paymentMode: "",
@@ -109,20 +107,47 @@ export default function BecomeAtcForm() {
   const [lastRefNumber, setLastRefNumber] = useState("");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
+  const [feeCalculation, setFeeCalculation] = useState<FeeCalculationSnapshot | null>(null);
   const [infra, setInfra] = useState<Record<(typeof infraFields)[number], InfraRow>>(emptyInfra);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+
+  const onFeeCalculationUpdate = useCallback((c: FeeCalculationSnapshot | null) => {
+    setFeeCalculation(c);
+  }, []);
+
+  const [zoneCatalog, setZoneCatalog] = useState<ZoneFeeRow[]>([]);
+  const [zoneCatalogLoading, setZoneCatalogLoading] = useState(true);
 
   useEffect(() => {
     apiFetch("/api/public/settings?key=qr_code")
       .then(res => res.json())
       .then(data => setQrCode(data.value))
       .catch(() => {});
+  }, []);
 
-    apiFetch(`/api/public/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
-      .then(res => res.json())
-      .then(data => setFeeOptions(parseFeeOptions(data.value)))
-      .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));
+  useEffect(() => {
+    let cancelled = false;
+    setZoneCatalogLoading(true);
+    apiFetch("/year-plans")
+      .then((r) => r.json())
+      .then((d: { zones?: ZoneFeeRow[] }) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.zones)
+          ? d.zones
+              .filter((z): z is ZoneFeeRow => z != null && typeof z.name === "string" && typeof z.amount === "number")
+              .map((z) => ({ name: z.name.trim(), amount: Math.round(z.amount) }))
+          : [];
+        setZoneCatalog(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneCatalog([]);
+      })
+      .finally(() => {
+        if (!cancelled) setZoneCatalogLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const districtOptions = DISTRICTS_BY_STATE[form.state] ?? [];
@@ -135,18 +160,17 @@ export default function BecomeAtcForm() {
     }));
   };
 
-  const selectedFee = useMemo(() => {
-    return feeOptions.find(o => o.value === form.processFee);
-  }, [form.processFee, feeOptions]);
-
   const errors = useMemo(() => {
     const r: string[] = [];
-    if (!form.processFee) r.push("Please select affiliation process fee.");
     if (!form.trainingPartnerName.trim()) r.push("Training partner name is required.");
     if (!form.trainingPartnerAddress.trim()) r.push("Training partner address is required.");
     if (!form.postalAddressOffice.trim()) r.push("Postal address is required.");
     if (!form.totalName.trim()) r.push("Tehsil / Taluka name is required.");
     if (form.zones.length === 0) r.push("Please select at least one zone.");
+    if (form.zones.length > 0 && !form.affiliationYear.trim()) r.push("Please select affiliation period (years).");
+    if (form.zones.length > 0 && form.affiliationYear.trim() && !feeCalculation) {
+      r.push("Fee could not be calculated. Try re-selecting the affiliation period.");
+    }
     if (!form.district.trim()) r.push("District is required.");
     if (!form.state) r.push("State is required.");
     if (!/^\d{6}$/.test(form.pin)) r.push("PIN must be 6 digits.");
@@ -181,7 +205,7 @@ export default function BecomeAtcForm() {
     if (screenshot && screenshot.type === "application/pdf" && screenshot.size > 500 * 1024) r.push("Payment screenshot PDF must be under 500 KB.");
 
     const requiredFieldMap: Record<string, boolean> = {
-      processFee: !form.processFee,
+      affiliationYear: form.zones.length > 0 && !form.affiliationYear.trim(),
       trainingPartnerName: !form.trainingPartnerName.trim(),
       trainingPartnerAddress: !form.trainingPartnerAddress.trim(),
       postalAddressOffice: !form.postalAddressOffice.trim(),
@@ -213,7 +237,7 @@ export default function BecomeAtcForm() {
       if (invalid) requiredSet.add(key);
     });
     return { list: r, requiredSet };
-  }, [form, screenshot, photo, signature, logo, aadharDoc, marksheetDoc, otherDocs, instituteDocument]);
+  }, [form, feeCalculation, screenshot, photo, signature, logo, aadharDoc, marksheetDoc, otherDocs, instituteDocument]);
 
   const setField = (field: keyof FormState, value: string) => {
     setForm((c) => ({ ...c, [field]: value }));
@@ -257,6 +281,9 @@ export default function BecomeAtcForm() {
       if (instituteDocument) payload.append("instituteDocument", instituteDocument);
       payload.append("infrastructure", JSON.stringify(infra));
       payload.append("zones", JSON.stringify(form.zones));
+      if (feeCalculation) {
+        payload.append("feeCalculation", JSON.stringify(feeCalculation));
+      }
       const response = await fetch("/api/become-atc", { method: "POST", body: payload });
       const data = (await response.json()) as { message?: string; refNumber?: string };
       if (!response.ok) { setError(data.message ?? "Form submission failed. Try again."); return; }
@@ -266,6 +293,8 @@ export default function BecomeAtcForm() {
         refNumber: newRef,
         submitDate: new Date().toLocaleString("en-IN"),
         ...form,
+        processFee: feeCalculation ? String(feeCalculation.payableAmount) : "",
+        feeCalculation: feeCalculation ?? undefined,
         paymentScreenshot: screenshot ? URL.createObjectURL(screenshot) : "",
         infrastructure: infra as Record<string, InfraRow>,
       });
@@ -281,6 +310,7 @@ export default function BecomeAtcForm() {
     setForm(initialFormState); setInfra(emptyInfra);
     setPhoto(null); setLogo(null); setSignature(null); setAadharDoc(null); setMarksheetDoc(null); setOtherDocs(null);
     setScreenshot(null); setInstituteDocument(null); setError(null); setReceiptData(null);
+    setFeeCalculation(null);
     setInvalidFields(new Set());
   };
 
@@ -319,24 +349,9 @@ export default function BecomeAtcForm() {
         <SectionCard icon={Building2} title="Information About Training Partner" subtitle="All fields are mandatory">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Applying For (readonly) */}
-            <div>
+            <div className="sm:col-span-2">
               <Label>Applying For</Label>
               <input className={inputCls + " bg-slate-50 cursor-default"} value="Authorized Training Partner" readOnly />
-            </div>
-
-            {/* Affiliation Process Fee */}
-            <div>
-              <Label>Affiliation Process Fee *</Label>
-              <SelectWrapper>
-                <select className={`${selectCls} ${invalidFields.has("processFee") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} value={form.processFee} onChange={(e) => setField("processFee", e.target.value)}>
-                  <option value="">— Select Plan —</option>
-                  {feeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  {form.processFee && !feeOptions.some((o) => o.value === form.processFee) && (
-                    <option value={form.processFee}>{form.processFee}</option>
-                  )}
-                </select>
-              </SelectWrapper>
-              {requiredHint("processFee")}
             </div>
 
             {/* Training Partner Name */}
@@ -495,32 +510,58 @@ export default function BecomeAtcForm() {
         </SectionCard>
 
         {/* ── SECTION: Zones ──────────────────────────────────────── */}
-        <SectionCard icon={Layers} title="Zones (Select one or multiple)" subtitle="Select the zones for this center" color="#f59e0b">
+        <SectionCard
+          icon={Layers}
+          title="Zones (Select one or multiple)"
+          subtitle="Zones and fees come from Admin Settings only — nothing is hardcoded here."
+          color="#f59e0b"
+        >
+          {zoneCatalogLoading ? (
+            <p className="text-sm text-slate-500 py-2">Loading zone options…</p>
+          ) : zoneCatalog.length === 0 ? (
+            <p className="text-sm text-amber-800 py-2">
+              No affiliation zones are configured yet. Please contact the administrator.
+            </p>
+          ) : (
           <div className="flex flex-wrap gap-3 pt-1">
-            {["Software Zone", "Hardware Zone", "Vocational Zone", "Other"].map((z) => (
-              <label key={z}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition select-none
-                  ${form.zones.includes(z)
+            {zoneCatalog.map((row) => (
+              <label key={row.name}
+                className={`flex flex-col gap-0.5 px-4 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition select-none min-w-32
+                  ${form.zones.includes(row.name)
                     ? "bg-[#f59e0b] text-white border-[#f59e0b] shadow-md"
                     : "bg-white text-slate-600 border-slate-200 hover:border-[#f59e0b]/40 shadow-sm"}`}>
                 <input 
                   type="checkbox" 
                   className="sr-only"
-                  checked={form.zones.includes(z)} 
+                  checked={form.zones.includes(row.name)} 
                   onChange={(e) => {
                     const next = e.target.checked 
-                      ? [...form.zones, z] 
-                      : form.zones.filter(v => v !== z);
+                      ? [...form.zones, row.name] 
+                      : form.zones.filter(v => v !== row.name);
                     setForm(c => ({ ...c, zones: next }));
                   }} 
                 />
-                {form.zones.includes(z) ? <CheckCircle className="w-4 h-4" /> : <Layers className="w-4 h-4 opacity-40" />}
-                {z}
+                <span className="flex items-center gap-2">
+                  {form.zones.includes(row.name) ? <CheckCircle className="w-4 h-4 shrink-0" /> : <Layers className="w-4 h-4 opacity-40 shrink-0" />}
+                  {row.name}
+                </span>
+                <span className={`text-[10px] font-semibold ${form.zones.includes(row.name) ? "text-amber-100" : "text-slate-400"}`}>
+                  ₹{row.amount.toLocaleString("en-IN")}
+                </span>
               </label>
             ))}
           </div>
+          )}
           {requiredHint("zones")}
         </SectionCard>
+
+        <AffiliationZoneFeeBlock
+          zones={form.zones}
+          affiliationYear={form.affiliationYear}
+          onAffiliationYearChange={(y) => setField("affiliationYear", y)}
+          onCalculationUpdate={onFeeCalculationUpdate}
+          invalidAffiliationYear={invalidFields.has("affiliationYear")}
+        />
 
         {/* ── SECTION 2: Chief Executive ─────────────────────────── */}
         <SectionCard icon={User} title="Information About the Chief Executive / Principal / Director" color="#7c3aed">
@@ -772,9 +813,21 @@ export default function BecomeAtcForm() {
                   <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm">
                     <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tight mb-0.5">Total Amount Payable:</p>
                     <p className="text-2xl sm:text-3xl font-black text-amber-900 leading-none">
-                      {selectedFee ? selectedFee.label.split("(").pop()?.replace(")", "").replace("Total ", "") : "—"}
+                      {feeCalculation
+                        ? new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(feeCalculation.payableAmount)
+                        : "—"}
                     </p>
-                    {selectedFee && <p className="text-[10px] text-amber-500 font-medium mt-1">Plan: {selectedFee.label.split("—")[0].trim()}</p>}
+                    {feeCalculation && (
+                      <p className="text-[10px] text-amber-500 font-medium mt-1">
+                        Plan: {feeCalculation.affiliationYear}{" "}
+                        {feeCalculation.affiliationYear === 1 ? "year" : "years"} @ {feeCalculation.discountPercent}%
+                        discount
+                      </p>
+                    )}
                   </div>
                   
                   <div className="space-y-2 text-left">

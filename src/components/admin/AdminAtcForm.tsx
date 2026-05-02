@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type FormEvent, useMemo, useState, useEffect } from "react";
+import { Fragment, type FormEvent, useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
@@ -10,19 +10,14 @@ import {
   BookOpen, Briefcase, Calendar, Camera, ShieldCheck, FileText, X, QrCode,
   Eye, EyeOff, ExternalLink
 } from "lucide-react";
-import {
-  FeeOption,
-  DEFAULT_FEE_OPTIONS,
-  DISTRICTS_BY_STATE,
-  getYearOptions,
-  parseFeeOptions,
-  SETTINGS_PROCESS_FEE_KEY,
-} from "@/utils/atcSettings";
+import { DISTRICTS_BY_STATE, getYearOptions } from "@/utils/atcSettings";
+import type { FeeCalculationSnapshot, ZoneFeeRow } from "@/utils/affiliationFeeShared";
+import AffiliationZoneFeeBlock from "@/components/affiliation/AffiliationZoneFeeBlock";
 import { useBrand } from "@/context/BrandContext";
 
 type InfrastructureRow = { rooms: string; seats: string; area: string };
 type FormState = {
-  processFee: string; trainingPartnerName: string; trainingPartnerAddress: string;
+  affiliationYear: string; trainingPartnerName: string; trainingPartnerAddress: string;
   postalAddressOffice: string; zones: string[];
   totalName: string; district: string; state: string; pin: string; country: string;
   mobile: string; email: string; statusOfInstitution: string; yearOfEstablishment: string;
@@ -32,7 +27,7 @@ type FormState = {
 };
 
 const initialFormState: FormState = {
-  processFee: "", trainingPartnerName: "", trainingPartnerAddress: "", postalAddressOffice: "", zones: [],
+  affiliationYear: "", trainingPartnerName: "", trainingPartnerAddress: "", postalAddressOffice: "", zones: [],
   totalName: "", district: "", state: "", pin: "", country: "INDIA", mobile: "", email: "",
   statusOfInstitution: "", yearOfEstablishment: "", chiefName: "", designation: "",
   educationQualification: "", professionalExperience: "", dob: "", paymentMode: "",
@@ -109,6 +104,8 @@ interface Props {
     infrastructure?: string;
     status?: string;
     _id?: string;
+    affiliationPlanYear?: number;
+    feeCalculation?: FeeCalculationSnapshot | null;
   };
 }
 
@@ -138,7 +135,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
+  const [feeCalculation, setFeeCalculation] = useState<FeeCalculationSnapshot | null>(null);
+  const onFeeCalculationUpdate = useCallback((c: FeeCalculationSnapshot | null) => {
+    setFeeCalculation(c);
+  }, []);
+  const [zoneCatalog, setZoneCatalog] = useState<ZoneFeeRow[]>([]);
+  const [zoneCatalogLoading, setZoneCatalogLoading] = useState(true);
   const [showPass, setShowPass] = useState(true);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [viewingDoc, setViewingDoc] = useState<{ url: string; title: string; type: "image" | "pdf" } | null>(null);
@@ -162,7 +164,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (mode !== "edit" || !initialData) return;
     setForm((current) => ({
       ...current,
-      processFee: initialData.processFee ?? current.processFee,
+      affiliationYear:
+        initialData.affiliationPlanYear != null && initialData.affiliationPlanYear > 0
+          ? String(initialData.affiliationPlanYear)
+          : initialData.feeCalculation?.affiliationYear
+            ? String(initialData.feeCalculation.affiliationYear)
+            : current.affiliationYear,
       trainingPartnerName: initialData.trainingPartnerName ?? current.trainingPartnerName,
       trainingPartnerAddress: initialData.trainingPartnerAddress ?? current.trainingPartnerAddress,
       postalAddressOffice: initialData.postalAddressOffice ?? current.postalAddressOffice,
@@ -204,20 +211,44 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     } catch {
       setInfra(emptyInfra);
     }
+
+    if (initialData.feeCalculation) {
+      setFeeCalculation(initialData.feeCalculation);
+    }
   }, [mode, initialData]);
 
   useEffect(() => {
     if (!authUser) return;
     apiFetch("/api/admin/settings?key=qr_code")
-      .then(res => res.json())
-      .then(data => setQrCode(data.value))
+      .then((res) => res.json())
+      .then((data) => setQrCode(data.value))
       .catch(() => {});
-
-    apiFetch(`/api/admin/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
-      .then(res => res.json())
-      .then(data => setFeeOptions(parseFeeOptions(data.value)))
-      .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));
   }, [authUser]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setZoneCatalogLoading(true);
+    apiFetch("/year-plans")
+      .then((r) => r.json())
+      .then((d: { zones?: ZoneFeeRow[] }) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.zones)
+          ? d.zones
+              .filter((z): z is ZoneFeeRow => z != null && typeof z.name === "string" && typeof z.amount === "number")
+              .map((z) => ({ name: z.name.trim(), amount: Math.round(z.amount) }))
+          : [];
+        setZoneCatalog(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneCatalog([]);
+      })
+      .finally(() => {
+        if (!cancelled) setZoneCatalogLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const districtOptions = DISTRICTS_BY_STATE[form.state] ?? [];
 
@@ -231,7 +262,10 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
 
   const errors = useMemo(() => {
     const r: string[] = [];
-    if (!form.processFee) r.push("Please select affiliation process fee.");
+    if (form.zones.length > 0 && !form.affiliationYear.trim()) r.push("Please select affiliation period (years).");
+    if (form.zones.length > 0 && form.affiliationYear.trim() && !feeCalculation) {
+      r.push("Fee could not be calculated. Try re-selecting the affiliation period.");
+    }
     if (!form.trainingPartnerName.trim()) r.push("Training partner name is required.");
     if (!form.trainingPartnerAddress.trim()) r.push("Training partner address is required.");
     if (!form.postalAddressOffice.trim()) r.push("Postal address is required.");
@@ -260,7 +294,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     
     // For visual highlighting
     const fieldMap: Record<string, boolean> = {
-      processFee: !form.processFee,
+      affiliationYear: form.zones.length > 0 && !form.affiliationYear.trim(),
       trainingPartnerName: !form.trainingPartnerName.trim(),
       trainingPartnerAddress: !form.trainingPartnerAddress.trim(),
       postalAddressOffice: !form.postalAddressOffice.trim(),
@@ -290,7 +324,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     Object.entries(fieldMap).forEach(([k, v]) => { if (v) invalidSet.add(k); });
     
     return { list: r, set: invalidSet };
-  }, [form, photo, photoPreview, signature, sigPreview, aadharDoc, aadharPreview]);
+  }, [form, feeCalculation, photo, photoPreview, signature, sigPreview, aadharDoc, aadharPreview]);
 
   const setField = (field: keyof FormState, value: string) => {
     setForm((c) => ({ ...c, [field]: value }));
@@ -310,7 +344,12 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (mode === "edit" && initialData) {
       setForm((current) => ({
         ...current,
-        processFee: initialData.processFee ?? current.processFee,
+        affiliationYear:
+          initialData.affiliationPlanYear != null && initialData.affiliationPlanYear > 0
+            ? String(initialData.affiliationPlanYear)
+            : initialData.feeCalculation?.affiliationYear
+              ? String(initialData.feeCalculation.affiliationYear)
+              : current.affiliationYear,
         trainingPartnerName: initialData.trainingPartnerName ?? current.trainingPartnerName,
         trainingPartnerAddress: initialData.trainingPartnerAddress ?? current.trainingPartnerAddress,
         postalAddressOffice: initialData.postalAddressOffice ?? current.postalAddressOffice,
@@ -347,6 +386,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       setOtherPreview(initialData.otherDocs ?? null);
       setScreenshotPreview(initialData.paymentScreenshot ?? null);
       setDocPreview(initialData.instituteDocument ?? null);
+      setFeeCalculation(initialData.feeCalculation ?? null);
       setInvalidFields(new Set());
       return;
     }
@@ -356,6 +396,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     setScreenshot(null); setInstituteDocument(null); setMessage(null);
     setPhotoPreview(null); setLogoPreview(null); setSigPreview(null); setAadharPreview(null); setMarksheetPreview(null); setOtherPreview(null);
     setScreenshotPreview(null); setDocPreview(null);
+    setFeeCalculation(null);
     setInvalidFields(new Set());
   };
 
@@ -366,8 +407,6 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     }
     onReset();
   };
-
-  const selectedFee = feeOptions.find((fee) => fee.value === form.processFee) ?? null;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -459,6 +498,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
         payload.append("existingInstituteDocument", docPreview);
       }
       payload.append("infrastructure", JSON.stringify(infra));
+      if (feeCalculation) {
+        payload.append("feeCalculation", JSON.stringify(feeCalculation));
+      }
 
       const url = mode === "edit" && applicationId
         ? `/api/admin/applications/${applicationId}`
@@ -508,27 +550,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       {/* ── SECTION 1: Training Partner Info ─────────────────────── */}
       <SectionCard icon={Building2} title="Information About Training Partner" subtitle="All fields are mandatory">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div className="sm:col-span-2">
             <Label>Applying For</Label>
             <input className={inputCls + " bg-slate-50 cursor-default"} value="Authorized Training Partner" readOnly />
-          </div>
-
-          <div>
-            <Label>Affiliation Process Fee *</Label>
-            <SelectWrapper>
-              <select 
-                className={`${selectCls} ${invalidFields.has("processFee") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
-                value={form.processFee} 
-                onChange={(e) => setField("processFee", e.target.value)}
-              >
-                <option value="">— Select Plan —</option>
-                {feeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                {form.processFee && !feeOptions.some((o) => o.value === form.processFee) && (
-                  <option value={form.processFee}>{form.processFee}</option>
-                )}
-              </select>
-            </SelectWrapper>
-            {requiredHint("processFee")}
           </div>
 
           <div className="sm:col-span-2">
@@ -713,32 +737,59 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       </SectionCard>
 
       {/* ── SECTION: Zones ──────────────────────────────────────── */}
-      <SectionCard icon={Layers} title="Zones (Select one or multiple)" subtitle="Select the zones for this center" color="#f59e0b">
+      <SectionCard
+        icon={Layers}
+        title="Zones (Select one or multiple)"
+        subtitle="Loaded from saved Affiliation zones &amp; fees — no hardcoded list."
+        color="#f59e0b"
+      >
+        {zoneCatalogLoading ? (
+          <p className="text-sm text-slate-500 py-2">Loading zone options…</p>
+        ) : zoneCatalog.length === 0 ? (
+          <p className="text-sm text-amber-200/90 py-2">
+            No zones in settings. Open Admin → Affiliation zones &amp; fees and save at least one zone first.
+          </p>
+        ) : (
         <div className={`flex flex-wrap gap-3 pt-1 rounded-xl ${invalidFields.has("zones") ? "bg-red-950/10 border border-red-800 p-2" : ""}`}>
-          {["Software Zone", "Hardware Zone", "Vocational Zone", "Other"].map((z) => (
-            <label key={z}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition select-none
-                ${form.zones.includes(z)
+          {zoneCatalog.map((row) => (
+            <label key={row.name}
+              className={`flex flex-col gap-0.5 px-4 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition select-none min-w-32
+                ${form.zones.includes(row.name)
                   ? "bg-[#f59e0b] text-white border-[#f59e0b] shadow-md"
                   : "bg-white text-slate-600 border-slate-200 hover:border-[#f59e0b]/40 shadow-sm"}`}>
               <input 
                 type="checkbox" 
                 className="sr-only"
-                checked={form.zones.includes(z)} 
+                checked={form.zones.includes(row.name)} 
                 onChange={(e) => {
                   const next = e.target.checked 
-                    ? [...form.zones, z] 
-                    : form.zones.filter(v => v !== z);
+                    ? [...form.zones, row.name] 
+                    : form.zones.filter(v => v !== row.name);
                   setForm(c => ({ ...c, zones: next }));
                 }} 
               />
-              {form.zones.includes(z) ? <CheckCircle className="w-4 h-4" /> : <Layers className="w-4 h-4 opacity-40" />}
-              {z}
+              <span className="flex items-center gap-2">
+                {form.zones.includes(row.name) ? <CheckCircle className="w-4 h-4 shrink-0" /> : <Layers className="w-4 h-4 opacity-40 shrink-0" />}
+                {row.name}
+              </span>
+              <span className={`text-[10px] font-semibold ${form.zones.includes(row.name) ? "text-amber-100" : "text-slate-400"}`}>
+                ₹{row.amount.toLocaleString("en-IN")}
+              </span>
             </label>
           ))}
         </div>
+        )}
         {requiredHint("zones")}
       </SectionCard>
+
+      <AffiliationZoneFeeBlock
+        zones={form.zones}
+        affiliationYear={form.affiliationYear}
+        onAffiliationYearChange={(y) => setField("affiliationYear", y)}
+        onCalculationUpdate={onFeeCalculationUpdate}
+        variant="admin"
+        invalidAffiliationYear={invalidFields.has("affiliationYear")}
+      />
 
       {/* ── SECTION 2: Chief Executive ─────────────────────────── */}
       <SectionCard icon={User} title="Information About the Chief Executive / Principal / Director" color="#7c3aed">
@@ -1071,7 +1122,13 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
                   <div>
                     <p className="text-[10px] text-amber-600 font-bold uppercase">Total Payable:</p>
                     <p className="text-xl font-black text-amber-900 leading-none">
-                      {selectedFee ? selectedFee.label.split("(").pop()?.replace(")", "").replace("Total ", "") : "—"}
+                      {feeCalculation
+                        ? new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 0,
+                          }).format(feeCalculation.payableAmount)
+                        : "—"}
                     </p>
                   </div>
                 </div>

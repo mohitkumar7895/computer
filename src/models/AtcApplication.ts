@@ -2,9 +2,24 @@ import mongoose, { Schema, model, models } from "mongoose";
 
 export type AtcApplicationStatus = "pending" | "approved" | "rejected";
 
+export type AtcFeeCalculationSnapshot = {
+  zoneLineItems: { zone: string; amount: number }[];
+  totalAmount: number;
+  affiliationYear: number;
+  discountPercent: number;
+  finalAmount: number;
+  discountAmount: number;
+  payableAmount: number;
+};
+
 export interface IAtcApplication {
   _id: mongoose.Types.ObjectId;
+  /** Payable amount (rupees) or legacy process-fee plan value */
   processFee: string;
+  /** Selected duration in years (1, 2, 3, …) from admin-configured plans */
+  affiliationPlanYear: number;
+  /** Server-computed fee breakdown at submission */
+  feeCalculation?: AtcFeeCalculationSnapshot | null;
   trainingPartnerName: string;
   trainingPartnerAddress: string;
   totalName: string;
@@ -45,7 +60,9 @@ export interface IAtcApplication {
 
 const AtcApplicationSchema = new Schema<IAtcApplication>(
   {
-    processFee: { type: String, required: true },
+    processFee: { type: String, default: "" },
+    affiliationPlanYear: { type: Number, default: 0 },
+    feeCalculation: { type: Schema.Types.Mixed, default: null },
     trainingPartnerName: { type: String, required: true },
     trainingPartnerAddress: { type: String, required: true },
     postalAddressOffice: { type: String, default: "" },

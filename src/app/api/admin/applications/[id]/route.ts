@@ -4,8 +4,8 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
 import { AtcUser } from "@/models/AtcUser";
-import { Settings } from "@/models/Settings";
 import { cookies } from "next/headers";
+import { resolveAffiliationFeeForPersist } from "@/lib/affiliationFee";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -23,12 +23,6 @@ async function verifyAdmin(request: Request) {
   } catch {
     return null;
   }
-}
-
-/** Generate TP Code like ATC-2024-0001 */
-function generateTpCode(index: number): string {
-  const year = new Date().getFullYear();
-  return `ATC-${year}-${String(index).padStart(4, "0")}`;
 }
 
 // GET /api/admin/applications/[id] — fetch full application details
@@ -74,12 +68,17 @@ export async function PATCH(
     const contentType = request.headers.get("content-type") ?? "";
     let action: "approve" | "reject" | "toggleStatus" | null = null;
     let formData: FormData | null = null;
-    let body: any = null;
+    let body: {
+      action?: "approve" | "reject" | "toggleStatus";
+      update?: Record<string, unknown>;
+    } | null = null;
 
     if (contentType.includes("multipart/form-data")) {
       formData = await request.formData();
       const maybeAction = String(formData.get("action") ?? "").trim();
-      action = (maybeAction === "approve" || maybeAction === "reject" || maybeAction === "toggleStatus") ? maybeAction as any : null;
+      if (maybeAction === "approve" || maybeAction === "reject" || maybeAction === "toggleStatus") {
+        action = maybeAction;
+      }
     } else {
       body = (await request.json()) as {
         action?: "approve" | "reject" | "toggleStatus";
@@ -96,14 +95,25 @@ export async function PATCH(
       }
 
       const requiredFields = [
-        "processFee", "trainingPartnerName", "trainingPartnerAddress",
-        "district", "state", "pin", "mobile", "email",
-        "statusOfInstitution", "yearOfEstablishment", "chiefName",
-        "designation", "educationQualification", "professionalExperience",
-        "dob", "paymentMode",
+        "affiliationYear",
+        "trainingPartnerName",
+        "trainingPartnerAddress",
+        "district",
+        "state",
+        "pin",
+        "mobile",
+        "email",
+        "statusOfInstitution",
+        "yearOfEstablishment",
+        "chiefName",
+        "designation",
+        "educationQualification",
+        "professionalExperience",
+        "dob",
+        "paymentMode",
       ];
 
-      const updatedValues: Record<string, any> = {};
+      const updatedValues: Record<string, string> = {};
       for (const field of requiredFields) {
         updatedValues[field] = String(formData.get(field) ?? "").trim();
       }
@@ -121,7 +131,14 @@ export async function PATCH(
         return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
       }
 
-      const zones = JSON.parse(String(formData.get("zones") ?? "[]"));
+      const feeResolved = await resolveAffiliationFeeForPersist(
+        formData.get("zones"),
+        formData.get("affiliationYear"),
+      );
+      if (!feeResolved.ok) {
+        return NextResponse.json({ message: feeResolved.error }, { status: feeResolved.status });
+      }
+
       const infraString = String(formData.get("infrastructure") ?? application.infrastructure ?? "{}");
       
       // Helper to read and check size
@@ -153,15 +170,18 @@ export async function PATCH(
         application.otherDocs = otherBase64 || application.otherDocs;
         application.paymentScreenshot = ssBase64 || application.paymentScreenshot;
         application.instituteDocument = docBase64 || application.instituteDocument;
-      } catch (e: any) {
-        return NextResponse.json({ message: e.message }, { status: 400 });
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Invalid request.";
+        return NextResponse.json({ message }, { status: 400 });
       }
 
-      application.processFee = updatedValues.processFee;
+      application.processFee = feeResolved.processFee;
+      application.affiliationPlanYear = feeResolved.affiliationPlanYear;
+      application.feeCalculation = feeResolved.feeCalculation;
       application.trainingPartnerName = updatedValues.trainingPartnerName;
       application.trainingPartnerAddress = updatedValues.trainingPartnerAddress;
       application.postalAddressOffice = String(formData.get("postalAddressOffice") ?? application.postalAddressOffice ?? "");
-      application.zones = Array.isArray(zones) ? zones : [];
+      application.zones = feeResolved.zones;
       application.totalName = String(formData.get("totalName") ?? application.totalName ?? "");
       application.district = updatedValues.district;
       application.state = updatedValues.state;
@@ -257,9 +277,10 @@ export async function PATCH(
 
     return NextResponse.json({ message: "Invalid action." }, { status: 400 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[ATC PATCH Error]", error);
-    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error.";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
 

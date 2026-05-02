@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
-import { Settings } from "@/models/Settings";
 import { cookies } from "next/headers";
+import { resolveAffiliationFeeForPersist } from "@/lib/affiliationFee";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 export const dynamic = 'force-dynamic';
@@ -93,11 +93,22 @@ export async function POST(request: Request) {
     const formData = await request.formData();
 
     const requiredFields = [
-      "processFee", "trainingPartnerName", "trainingPartnerAddress",
-      "district", "state", "pin", "mobile", "email",
-      "statusOfInstitution", "yearOfEstablishment", "chiefName",
-      "designation", "educationQualification", "professionalExperience",
-      "dob", "paymentMode",
+      "affiliationYear",
+      "trainingPartnerName",
+      "trainingPartnerAddress",
+      "district",
+      "state",
+      "pin",
+      "mobile",
+      "email",
+      "statusOfInstitution",
+      "yearOfEstablishment",
+      "chiefName",
+      "designation",
+      "educationQualification",
+      "professionalExperience",
+      "dob",
+      "paymentMode",
     ];
 
     for (const field of requiredFields) {
@@ -117,6 +128,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "PIN must be exactly 6 digits." }, { status: 400 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
+
+    const feeResolved = await resolveAffiliationFeeForPersist(
+      formData.get("zones"),
+      formData.get("affiliationYear"),
+    );
+    if (!feeResolved.ok) {
+      return NextResponse.json({ message: feeResolved.error }, { status: feeResolved.status });
+    }
 
     await connectDB();
     const { AtcUser } = await import("@/models/AtcUser");
@@ -155,11 +174,13 @@ export async function POST(request: Request) {
     }
 
     const data = {
-      processFee: String(formData.get("processFee") ?? ""),
+      processFee: feeResolved.processFee,
+      affiliationPlanYear: feeResolved.affiliationPlanYear,
+      feeCalculation: feeResolved.feeCalculation,
       trainingPartnerName: String(formData.get("trainingPartnerName") ?? ""),
       trainingPartnerAddress: String(formData.get("trainingPartnerAddress") ?? ""),
       postalAddressOffice: String(formData.get("postalAddressOffice") ?? ""),
-      zones: JSON.parse(String(formData.get("zones") ?? "[]")),
+      zones: feeResolved.zones,
       totalName: String(formData.get("totalName") ?? ""),
       district: String(formData.get("district") ?? ""),
       state: String(formData.get("state") ?? ""),

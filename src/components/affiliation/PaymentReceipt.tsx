@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Printer, Home } from "lucide-react";
-import {
-  DEFAULT_FEE_OPTIONS,
-  FeeOption,
-  parseFeeOptions,
-  SETTINGS_PROCESS_FEE_KEY,
-} from "@/utils/atcSettings";
+import type { FeeCalculationSnapshot } from "@/utils/affiliationFeeShared";
 import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
 
@@ -17,7 +12,9 @@ export type InfraRow = { rooms: string; seats: string; area: string };
 export interface ReceiptData {
   refNumber: string;
   submitDate: string;
+  /** Payable rupees (numeric string) or legacy plan code */
   processFee: string;
+  feeCalculation?: FeeCalculationSnapshot;
   trainingPartnerName: string;
   trainingPartnerAddress: string;
   totalName: string;
@@ -49,6 +46,9 @@ const FEE_MAP: Record<string, { plan: string; charge: string; total: string }> =
   "5000": { plan: "TP FOR 3 YEARS", charge: "₹5000 + 18% GST", total: "₹5,900" },
 };
 
+const inr = (n: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+
 const infraFields = ["Staff Room", "Class Room", "Computer Lab", "Reception", "Toilets", "Any Other"];
 
 interface Props {
@@ -60,7 +60,6 @@ export default function PaymentReceipt({ data, onBack }: Props) {
   const { brandName, brandLogo } = useBrand();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [authSignature, setAuthSignature] = useState<string | null>(null);
-  const [feeOptions, setFeeOptions] = useState<FeeOption[]>(DEFAULT_FEE_OPTIONS);
 
   useEffect(() => {
     apiFetch("/api/public/settings?key=qr_code")
@@ -72,30 +71,20 @@ export default function PaymentReceipt({ data, onBack }: Props) {
       .then((r) => r.json())
       .then((d: { value: string | null }) => setAuthSignature(d.value ?? null))
       .catch(() => null);
-
-    apiFetch(`/api/public/settings?key=${SETTINGS_PROCESS_FEE_KEY}`)
-      .then((r) => r.json())
-      .then((d: { value: string | null }) => setFeeOptions(parseFeeOptions(d.value)))
-      .catch(() => setFeeOptions(DEFAULT_FEE_OPTIONS));
   }, []);
 
-  const normalizeFeeLabel = (label: string) => {
-    const parts = label.split("—").map((part) => part.trim());
-    const plan = parts[0] || label;
-    const rest = parts[1] || "";
-    const totalMatch = rest.match(/\(([^)]+)\)/);
-    const charge = rest.replace(/\([^)]*\)/, "").trim() || plan;
-    return {
-      plan: plan || label,
-      charge: charge || label,
-      total: totalMatch?.[1] ?? (charge || label),
-    };
-  };
-
-  const selectedOption = feeOptions.find((o) => o.value === data.processFee);
-  const feeInfo = selectedOption
-    ? normalizeFeeLabel(selectedOption.label)
-    : FEE_MAP[data.processFee] ?? { plan: data.processFee, charge: data.processFee, total: data.processFee };
+  const fc = data.feeCalculation;
+  const feeInfo = fc
+    ? {
+        plan: `Affiliation — ${fc.affiliationYear} yr (${fc.discountPercent}% discount)`,
+        charge: `${inr(fc.totalAmount)} (base) × ${fc.affiliationYear} yr − ${inr(fc.discountAmount)}`,
+        total: inr(fc.payableAmount),
+      }
+    : FEE_MAP[data.processFee] ?? {
+        plan: "Affiliation fee",
+        charge: data.processFee ? `₹${data.processFee}` : "—",
+        total: data.processFee ? `₹${Number(data.processFee).toLocaleString("en-IN")}` : "—",
+      };
   const paymentTitle =
     data.paymentMode === "gpay"
       ? "PAY OPTION - GOOGLE PAY (G-PAY)"
