@@ -223,7 +223,7 @@ export default function AffiliationZoneFeeBlock({
                   key={p.year}
                   type="button"
                   onClick={() => onAffiliationYearChange(String(p.year))}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition select-none
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition select-none cursor-pointer
                     ${
                       selected
                         ? isAdmin

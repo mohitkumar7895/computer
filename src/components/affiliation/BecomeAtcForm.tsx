@@ -794,8 +794,17 @@ export default function BecomeAtcForm() {
                 {qrCode ? (
                   <div className="shrink-0 space-y-2">
                     <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Scan to Pay</p>
-                    <div className="p-2 bg-white rounded-xl shadow-sm border border-amber-200 cursor-zoom-in group relative"
-                      onClick={() => setIsQrModalOpen(true)}>
+                    <div className="p-2 bg-white rounded-xl shadow-sm border border-amber-200 cursor-pointer group relative"
+                      onClick={() => setIsQrModalOpen(true)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setIsQrModalOpen(true);
+                        }
+                      }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={qrCode} alt="Payment QR" className="w-32 h-32 sm:w-40 sm:h-40 object-contain mx-auto transition group-hover:opacity-90" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
@@ -950,10 +959,15 @@ export default function BecomeAtcForm() {
 
       {/* QR Large Modal */}
       {isQrModalOpen && qrCode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setIsQrModalOpen(false)}>
-          <div className="relative max-w-lg w-full bg-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setIsQrModalOpen(false)}
+          role="presentation"
+        >
+          <div className="relative max-w-lg w-full bg-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
             <button 
               onClick={() => setIsQrModalOpen(false)}
               className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-slate-500 hover:text-red-500 transition">

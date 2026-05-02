@@ -1106,8 +1106,17 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-4">
                 <div className="flex items-center gap-4">
                   {qrCode ? (
-                    <div className="shrink-0 p-1.5 bg-white rounded-lg shadow-sm border border-amber-200 cursor-zoom-in group relative"
-                      onClick={() => setIsQrModalOpen(true)}>
+                    <div className="shrink-0 p-1.5 bg-white rounded-lg shadow-sm border border-amber-200 cursor-pointer group relative"
+                      onClick={() => setIsQrModalOpen(true)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setIsQrModalOpen(true);
+                        }
+                      }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={qrCode} alt="QR" className="w-20 h-20 object-contain transition group-hover:opacity-90" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
@@ -1269,10 +1278,15 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       
       {/* QR Large Modal */}
       {isQrModalOpen && qrCode && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setIsQrModalOpen(false)}>
-          <div className="relative max-w-lg w-full bg-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setIsQrModalOpen(false)}
+          role="presentation"
+        >
+          <div className="relative max-w-lg w-full bg-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
             <button 
               type="button"
               onClick={() => setIsQrModalOpen(false)}
