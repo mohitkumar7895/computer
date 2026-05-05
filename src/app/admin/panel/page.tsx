@@ -2053,7 +2053,7 @@ export default function AdminPanelPage() {
                             </div>
                           ) : (
                             <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 text-xs font-bold">
-                              ATC ne subject-wise marks submit nahi kiye. Marksheet course ke default split se generate hogi.
+                              The ATC did not submit subject-wise marks. The marksheet will use overall totals or a single summary row only.
                             </div>
                           )}
                         </div>
@@ -2069,7 +2069,7 @@ export default function AdminPanelPage() {
                             className="w-full md:w-1/2 px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-amber-500"
                           />
                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                            Yahi date marksheet aur certificate dono pe issue date ke roop me chhapegi.
+                            This date will be printed as the issue date on both the marksheet and the certificate.
                           </p>
                         </div>
                       </div>

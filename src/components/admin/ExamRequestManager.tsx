@@ -1406,7 +1406,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
               <div>
                 <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Issue Date</h3>
                 <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-                  Marksheet aur certificate dono pe yahi date chhapegi.
+                  This date will be printed on both the marksheet and the certificate.
                 </p>
               </div>
               <button

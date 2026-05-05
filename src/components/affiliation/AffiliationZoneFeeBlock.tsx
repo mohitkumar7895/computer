@@ -254,7 +254,7 @@ export default function AffiliationZoneFeeBlock({
           <p className="text-sm font-semibold text-red-600 dark:text-red-400">{calcError}</p>
         )}
 
-        {/* Default: sirf final payable (discount ke baad) — lambi calculation lines nahi */}
+        {/* Default: show final payable after discount only — no long calculation breakdown */}
         {!showFeeBreakdown && affiliationYear && (calcLoading || calculation) && (
           <div
             className={`rounded-xl border px-4 py-3 ${

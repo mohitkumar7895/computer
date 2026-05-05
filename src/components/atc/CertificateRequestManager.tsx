@@ -1035,7 +1035,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                        ))}
                      </div>
                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                       Yeh exact marks student ki marksheet par aayenge.
+                       These exact marks will appear on the student&apos;s marksheet.
                      </p>
                    </div>
                  )}
