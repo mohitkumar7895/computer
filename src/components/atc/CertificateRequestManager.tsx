@@ -442,6 +442,12 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
 
   const labelCls = "block text-[11px] font-black uppercase text-slate-400 tracking-wider mb-2";
   const inputCls = "w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-green-500 transition";
+  /** Offline / online result modal — wider, denser, professional (not all-caps). */
+  const resultModalLabelCls =
+    "block text-xs font-semibold text-slate-600 mb-1.5 tracking-tight";
+  const resultModalInputCls =
+    "w-full px-3 py-2.5 text-sm bg-white border border-slate-200 rounded-lg font-medium text-slate-900 shadow-sm focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none transition";
+  const resultModalHelperCls = "text-[11px] text-slate-500 leading-snug mt-1";
 
   return (
     <div className="bg-slate-50/30 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-150 text-slate-800">
@@ -935,154 +941,192 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       )}
 
       {showResultModal && selectedExam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
-           <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden p-8 animate-in slide-in-from-bottom-4 duration-500">
-              <div className="flex justify-between items-center mb-8">
-                 <div>
-                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
-                      {selectedExam.examMode === "online" ? "Online Exam Result" : "Offline Exam Result"}
-                    </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      {selectedExam.studentId?.name} • {selectedExam.studentId?.enrollmentNo}
-                    </p>
-                 </div>
-                 <button onClick={() => setShowResultModal(false)} className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition">
-                    <X className="w-5 h-5 text-slate-400" />
-                 </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-3 sm:p-4 text-slate-800">
+          <div className="bg-white w-full max-w-4xl max-h-[min(92vh,880px)] rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="shrink-0 flex items-start justify-between gap-4 px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-white">
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                  {selectedExam.examMode === "online" ? "Online exam result" : "Offline exam result"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                  <span className="font-medium text-slate-700">{selectedExam.studentId?.name}</span>
+                  <span className="text-slate-400 mx-1.5">·</span>
+                  <span className="tabular-nums">{selectedExam.studentId?.enrollmentNo}</span>
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowResultModal(false)}
+                className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <form onSubmit={handleResultSubmit} className="space-y-6">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                       <label className={labelCls}>Exam Status</label>
-                       <select 
-                         className={inputCls}
-                         value={resultForm.status}
-                         onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                           setResultForm({ ...resultForm, status: e.target.value as ExamStatusForm })
-                         }
-                         disabled={role === "atc"}
-                         required
-                       >
-                          <option value="not_appeared">Not Appeared</option>
-                          <option value="appeared">Attended</option>
-                          <option value="published">Result Published</option>
-                       </select>
-                       {role === "atc" && (
-                         <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                           On submit this goes to admin for approval.
-                         </p>
-                       )}
-                    </div>
-
-                    <div className="space-y-2">
-                       <label className={labelCls}>Final Score *</label>
-                       <input 
-                         className={`${inputCls} ${subjectResultRows.length > 0 ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                         placeholder="e.g. 85"
-                         value={resultForm.marks}
-                         onChange={e => setResultForm({...resultForm, marks: e.target.value})}
-                         readOnly={subjectResultRows.length > 0}
-                         required
-                       />
-                       {subjectResultRows.length > 0 ? (
-                         <p className="text-[9px] font-bold text-emerald-600 uppercase">
-                           Auto-calculated from subject-wise marks below.
-                         </p>
-                       ) : selectedExam.examMode === 'online' ? (
-                         <p className="text-[9px] font-bold text-blue-600 uppercase">
-                           System recorded {resultForm.marks || 0} marks. You can edit.
-                         </p>
-                       ) : null}
-                    </div>
-                 </div>
-
-                 {subjectResultRows.length > 0 && (
-                   <div className="space-y-2">
-                     <label className={labelCls}>Subject-wise Internal / External Marks</label>
-                     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                       <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                         <div className="col-span-4">Subject</div>
-                         <div className="col-span-4 text-center">Internal Obt / Max</div>
-                         <div className="col-span-4 text-center">External Obt / Max</div>
-                       </div>
-                       {subjectResultRows.map((row, idx) => (
-                         <div key={`${row.subjectName}-${idx}`} className="grid grid-cols-12 gap-2 px-4 py-2 items-center border-t border-slate-100">
-                           <div className="col-span-4 text-xs font-bold text-slate-700 truncate">{row.subjectName}</div>
-                           <div className="col-span-4 flex items-center gap-2 justify-center">
-                             <input
-                               type="number"
-                               min={0}
-                               max={row.internalMax}
-                               value={row.internalObtained}
-                               onChange={(e) => updateSubjectScore(idx, "internalObtained", e.target.value)}
-                               className="w-20 px-2 py-1 bg-slate-50 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-orange-500"
-                             />
-                             <span className="text-[10px] font-bold text-slate-400">/ {row.internalMax}</span>
-                           </div>
-                           <div className="col-span-4 flex items-center gap-2 justify-center">
-                             <input
-                               type="number"
-                               min={0}
-                               max={row.externalMax}
-                               value={row.externalObtained}
-                               onChange={(e) => updateSubjectScore(idx, "externalObtained", e.target.value)}
-                               className="w-20 px-2 py-1 bg-slate-50 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-orange-500"
-                             />
-                             <span className="text-[10px] font-bold text-slate-400">/ {row.externalMax}</span>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                       These exact marks will appear on the student&apos;s marksheet.
-                     </p>
-                   </div>
-                 )}
-
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="space-y-2">
-                       <label className={labelCls}>Grade *</label>
-                       <input
-                         className={inputCls}
-                         placeholder="e.g. A+"
-                         value={resultForm.grade}
-                         onChange={e => setResultForm({ ...resultForm, grade: e.target.value })}
-                         required
-                       />
-                     </div>
-                     <div className="space-y-2">
-                       <label className={labelCls}>Academic Session *</label>
-                       <input
-                         className={inputCls}
-                         placeholder="e.g. 2025-26"
-                         value={resultForm.session}
-                         onChange={e => setResultForm({ ...resultForm, session: e.target.value })}
-                         required
-                       />
-                     </div>
-                 </div>
-
-                 {selectedExam.examMode === "offline" && (
-                 <div className="space-y-2">
-                    <label className={labelCls}>Upload Answer Copy (PDF/Image)</label>
-                    <input 
-                      type="file"
-                      accept=".pdf,image/*"
-                      className="w-full bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition"
-                      onChange={e => setResultCopyFile(e.target.files?.[0] || null)}
+            <div className="overflow-y-auto overscroll-contain px-5 py-4">
+              <form onSubmit={handleResultSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={resultModalLabelCls}>Exam status</label>
+                    <select
+                      className={resultModalInputCls}
+                      value={resultForm.status}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setResultForm({ ...resultForm, status: e.target.value as ExamStatusForm })
+                      }
+                      disabled={role === "atc"}
+                      required
+                    >
+                      <option value="not_appeared">Not appeared</option>
+                      <option value="appeared">Attended</option>
+                      <option value="published">Result published (sent for approval)</option>
+                    </select>
+                    {role === "atc" && (
+                      <p className={`${resultModalHelperCls} text-emerald-700/90`}>
+                        Submitted results go to admin for approval.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={resultModalLabelCls}>Final score *</label>
+                    <input
+                      className={`${resultModalInputCls} ${
+                        subjectResultRows.length > 0 ? "bg-slate-50 text-slate-600 cursor-not-allowed" : ""
+                      }`}
+                      placeholder="e.g. 85"
+                      value={resultForm.marks}
+                      onChange={(e) => setResultForm({ ...resultForm, marks: e.target.value })}
+                      readOnly={subjectResultRows.length > 0}
+                      required
                     />
-                 </div>
-                 )}
+                    {subjectResultRows.length > 0 ? (
+                      <p className={resultModalHelperCls}>
+                        Auto-calculated from subject-wise marks below.
+                      </p>
+                    ) : selectedExam.examMode === "online" ? (
+                      <p className={`${resultModalHelperCls} text-blue-700/80`}>
+                        System recorded {resultForm.marks || 0} marks — you may edit.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
 
-                 <div className="flex gap-4 pt-4">
-                    <button type="button" onClick={() => setShowResultModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-                    <button type="submit" disabled={resultSaving} className="flex-2 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-orange-700 transition shadow-xl shadow-orange-100">
-                      {resultSaving ? "Processing..." : "Submit Result"}
-                    </button>
-                 </div>
+                {subjectResultRows.length > 0 && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/40 overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-100/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-700">Subject marks (internal / external)</span>
+                      <span className="text-[11px] text-slate-500 max-sm:w-full">
+                        Same values print on the marksheet.
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-200">
+                      <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 bg-white/60">
+                        <div className="col-span-4">Subject</div>
+                        <div className="col-span-4 text-center">Internal (obt / max)</div>
+                        <div className="col-span-4 text-center">External (obt / max)</div>
+                      </div>
+                      {subjectResultRows.map((row, idx) => (
+                        <div
+                          key={`${row.subjectName}-${idx}`}
+                          className="grid grid-cols-1 sm:grid-cols-12 gap-2 px-3 py-2 items-center bg-white"
+                        >
+                          <div className="sm:col-span-4 text-sm font-semibold text-slate-800 truncate">
+                            {row.subjectName}
+                          </div>
+                          <div className="sm:col-span-4 flex items-center justify-between sm:justify-center gap-2">
+                            <span className="text-[10px] font-medium text-slate-500 sm:hidden">Internal</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min={0}
+                                max={row.internalMax}
+                                value={row.internalObtained}
+                                onChange={(e) => updateSubjectScore(idx, "internalObtained", e.target.value)}
+                                className="w-16 sm:w-20 px-2 py-1.5 text-sm tabular-nums text-center border border-slate-200 rounded-md bg-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400/30 outline-none"
+                              />
+                              <span className="text-xs text-slate-500 tabular-nums whitespace-nowrap">
+                                / {row.internalMax}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="sm:col-span-4 flex items-center justify-between sm:justify-center gap-2">
+                            <span className="text-[10px] font-medium text-slate-500 sm:hidden">External</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min={0}
+                                max={row.externalMax}
+                                value={row.externalObtained}
+                                onChange={(e) => updateSubjectScore(idx, "externalObtained", e.target.value)}
+                                className="w-16 sm:w-20 px-2 py-1.5 text-sm tabular-nums text-center border border-slate-200 rounded-md bg-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400/30 outline-none"
+                              />
+                              <span className="text-xs text-slate-500 tabular-nums whitespace-nowrap">
+                                / {row.externalMax}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  className={`grid grid-cols-1 ${selectedExam.examMode === "offline" ? "lg:grid-cols-12" : "sm:grid-cols-2"} gap-4`}
+                >
+                  <div className={selectedExam.examMode === "offline" ? "lg:col-span-3" : ""}>
+                    <label className={resultModalLabelCls}>Grade *</label>
+                    <input
+                      className={resultModalInputCls}
+                      placeholder="e.g. A+"
+                      value={resultForm.grade}
+                      onChange={(e) => setResultForm({ ...resultForm, grade: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className={selectedExam.examMode === "offline" ? "lg:col-span-3" : ""}>
+                    <label className={resultModalLabelCls}>Academic session *</label>
+                    <input
+                      className={resultModalInputCls}
+                      placeholder="e.g. 2025-26"
+                      value={resultForm.session}
+                      onChange={(e) => setResultForm({ ...resultForm, session: e.target.value })}
+                      required
+                    />
+                  </div>
+                  {selectedExam.examMode === "offline" && (
+                    <div className="lg:col-span-6">
+                      <label className={resultModalLabelCls}>Answer copy (PDF or image)</label>
+                      <input
+                        type="file"
+                        accept=".pdf,image/*"
+                        className="w-full text-xs sm:text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-dashed border-slate-200 rounded-lg px-3 py-2 bg-white"
+                        onChange={(e) => setResultCopyFile(e.target.files?.[0] || null)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowResultModal(false)}
+                    className="sm:w-auto w-full px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resultSaving}
+                    className="sm:w-auto w-full px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-60 transition shadow-sm"
+                  >
+                    {resultSaving ? "Submitting…" : "Submit result"}
+                  </button>
+                </div>
               </form>
-           </div>
+            </div>
+          </div>
         </div>
       )}
 
