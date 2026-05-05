@@ -6,7 +6,7 @@ import { Play, Clock, CheckCircle, ShieldCheck, XCircle } from "lucide-react";
 interface StudentData {
   _id: string;
   name: string;
-  registrationNo: string;
+  enrollmentNo: string;
   course: string;
   tpCode: string;
 }
@@ -187,7 +187,7 @@ export default function OnlineExamPortal() {
               <input
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Enter Registration No. or Student ID"
+                placeholder="Enter enrollment number or student ID"
                 className="rounded-2xl border border-slate-700 bg-slate-950/90 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
               <button
@@ -210,7 +210,7 @@ export default function OnlineExamPortal() {
                     <div>
                       <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Candidate</p>
                       <h2 className="mt-2 text-2xl font-semibold text-white">{student.name}</h2>
-                      <p className="mt-2 text-sm text-slate-400">Registration No. {student.registrationNo}</p>
+                      <p className="mt-2 text-sm text-slate-400">Enrollment no. {student.enrollmentNo}</p>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-2xl bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200">
                       <ShieldCheck className="w-4 h-4" /> {student.tpCode || "Center student"}

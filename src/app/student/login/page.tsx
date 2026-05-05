@@ -11,7 +11,7 @@ export default function StudentLoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [registrationNo, setRegistrationNo] = useState("");
+  const [enrollmentNo, setEnrollmentNo] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -23,7 +23,7 @@ export default function StudentLoginPage() {
       const res = await fetch("/api/student/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationNo, password }),
+        body: JSON.stringify({ enrollmentNo, password }),
       });
 
       const data = await res.json();
@@ -63,7 +63,7 @@ export default function StudentLoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1">Registration Number</label>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1">Enrollment number</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                   <User size={18} />
@@ -73,8 +73,8 @@ export default function StudentLoginPage() {
                   type="text"
                   placeholder="e.g. ATC-0426-0001"
                   className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 font-semibold focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300"
-                  value={registrationNo}
-                  onChange={(e) => setRegistrationNo(e.target.value)}
+                  value={enrollmentNo}
+                  onChange={(e) => setEnrollmentNo(e.target.value)}
                 />
               </div>
             </div>

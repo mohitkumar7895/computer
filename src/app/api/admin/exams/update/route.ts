@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
 import { lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
+import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 
 export async function POST(request: Request) {
   try {
@@ -46,6 +48,17 @@ export async function POST(request: Request) {
       await AtcStudent.findByIdAndUpdate(updatedExam.studentId, {
         $set: { offlineExamStatus: "appeared" }
       });
+    }
+
+    // Enrollment is normally issued on admission approve; this keeps admit-card release in sync
+    // for any student still on a placeholder (same idempotent helper).
+    if (updatedExam.approvalStatus === "approved" && updatedExam.admitCardReleased) {
+      try {
+        await assignEnrollmentNoIfPending(updatedExam.studentId);
+        await assignRegistrationNoIfPending(updatedExam.studentId);
+      } catch (e) {
+        console.error("[admin/exams/update] assign enrollment/registration", e);
+      }
     }
 
     return NextResponse.json({ message: "Exam request updated successfully.", exam: updatedExam });

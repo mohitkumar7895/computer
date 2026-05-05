@@ -1,82 +1,80 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
-import { GraduationCap, ShieldCheck, User } from "lucide-react";
-
+import { Download, Printer } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
-
-type CertificatePageData = {
-  studentId?: {
-    registrationNo?: string;
-    photo?: string;
-    name?: string;
-    fatherName?: string;
-    motherName?: string;
-  };
-  enrollmentNo?: string;
-  serialNo?: string;
-  issueDate?: string;
-  courseName?: string;
-  centerName?: string;
-  centerCode?: string;
-  grade?: string;
-  session?: string;
-};
+import { downloadElementAsA4Pdf } from "@/lib/downloadA4";
+import CertificateBackgroundOverlay, {
+  type CertificatePageData,
+} from "@/components/certificate/CertificateBackgroundOverlay";
 
 export default function AdminCertificatePage() {
   const { examId } = useParams();
   const router = useRouter();
+  const { brandName } = useBrand();
   const searchParams = useSearchParams();
   const isPrintMode = searchParams.get("print") === "1";
   const isZipPrintMode = searchParams.get("zipPrint") === "1";
   const shouldDownload = searchParams.get("download") === "1";
+
   const [data, setData] = useState<CertificatePageData | null>(null);
   const [bg, setBg] = useState("");
+  const [sig, setSig] = useState("");
   const [bgLoaded, setBgLoaded] = useState(false);
-  const { brandName: rawBrandName, brandMobile, brandEmail, brandAddress, brandUrl } = useBrand();
-  const brandName = rawBrandName.toUpperCase();
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetch(`/api/admin/documents/certificate?examId=${examId}`)
-      .then((res) => res.json())
-      .then((d) => (d.data ? setData(d.data) : router.push("/admin/panel")))
+      .then((r) => r.json())
+      .then((d) =>
+        d?.data ? setData(d.data as CertificatePageData) : router.push("/admin/panel"),
+      )
       .catch(() => router.push("/admin/panel"));
 
     fetch("/api/public/backgrounds")
-      .then((res) => res.json())
+      .then((r) => r.json())
       .then((bgs) => {
-        const nextBg = typeof bgs.certificate === "string" && bgs.certificate.trim() !== "-" ? bgs.certificate : "";
-        setBg(nextBg);
+        if (typeof bgs?.certificate === "string") setBg(bgs.certificate);
       })
       .catch(() => setBg(""))
       .finally(() => setBgLoaded(true));
+
+    fetch("/api/public/settings?key=authorized_signature")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.value) setSig(res.value);
+      })
+      .catch(() => {});
   }, [examId, router]);
+
+  const downloadPdf = useCallback(async () => {
+    const el = document.getElementById("cert-a4");
+    if (!el || !data) return;
+    setDownloading(true);
+    try {
+      const studentObj =
+        data?.studentId && typeof data.studentId === "object" ? data.studentId : null;
+      const fileName = String(
+        data?.serialNo || studentObj?.name || data?.enrollmentNo || "certificate",
+      ).replace(/\s+/g, "_");
+      const suffix = isPrintMode || isZipPrintMode ? "Certificate_Print" : "Certificate";
+      await downloadElementAsA4Pdf(el, `${fileName}_${suffix}`, "landscape");
+    } catch (err) {
+      console.error("Certificate download failed", err);
+    } finally {
+      setDownloading(false);
+    }
+  }, [data, isPrintMode, isZipPrintMode]);
 
   useEffect(() => {
     if (!data || !shouldDownload) return;
     if (!(isPrintMode || isZipPrintMode) && !bgLoaded) return;
-    const t = window.setTimeout(async () => {
-      const element = document.getElementById("cert-a4");
-      if (!element) return;
-      try {
-        const [{ toPng }, { default: jsPDF }] = await Promise.all([
-          import("html-to-image"),
-          import("jspdf"),
-        ]);
-        const image = await toPng(element, { cacheBust: true, pixelRatio: 2 });
-        const pdf = new jsPDF("p", "mm", "a4");
-        pdf.addImage(image, "PNG", 0, 0, 210, 297);
-        const regNo = String(data?.studentId?.registrationNo || data?.enrollmentNo || "certificate").replace(/\s+/g, "_");
-        const suffix = (isPrintMode || isZipPrintMode) ? "Certificate_Print" : "Certificate";
-        pdf.save(`${regNo}_${suffix}.pdf`);
-      } catch (error) {
-        console.error("Certificate download failed", error);
-      }
+    const t = window.setTimeout(() => {
+      void downloadPdf();
     }, 350);
     return () => window.clearTimeout(t);
-  }, [data, shouldDownload, isPrintMode, isZipPrintMode, bgLoaded]);
+  }, [data, shouldDownload, isPrintMode, isZipPrintMode, bgLoaded, downloadPdf]);
 
   useEffect(() => {
     if (!data || !isPrintMode || isZipPrintMode) return;
@@ -84,172 +82,83 @@ export default function AdminCertificatePage() {
     return () => window.clearTimeout(t);
   }, [data, isPrintMode, isZipPrintMode]);
 
-  if (!data) return <div className="p-10 font-bold text-slate-400 animate-pulse uppercase tracking-widest text-center">Preparing Authenticated Document...</div>;
+  if (!data) {
+    return (
+      <div className="p-10 text-center font-bold uppercase tracking-widest text-slate-400 animate-pulse">
+        Preparing Certificate…
+      </div>
+    );
+  }
+
+  const showBg = !(isPrintMode || isZipPrintMode) && bg;
+  const verifyUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/verification/certificate` : "";
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8 print:p-0 print:bg-white transition-colors duration-500">
-      {/* Control Bar */}
-      <div className="mx-auto w-[210mm] mb-6 print:hidden flex justify-between items-center bg-white p-4 rounded-3xl shadow-xl border border-white">
+    <div className="min-h-screen bg-slate-100 p-8 print:bg-white print:p-0">
+      <div className="mx-auto mb-6 flex w-[297mm] items-center justify-between rounded-3xl border border-white bg-white p-4 shadow-xl print:hidden">
         <div className="flex items-center gap-3">
-           <button onClick={() => router.back()} className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition">Back</button>
-           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Document Preview: Certificate</p>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="rounded-xl bg-slate-100 px-5 py-2.5 text-xs font-black uppercase text-slate-600 hover:bg-slate-200"
+          >
+            Back
+          </button>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            Certificate · Template Overlay
+          </p>
         </div>
-        <button onClick={() => window.print()} className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-black uppercase text-xs hover:bg-blue-700 transition shadow-lg shadow-blue-100 flex items-center gap-2">
-           Print Document
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={downloadPdf}
+            disabled={downloading}
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700 disabled:opacity-60"
+          >
+            <Download size={14} /> {downloading ? "Preparing…" : "Download PDF"}
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700"
+          >
+            <Printer size={14} /> Print
+          </button>
+        </div>
       </div>
 
-      {/* A4 Document Container */}
-      <div id="cert-a4" className="mx-auto w-[210mm] h-[297mm] bg-white relative shadow-2xl print:shadow-none overflow-hidden print:m-0 flex flex-col p-[15mm]">
-        {!(isPrintMode || isZipPrintMode) && bg ? (
-          <Image src={bg} alt="" fill unoptimized className="object-cover" />
+      <div
+        id="cert-a4"
+        className="relative mx-auto h-[210mm] w-[297mm] overflow-hidden bg-white shadow-2xl print:m-0 print:shadow-none"
+      >
+        {showBg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bg}
+            alt=""
+            className="absolute inset-0 z-0 h-full w-full bg-white object-fill print:hidden"
+          />
         ) : null}
-        
-        {/* Borders */}
-        <div className="absolute inset-[8mm] border border-amber-200 pointer-events-none" />
-        <div className="absolute inset-[10mm] border-[3px] border-double border-amber-600 pointer-events-none" />
-        {!(isPrintMode || isZipPrintMode) && <div className="absolute top-0 right-0 w-48 h-48 bg-amber-50 rounded-bl-[100%] opacity-30 -mr-16 -mt-16" />}
-        {!(isPrintMode || isZipPrintMode) && <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 rounded-tr-[100%] opacity-20 -ml-24 -mb-24" />}
-
-        {/* Header Section */}
-        <div className="relative z-10 flex flex-col items-center text-center mt-8">
-           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4 transform rotate-6 border-4 border-white">
-              <GraduationCap className="text-white w-8 h-8" />
-           </div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-1">{brandName}</h1>
-           <p className="text-[10px] font-black text-blue-600 tracking-[0.2em] uppercase mb-10 border-t border-slate-100 pt-2 w-1/2">
-             {brandAddress || brandUrl || brandEmail || brandMobile || "Autonomous Organization"}
-           </p>
-           
-           <div className="relative mb-12">
-              <div className="h-px w-48 bg-amber-200 absolute left-full top-1/2 ml-4" />
-              <div className="h-px w-48 bg-amber-200 absolute right-full top-1/2 mr-4" />
-              <h2 className="text-5xl font-serif text-amber-700 italic px-8">Diploma Certificate</h2>
-           </div>
-        </div>
-
-        {/* Body Content */}
-        <div className="relative z-10 px-12 flex flex-col items-center mt-4">
-           {/* Student Photo */}
-           <div className="absolute top-0 right-0 w-32 h-36 border-4 border-white shadow-xl ring-1 ring-slate-100 rounded-xl overflow-hidden mb-6 group transition-all duration-300">
-             {data.studentId?.photo ? (
-               <Image src={data.studentId.photo} alt="" fill unoptimized className="object-cover" />
-             ) : (
-               <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-200"><User size={40} /></div>
-             )}
-           </div>
-
-           <div className="w-full space-y-10 text-center mt-20">
-              <p className="text-lg font-medium text-slate-500 italic">This is to certify that</p>
-              
-              <div>
-                 <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tight border-b-2 border-slate-900 inline-block px-4 pb-1">{data.studentId?.name}</h3>
-                 <div className="flex justify-center gap-12 mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    <span>S/o / D/o: <span className="text-slate-800">{data.studentId?.fatherName}</span></span>
-                    <span>M/o: <span className="text-slate-800">{data.studentId?.motherName}</span></span>
-                 </div>
-              </div>
-
-              <p className="text-lg font-medium text-slate-500 italic">has successfully completed the prescribed course of study in</p>
-              
-              <div>
-                 <h4 className="text-2xl font-black text-slate-800 uppercase tracking-tighter bg-slate-50 px-8 py-4 rounded-3xl border border-slate-100 inline-block">{data.courseName}</h4>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-3">Course Specialized Subject</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-y-8 gap-x-16 text-left py-10 px-6 bg-amber-50/20 rounded-[2.5rem] border border-amber-100/50">
-                 <div className="space-y-1">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Enrollment Number</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{data.enrollmentNo}</p>
-                 </div>
-                 <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Certificate Serial</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{data.serialNo}</p>
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Issue Date</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">
-                      {data.issueDate
-                        ? new Date(data.issueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                        : "N/A"}
-                    </p>
-                 </div>
-                 <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Academic Session</p>
-                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{data.session}</p>
-                 </div>
-              </div>
-
-              <div className="pt-8 w-full flex justify-between items-start">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
-                       <ShieldCheck className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div>
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left">Training Auth</p>
-                       <p className="text-[11px] font-black text-slate-800 uppercase">{data.centerName} ({data.centerCode})</p>
-                    </div>
-                 </div>
-                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                    Grade Awarded: <span className="text-lg text-slate-900 ml-2">{data.grade}</span>
-                 </div>
-              </div>
-           </div>
-        </div>
-
-        {/* Footer / Signatures */}
-        <div className="mt-auto relative z-10 flex justify-between items-end pb-10 px-6">
-           <div className="text-center group">
-              <div className="w-40 h-10 border-b-2 border-slate-200 mb-2 transition-colors group-hover:border-amber-400" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Candidate Signature</p>
-           </div>
-           
-           {/* Seal Place */}
-           <div className="w-24 h-24 rounded-full border-2 border-amber-100/50 flex items-center justify-center opacity-40 grayscale group-hover:grayscale-0 transition-all">
-              <div className="w-20 h-20 rounded-full border border-amber-200 flex items-center justify-center">
-                 <ShieldCheck className="w-8 h-8 text-amber-600" />
-              </div>
-           </div>
-
-           <div className="text-center group">
-              <div className="w-40 h-12 flex items-center justify-center mb-1">
-                 <div className="p-2 border border-slate-100 rounded-lg bg-slate-50 text-[10px] font-black text-slate-300 uppercase italic">Digital Archive Copy</div>
-              </div>
-              <div className="w-40 h-[0.5px] bg-slate-200 mb-2" />
-              <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider">Admin / Controller</p>
-           </div>
-        </div>
-
-        {/* Diagonal Watermark */}
-        {!(isPrintMode || isZipPrintMode) && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none transform rotate-35">
-             <p className="text-[120px] font-black uppercase text-slate-900 tracking-widest">{brandName}</p>
-          </div>
-        )}
+        <CertificateBackgroundOverlay
+          data={data}
+          brandName={brandName || undefined}
+          signatureUrl={sig || undefined}
+          verifyUrl={verifyUrl}
+        />
       </div>
 
       <style jsx global>{`
         @media print {
           @page {
-            size: A4;
+            size: A4 landscape;
             margin: 0;
           }
           body {
-            background-color: white !important;
-          }
-          .mx-auto {
-            margin: 0 !important;
-            padding: 10mm !important;
-          }
-          .absolute.inset-\\[8mm\\] {
-            inset: 8mm !important;
-          }
-          .absolute.inset-\\[10mm\\] {
-            inset: 10mm !important;
+            background: white !important;
           }
         }
       `}</style>
     </div>
   );
 }
-

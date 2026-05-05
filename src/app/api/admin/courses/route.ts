@@ -1,9 +1,33 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { Course } from "@/models/Course";
+import { Course, type ICourseSubject } from "@/models/Course";
 import { verifyAdmin } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Coerce an unknown payload into a validated subjects array. Each entry must
+ * have a non-empty `name` and non-negative numeric `fullMarks`,
+ * `theoryMarks`, `practicalMarks`. Theory + practical must equal full marks
+ * (within ±1 to allow rounding).
+ */
+function normaliseSubjects(input: unknown): ICourseSubject[] {
+  if (!Array.isArray(input)) return [];
+  const out: ICourseSubject[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const name = String(r.name ?? "").trim();
+    const fullMarks = Number(r.fullMarks);
+    const theoryMarks = Number(r.theoryMarks);
+    const practicalMarks = Number(r.practicalMarks);
+    if (!name) continue;
+    if (![fullMarks, theoryMarks, practicalMarks].every((n) => Number.isFinite(n) && n >= 0)) continue;
+    if (Math.abs(theoryMarks + practicalMarks - fullMarks) > 1) continue;
+    out.push({ name, fullMarks, theoryMarks, practicalMarks });
+  }
+  return out;
+}
 
 export async function GET(req: Request) {
   try {
@@ -24,21 +48,38 @@ export async function POST(req: Request) {
     if (!isAdmin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, shortName, durationMonths, registrationFee, zone, hasMarksheet, hasCertificate } = body;
+    const {
+      name,
+      shortName,
+      durationMonths,
+      registrationFee,
+      zone,
+      hasMarksheet,
+      hasCertificate,
+      subjects,
+    } = body;
 
-    if (!name || !shortName || !durationMonths || registrationFee === undefined || registrationFee === null || !zone) {
+    if (
+      !name ||
+      !shortName ||
+      !durationMonths ||
+      registrationFee === undefined ||
+      registrationFee === null ||
+      !zone
+    ) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
     await connectDB();
-    const course = await Course.create({ 
-      name, 
-      shortName, 
-      durationMonths, 
+    const course = await Course.create({
+      name,
+      shortName,
+      durationMonths,
       registrationFee: Number(registrationFee),
       zone,
       hasMarksheet: hasMarksheet ?? true,
-      hasCertificate: hasCertificate ?? true
+      hasCertificate: hasCertificate ?? true,
+      subjects: normaliseSubjects(subjects),
     });
     return NextResponse.json(course, { status: 201 });
   } catch (error: any) {

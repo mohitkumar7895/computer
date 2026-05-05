@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   await connectDB();
   const query = mongoose.Types.ObjectId.isValid(identifier)
     ? { _id: new mongoose.Types.ObjectId(identifier) }
-    : { registrationNo: identifier };
+    : { $or: [{ enrollmentNo: identifier }, { registrationNo: identifier }] };
   const student = await AtcStudent.findOne(query).lean();
   if (!student) {
     return NextResponse.json({ message: "Student not found." }, { status: 404 });
@@ -37,21 +37,23 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { studentId, registrationNo, setId, answers } = body as {
+    const { studentId, enrollmentNo, setId, answers } = body as {
       studentId?: string;
-      registrationNo?: string;
+      enrollmentNo?: string;
       setId?: string;
       answers?: Array<{ questionId: string; selectedOption: string }>;
     };
 
-    if ((!studentId && !registrationNo) || !setId || !answers?.length) {
-      return NextResponse.json({ message: "studentId or registrationNo, setId, and answers are required." }, { status: 400 });
+    if ((!studentId && !enrollmentNo) || !setId || !answers?.length) {
+      return NextResponse.json({ message: "studentId or enrollmentNo, setId, and answers are required." }, { status: 400 });
     }
 
     await connectDB();
-    const studentQuery = studentId && mongoose.Types.ObjectId.isValid(studentId)
-      ? { _id: new mongoose.Types.ObjectId(studentId) }
-      : { registrationNo: studentId ? studentId : registrationNo };
+    const idOrCode = studentId ? studentId : enrollmentNo;
+    const studentQuery =
+      idOrCode && mongoose.Types.ObjectId.isValid(idOrCode)
+        ? { _id: new mongoose.Types.ObjectId(idOrCode) }
+        : { $or: [{ enrollmentNo: idOrCode }, { registrationNo: idOrCode }] };
     const student = await AtcStudent.findOne(studentQuery).lean();
     if (!student) {
       return NextResponse.json({ message: "Student not found." }, { status: 404 });

@@ -90,7 +90,7 @@ function parseDataUrl(data?: string | null) {
 function buildDocumentBuffer(
   docType: DocType,
   exam: Record<string, unknown>,
-  student: { name?: string; registrationNo?: string; course?: string },
+  student: { name?: string; enrollmentNo?: string; course?: string },
   marksheet?: Record<string, unknown>,
   certificate?: Record<string, unknown>,
 ) {
@@ -104,7 +104,7 @@ function buildDocumentBuffer(
       "Admit Card",
       [
         `Student: ${student?.name || "N/A"}`,
-        `Registration No: ${student?.registrationNo || "N/A"}`,
+        `Enrollment number: ${student?.enrollmentNo || "N/A"}`,
         `Course: ${student?.course || "N/A"}`,
         `Exam Date: ${exam.examDate ? new Date(exam.examDate as string).toLocaleDateString("en-GB") : "N/A"}`,
         `Exam Time: ${(exam.examTime as string) || "N/A"}`,
@@ -120,7 +120,7 @@ function buildDocumentBuffer(
       isPrint ? "Certificate (Print Version)" : "Certificate",
       [
         `Student: ${student?.name || "N/A"}`,
-        `Registration No: ${student?.registrationNo || "N/A"}`,
+        `Enrollment number: ${student?.enrollmentNo || "N/A"}`,
         `Course: ${(certificate?.courseName as string) || student?.course || "N/A"}`,
         `Session: ${(certificate?.session as string) || "N/A"}`,
         `Grade: ${(certificate?.grade as string) || "N/A"}`,
@@ -136,7 +136,7 @@ function buildDocumentBuffer(
       isPrint ? "Marksheet (Print Version)" : "Marksheet",
       [
         `Student: ${student?.name || "N/A"}`,
-        `Registration No: ${student?.registrationNo || "N/A"}`,
+        `Enrollment number: ${student?.enrollmentNo || "N/A"}`,
         `Enrollment No: ${(marksheet?.enrollmentNo as string) || "N/A"}`,
         `Course: ${(marksheet?.courseName as string) || student?.course || "N/A"}`,
         `Total: ${(marksheet?.totalObtained as number) ?? 0}/${(marksheet?.totalMax as number) ?? 0}`,
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
     await connectDB();
 
     const exams = await StudentExam.find({ _id: { $in: examIds } })
-      .populate({ path: "studentId", model: AtcStudent, select: "name registrationNo fatherName mobile course" })
+      .populate({ path: "studentId", model: AtcStudent, select: "name enrollmentNo fatherName mobile course" })
       .lean();
     if (!exams.length) {
       return NextResponse.json({ message: "No exams found." }, { status: 404 });
@@ -184,8 +184,8 @@ export async function POST(request: Request) {
 
     if (examIds.length === 1 && docTypes.length === 1 && !body.forceZip) {
       const exam = exams[0] as unknown as Record<string, unknown>;
-      const student = exam.studentId as { name?: string; registrationNo?: string; course?: string };
-      const regNo = toSafeRegNo(student?.registrationNo);
+      const student = exam.studentId as { name?: string; enrollmentNo?: string; course?: string };
+      const regNo = toSafeRegNo(student?.enrollmentNo);
       const examId = String(exam._id);
       const singleDocType = docTypes[0];
       const marksheet = marksheetByExamId.get(examId) as unknown as Record<string, unknown> | undefined;
@@ -207,8 +207,8 @@ export async function POST(request: Request) {
 
     for (const examRaw of exams) {
       const exam = examRaw as unknown as Record<string, unknown>;
-      const student = exam.studentId as { name?: string; registrationNo?: string; course?: string };
-      const regNo = toSafeRegNo(student?.registrationNo);
+      const student = exam.studentId as { name?: string; enrollmentNo?: string; course?: string };
+      const regNo = toSafeRegNo(student?.enrollmentNo);
       const examId = String(exam._id);
       const marksheet = marksheetByExamId.get(examId) as unknown as Record<string, unknown> | undefined;
       const certificate = certificateByExamId.get(examId) as unknown as Record<string, unknown> | undefined;

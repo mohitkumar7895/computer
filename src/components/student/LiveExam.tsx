@@ -143,7 +143,7 @@ export default function LiveExam({ exam, student, onFinish }: LiveExamProps) {
            </div>
            <div className="hidden sm:block">
               <h1 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{exam.setId?.title || "Online Examination"}</h1>
-              <p className="text-[9px] font-bold text-blue-400 uppercase mt-1 leading-none">{student.registrationNo} • {student.name}</p>
+              <p className="text-[9px] font-bold text-blue-400 uppercase mt-1 leading-none">{student.enrollmentNo} • {student.name}</p>
            </div>
         </div>
 

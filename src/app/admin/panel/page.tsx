@@ -61,7 +61,7 @@ interface Application {
 interface Student {
   _id: string;
   name: string;
-  registrationNo: string;
+  enrollmentNo: string;
   tpCode: string;
   course: string;
   mobile: string;
@@ -231,6 +231,8 @@ export default function AdminPanelPage() {
   // ID Format States
   const [centerFormat, setCenterFormat] = useState({ prefix: "ATC-", counter: 1, padding: 4 });
   const [studentFormat, setStudentFormat] = useState({ prefix: "ATC-ST-", counter: 1, padding: 4 });
+  /** Stored as `reg_format_student_registration` — prefix + counter only (no padding field in UI). */
+  const [studentRegistrationFormat, setStudentRegistrationFormat] = useState({ prefix: "REG-", counter: 1 });
   const [idFormatSaving, setIdFormatSaving] = useState(false);
   const [brandName, setBrandName] = useState("Institution Brand");
   const [brandMobile, setBrandMobile] = useState("");
@@ -458,6 +460,20 @@ export default function AdminPanelPage() {
       const sfRes = await apiFetch("/api/admin/settings?key=reg_format_student");
       const sfData = await sfRes.json();
       if (sfData.value) setStudentFormat(JSON.parse(sfData.value));
+
+      const srfRes = await apiFetch("/api/admin/settings?key=reg_format_student_registration");
+      const srfData = (await srfRes.json()) as { value: string | null };
+      if (srfData.value) {
+        try {
+          const p = JSON.parse(srfData.value) as { prefix?: string; counter?: number };
+          setStudentRegistrationFormat({
+            prefix: typeof p.prefix === "string" ? p.prefix : "REG-",
+            counter: typeof p.counter === "number" && Number.isFinite(p.counter) ? p.counter : 1,
+          });
+        } catch {
+          /* keep default */
+        }
+      }
 
       const bRes = await apiFetch("/api/admin/settings?key=brand_name");
       const bData = (await bRes.json()) as { value: string | null };
@@ -1878,7 +1894,7 @@ export default function AdminPanelPage() {
                          <div className="grow space-y-1">
                             <div className="flex items-center gap-3">
                                <h4 className="font-bold text-slate-800 text-lg">{res.studentId?.name || "Unknown Student"}</h4>
-                               <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase border border-blue-100">{res.studentId?.registrationNo}</span>
+                               <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase border border-blue-100">{res.studentId?.enrollmentNo}</span>
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-slate-400 uppercase tracking-tight">
                                <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {res.atcId?.trainingPartnerName} ({res.atcId?.tpCode})</span>
@@ -2145,7 +2161,7 @@ export default function AdminPanelPage() {
                             value={row.name}
                             onChange={(e) => updateZoneFeeAdmin(index, "name", e.target.value)}
                             className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                            placeholder="e.g. Software Zone"
+                            placeholder="Zone name"
                           />
                         </div>
                         <div className="col-span-12 sm:col-span-6">
@@ -2431,15 +2447,14 @@ export default function AdminPanelPage() {
             {/* ── REGISTRATION SETTINGS TAB ── */}
             {tab === "registration" && (
               <div className="space-y-8 animate-in fade-in duration-500">
-                {/* Registration ID Formats */}
+                {/* reg_format_center, reg_format_student, reg_format_student_registration */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
                       <Hash className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 uppercase tracking-tight">Registration ID Formats</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Define how Center Codes and Student Roll Numbers are generated.</p>
+                      <h3 className="font-bold text-slate-800 uppercase tracking-tight">Enrollment number formats</h3>
                     </div>
                   </div>
 
@@ -2485,7 +2500,7 @@ export default function AdminPanelPage() {
                     {/* Student Format Card */}
                     <div className="space-y-4 p-5 rounded-3xl border border-slate-100 bg-slate-50/50">
                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Student ID Format</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Student enrollment format</label>
                           <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-700 text-[8px] font-black uppercase">Preview</span>
                        </div>
                        
@@ -2519,6 +2534,51 @@ export default function AdminPanelPage() {
                           </div>
                        </div>
                     </div>
+
+                    {/* Student registration format — prefix + counter only */}
+                    <div className="space-y-4 p-5 rounded-3xl border border-slate-100 bg-slate-50/50 md:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                          Student registration format
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">
+                            Prefix (Text before number)
+                          </label>
+                          <input
+                            type="text"
+                            value={studentRegistrationFormat.prefix}
+                            onChange={(e) =>
+                              setStudentRegistrationFormat((prev) => ({ ...prev, prefix: e.target.value }))
+                            }
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-100 outline-none"
+                            placeholder="e.g. REG-"
+                          />
+                          <p className="text-[8px] text-slate-400 mt-1 italic">
+                            Tip: Use <strong>{`{YEAR}`}</strong> in prefix for automatic current year.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">
+                            Internal Counter (Current Value)
+                          </label>
+                          <input
+                            type="number"
+                            value={studentRegistrationFormat.counter}
+                            onChange={(e) =>
+                              setStudentRegistrationFormat((prev) => ({
+                                ...prev,
+                                counter: parseInt(e.target.value, 10) || 1,
+                              }))
+                            }
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-100 outline-none"
+                            placeholder="1"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex justify-end pt-4 border-t border-slate-100">
@@ -2539,6 +2599,16 @@ export default function AdminPanelPage() {
                               "Content-Type": "application/json",
                             },
                             body: JSON.stringify({ key: "reg_format_student", value: JSON.stringify(studentFormat) }),
+                          });
+                          await apiFetch("/api/admin/settings", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                              key: "reg_format_student_registration",
+                              value: JSON.stringify(studentRegistrationFormat),
+                            }),
                           });
                           showToast("success", "ID Formats updated successfully!");
                         } catch {
@@ -2755,7 +2825,7 @@ export default function AdminPanelPage() {
                             }}
                           />
                         </th>
-                        <th className="px-6 py-4">REG NO / ID</th>
+                        <th className="px-6 py-4">ENROLLMENT NO.</th>
                         <th className="px-6 py-4">STUDENT IDENTITY</th>
                         <th className="px-6 py-4">CENTER</th>
                         <th className="px-6 py-4">COURSE</th>
@@ -2786,7 +2856,11 @@ export default function AdminPanelPage() {
                               </td>
                               <td className="px-6 py-4">
                                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black border border-slate-200">
-                                     {(s.registrationNo && !s.registrationNo.startsWith("PENDING-")) ? s.registrationNo : "PENDING"}
+                                     {s.enrollmentNo &&
+                                     !s.enrollmentNo.startsWith("PENDING-") &&
+                                     !s.enrollmentNo.startsWith("DIRECT-")
+                                       ? s.enrollmentNo
+                                       : "PENDING"}
                                  </span>
                               </td>
                               <td className="px-6 py-4">
@@ -2839,13 +2913,13 @@ export default function AdminPanelPage() {
                                 <div className="flex justify-end gap-2">
                                   <div className="flex flex-col gap-1 items-end">
                                     <div className="flex gap-2">
-                                      {(s.status !== "approved" && s.status !== "active" || !s.registrationNo) && (
+                                      {(s.status !== "approved" && s.status !== "active" || !s.enrollmentNo) && (
                                         <button 
                                           onClick={() => handleStudentAction(s._id, "approved")} 
                                           disabled={!!studentActionId}
                                           className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
                                         >
-                                          {(!s.registrationNo && (s.status === "active" || s.status === "approved")) ? "Assign ID" : "Approve"}
+                                          {(!s.enrollmentNo && (s.status === "active" || s.status === "approved")) ? "Assign ID" : "Approve"}
                                         </button>
                                       )}
                                       {s.status === "pending" && (
@@ -2914,7 +2988,7 @@ export default function AdminPanelPage() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{editingStudent.name}</h3>
-                    <p className="text-[10px] text-blue-600 uppercase tracking-widest font-black mt-1">Reg No: {editingStudent.registrationNo}</p>
+                    <p className="text-[10px] text-blue-600 uppercase tracking-widest font-black mt-1">Enrollment: {editingStudent.enrollmentNo}</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -3098,7 +3172,7 @@ export default function AdminPanelPage() {
                       <StudentIdCard 
                         student={{
                           ...viewIdCard,
-                          registrationNo: viewIdCard.registrationNo || "PENDING",
+                          enrollmentNo: viewIdCard.enrollmentNo || "PENDING",
                           dob: viewIdCard.dob || "N/A",
                           admissionDate: viewIdCard.createdAt ? new Date(viewIdCard.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: '2-digit', year: 'numeric' }) : "N/A",
                           centerName: applications.find(a => a.tpCode === viewIdCard.tpCode)?.trainingPartnerName || "N/A",
@@ -3133,7 +3207,7 @@ export default function AdminPanelPage() {
                               <div className="flex items-center gap-3 mt-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                   <span>Admission Report</span>
                                   <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
-                                  <span>Reg No: {editingStudent.registrationNo}</span>
+                                  <span>Enrollment: {editingStudent.enrollmentNo}</span>
                               </div>
                           </div>
                       </div>

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       query.tpCode = user.tpCode;
     }
     if (regNo) {
-      query.registrationNo = { $regex: regNo, $options: "i" };
+      query.enrollmentNo = { $regex: regNo, $options: "i" };
     }
     if (course) {
       query.course = course;
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     }
 
     const students = await AtcStudent.find(query)
-      .select("registrationNo name fatherName mobile course status totalFee paidAmount duesAmount centerCode dob admissionFees")
+      .select("enrollmentNo name fatherName mobile course status totalFee paidAmount duesAmount centerCode dob admissionFees")
       .sort({ createdAt: -1 })
       .lean();
 

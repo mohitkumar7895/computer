@@ -40,7 +40,7 @@ export async function GET(
       .lean();
 
     const student = await AtcStudent.findById(studentId)
-      .select("name registrationNo course totalFee paidAmount duesAmount")
+      .select("name enrollmentNo course totalFee paidAmount duesAmount")
       .lean();
 
     return NextResponse.json({ transactions, student });

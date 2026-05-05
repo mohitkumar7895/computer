@@ -253,7 +253,7 @@ export async function PATCH(
 
       if (!existingUser) {
         const { generateNextId } = await import("@/lib/idGenerator");
-        tpCode = await generateNextId("reg_format_center", AtcUser, "tpCode");
+        tpCode = await generateNextId("reg_format_center");
 
         await AtcUser.create({
           tpCode,

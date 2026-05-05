@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
-import { Settings } from "@/models/Settings";
 import { Course } from "@/models/Course";
 import { AtcUser } from "@/models/AtcUser";
 import { WalletTransaction } from "@/models/WalletTransaction";
+import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -38,9 +38,6 @@ export async function POST(request: Request) {
     if (action === "approve") {
       const students = await AtcStudent.find({ _id: { $in: ids }, status: { $in: ["pending", "pending_admin", "approved"] } });
       if (students.length === 0) return NextResponse.json({ message: "No pending students selected." }, { status: 400 });
-
-      const formatSetting = await Settings.findOne({ key: "reg_format_student" });
-      let format = formatSetting ? JSON.parse(formatSetting.value) : { prefix: "ATC-ST-", counter: 1, padding: 4 };
 
       const results = [];
       const failed: string[] = [];
@@ -84,36 +81,16 @@ export async function POST(request: Request) {
           courseName: student.course,
         });
 
-        if (!student.registrationNo || student.registrationNo.startsWith("PENDING-") || student.registrationNo.startsWith("DIRECT-")) {
-          let prefix = format.prefix;
-          if (prefix.includes("{YEAR}")) {
-            prefix = prefix.replace("{YEAR}", new Date().getFullYear().toString());
-          }
-          
-          let regNo = `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
-          
-          // Ensure uniqueness
-          let exists = await AtcStudent.findOne({ registrationNo: regNo });
-          while (exists) {
-            format.counter += 1;
-            regNo = `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
-            exists = await AtcStudent.findOne({ registrationNo: regNo });
-          }
-
-          student.registrationNo = regNo;
-          format.counter += 1;
-        }
         student.status = "active";
         await student.save();
-        results.push(student);
+        try {
+          await assignEnrollmentNoIfPending(student._id);
+        } catch (e) {
+          console.error("[admin/students/bulk] assign enrollment", e);
+        }
+        const refreshed = await AtcStudent.findById(student._id);
+        results.push(refreshed ?? student);
       }
-
-      // Save updated counter once
-      await Settings.findOneAndUpdate(
-        { key: "reg_format_student" },
-        { value: JSON.stringify(format) },
-        { upsert: true }
-      );
 
       const failureText = failed.length > 0 ? ` ${failed.length} failed (${failed.slice(0, 3).join(", ")}${failed.length > 3 ? ", ..." : ""}).` : "";
       return NextResponse.json({ message: `${results.length} students approved successfully.${failureText}` });

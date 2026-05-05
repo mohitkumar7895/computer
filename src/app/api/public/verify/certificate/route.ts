@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     const student = await AtcStudent.findOne({ 
-      registrationNo: enrollment.trim(), 
+      enrollmentNo: enrollment.trim(), 
       dob: dob.trim() 
     });
 
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
     const responseData = {
       studentName: student.name,
-      certificateId: `CERT-${student.registrationNo}-${student._id.toString().slice(-4)}`.toUpperCase(),
+      certificateId: `CERT-${student.enrollmentNo}-${student._id.toString().slice(-4)}`.toUpperCase(),
       course: student.course,
       courseName: student.course,
       issueDate: exam.updatedAt.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }),

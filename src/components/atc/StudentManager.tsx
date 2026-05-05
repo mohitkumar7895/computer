@@ -9,7 +9,7 @@ import { apiFetch } from "@/utils/api";
 
 interface Student {
   _id: string;
-  registrationNo: string;
+  enrollmentNo: string;
   name: string;
   fatherName: string;
   motherName?: string;
@@ -364,7 +364,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
         }
       }
 
-      setLastRegNo(data.student.registrationNo);
+      setLastRegNo(data.student.enrollmentNo);
       setShowSuccessModal(true);
       setMsg({ type: "success", text: "Student admitted successfully!" });
       (e.target as HTMLFormElement).reset();
@@ -803,7 +803,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                            }}
                          />
                       </th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Reg. No</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Enrollment no.</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Student Details</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Course Info</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Fee</th>
@@ -835,7 +835,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                         </td>
                         <td className="px-6 py-4">
                           <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            {s.registrationNo || "PENDING"}
+                            {s.enrollmentNo || "PENDING"}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -949,12 +949,12 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
         {tab === "add" && (
           <form ref={formRef} onSubmit={handleAddSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* 0. Registration Lookup (Optional) */}
+            {/* 0. Enrollment lookup (optional, existing student) */}
             <div className="bg-blue-600/5 p-6 rounded-3xl border border-blue-100 flex flex-col md:flex-row items-end gap-4 shadow-sm relative overflow-hidden group">
                <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
                <div className="flex-1 w-full">
                   <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
-                     <Search className="w-3 h-3" /> Registration Lookup (Existing Student)
+                     <Search className="w-3 h-3" /> Enrollment lookup (existing student)
                      <span className="text-slate-400 font-bold ml-auto">OPTIONAL</span>
                   </label>
                   <input 
@@ -963,7 +963,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                     onChange={(e) => setLookupRegNo(e.target.value)}
                     onBlur={() => { if(lookupRegNo) handleLookup(); }}
                     className="w-full px-5 py-3.5 bg-white border border-blue-100 rounded-2xl text-sm font-bold text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition placeholder:text-slate-300" 
-                    placeholder="Enter Reg. No. to auto-fill details (e.g. YCE/2024/...)" 
+                    placeholder="Enter enrollment number to auto-fill details (e.g. YCE/2024/...)" 
                   />
                </div>
                <button 
@@ -1253,7 +1253,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                       </span>
                    </div>
                    <div className="flex items-center gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                      <span className="flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-blue-600" /> {selectedStudent.registrationNo || 'REGISTRATION PENDING'}</span>
+                      <span className="flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-blue-600" /> {selectedStudent.enrollmentNo || "ENROLLMENT PENDING"}</span>
                       <span className="w-1 h-1 rounded-full bg-slate-300" />
                       <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-600" /> {selectedStudent.course}</span>
                    </div>
@@ -1729,8 +1729,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                   <span className="text-slate-800">{showResultModal.name}</span>
                 </div>
                 <div className="pt-3 flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-tight">
-                  <span>Registration No</span>
-                  <span className="text-slate-800">{showResultModal.registrationNo}</span>
+                  <span>Enrollment number</span>
+                  <span className="text-slate-800">{showResultModal.enrollmentNo}</span>
                 </div>
               </div>
 
@@ -1821,7 +1821,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                    <StudentIdCard 
                      student={{
                        ...viewIdCard,
-                       registrationNo: viewIdCard.registrationNo || "PENDING",
+                       enrollmentNo: viewIdCard.enrollmentNo || "PENDING",
                        dob: viewIdCard.dob || "N/A"
                      }} 
                    />
@@ -1857,8 +1857,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
              <div className="w-20 h-20 bg-green-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
                 <CheckCircle className="w-10 h-10 text-green-600" />
              </div>
-             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Registration Success</h3>
-             <p className="text-slate-500 text-sm mb-6 leading-relaxed">Registration form submitted Successfully! <br /> Student Registration Number is: <b>{lastRegNo}</b></p>
+             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Enrollment Success</h3>
+             <p className="text-slate-500 text-sm mb-6 leading-relaxed">Admission form submitted successfully. <br /> Student enrollment number: <b>{lastRegNo}</b></p>
              <button 
                onClick={() => {
                  setShowSuccessModal(false);

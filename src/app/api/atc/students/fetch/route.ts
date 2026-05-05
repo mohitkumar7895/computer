@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const regNo = searchParams.get("regNo");
 
     if (!regNo) {
-      return NextResponse.json({ message: "Registration number is required" }, { status: 400 });
+      return NextResponse.json({ message: "Enrollment number is required" }, { status: 400 });
     }
 
     const cookieStore = await cookies();
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     
     // Use regex for case-insensitive search and handle possible whitespace
     const student = await AtcStudent.findOne({ 
-      registrationNo: { $regex: new RegExp(`^${regNo.trim()}$`, "i") } 
+      enrollmentNo: { $regex: new RegExp(`^${regNo.trim()}$`, "i") } 
     }).lean();
 
     if (!student) {

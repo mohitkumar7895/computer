@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     } else if (identifier) {
       const studentQuery = mongoose.Types.ObjectId.isValid(identifier)
         ? { _id: new mongoose.Types.ObjectId(identifier) }
-        : { registrationNo: identifier };
+        : { $or: [{ enrollmentNo: identifier }, { registrationNo: identifier }] };
       const student = await AtcStudent.findOne(studentQuery).select("_id");
       if (!student) {
         return NextResponse.json({ message: "Student not found." }, { status: 404 });
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     }
 
     const student = await AtcStudent.findById(exam.studentId)
-      .select("name registrationNo course tpCode fatherName photo session")
+      .select("name enrollmentNo registrationNo course tpCode fatherName photo session")
       .lean();
 
     if (!student) {

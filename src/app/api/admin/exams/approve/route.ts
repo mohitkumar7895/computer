@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
+import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
+import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 
 export async function POST(request: Request) {
   try {
@@ -43,6 +45,15 @@ export async function POST(request: Request) {
       await AtcStudent.findByIdAndUpdate(updatedExam.studentId, {
         $set: { offlineExamStatus: "appeared" }
       });
+    }
+
+    if (updatedExam.approvalStatus === "approved" && updatedExam.admitCardReleased) {
+      try {
+        await assignEnrollmentNoIfPending(updatedExam.studentId);
+        await assignRegistrationNoIfPending(updatedExam.studentId);
+      } catch (e) {
+        console.error("[admin/exams/approve] assign enrollment/registration", e);
+      }
     }
 
     return NextResponse.json({ message: "Exam request updated successfully.", exam: updatedExam });

@@ -16,7 +16,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string, registrationNo: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; enrollmentNo?: string };
     
     const { oldPassword, newPassword } = await request.json();
 

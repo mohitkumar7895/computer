@@ -8,17 +8,17 @@ const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export async function POST(request: Request) {
   try {
-    const { registrationNo, password } = await request.json();
+    const { enrollmentNo, password } = await request.json();
 
-    if (!registrationNo || !password) {
-      return NextResponse.json({ message: "Registration No and Password are required." }, { status: 400 });
+    if (!enrollmentNo || !password) {
+      return NextResponse.json({ message: "Enrollment number and password are required." }, { status: 400 });
     }
 
     await connectDB();
-    const student = await AtcStudent.findOne({ registrationNo });
+    const student = await AtcStudent.findOne({ enrollmentNo });
 
     if (!student) {
-      return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
+      return NextResponse.json({ message: "Invalid enrollment number or password." }, { status: 401 });
     }
 
     const isPlainMatch = password === student.password;
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       : false;
     
     if (!isPlainMatch && !isHashMatch) {
-      return NextResponse.json({ message: "Invalid Registration No or Password." }, { status: 401 });
+      return NextResponse.json({ message: "Invalid enrollment number or password." }, { status: 401 });
     }
 
     if (student.userStatus === "disabled") {
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     const token = jwt.sign(
-      { id: student._id, registrationNo: student.registrationNo, name: student.name, role: "student" },
+      { id: student._id, enrollmentNo: student.enrollmentNo, name: student.name, role: "student" },
       JWT_SECRET,
       { expiresIn: "7d" }
     );

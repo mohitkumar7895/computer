@@ -5,6 +5,7 @@ import { Settings } from "@/models/Settings";
 import { AtcUser } from "@/models/AtcUser";
 import { Course } from "@/models/Course";
 import { WalletTransaction } from "@/models/WalletTransaction";
+import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -85,11 +86,8 @@ export async function PATCH(
         });
       }
 
-      if (action === "approved" && (!student.registrationNo || student.registrationNo.startsWith("PENDING-") || student.registrationNo.startsWith("DIRECT-"))) {
-        const { generateNextId } = await import("@/lib/idGenerator");
-        const regNo = await generateNextId("reg_format_student", AtcStudent, "registrationNo");
-        student.registrationNo = regNo;
-      }
+      // Final enrollment number is issued here when admission is approved (reg_format_student).
+      // Exam/admit-card flow still calls assignEnrollmentNoIfPending as a no-op if already set.
       student.status = action === "approved" ? "active" : action;
     } 
     else if (action === "toggleStatus") {
@@ -125,9 +123,20 @@ export async function PATCH(
 
     await student.save();
 
-    return NextResponse.json({ 
-      message: "Action processed successfully", 
-      student,
+    if (action === "approved") {
+      try {
+        await assignEnrollmentNoIfPending(student._id);
+      } catch (e) {
+        console.error("[admin/students PATCH] assign enrollment", e);
+      }
+    }
+
+    const responseStudent =
+      action === "approved" ? await AtcStudent.findById(student._id) : student;
+
+    return NextResponse.json({
+      message: "Action processed successfully",
+      student: responseStudent ?? student,
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

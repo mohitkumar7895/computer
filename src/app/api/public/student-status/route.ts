@@ -9,14 +9,15 @@ export async function GET(request: Request) {
     const regNo = searchParams.get("regNo");
 
     if (!regNo) {
-      return NextResponse.json({ message: "Registration number is required." }, { status: 400 });
+      return NextResponse.json({ message: "Enrollment number is required." }, { status: 400 });
     }
 
     await connectDB();
 
-    // Find student by registration number
-    const student = await AtcStudent.findOne({ registrationNo: regNo })
-      .select("name registrationNo course createdAt photo")
+    const student = await AtcStudent.findOne({
+      $or: [{ enrollmentNo: regNo }, { registrationNo: regNo }],
+    })
+      .select("name enrollmentNo registrationNo course createdAt photo")
       .lean();
 
     if (!student) {

@@ -1,9 +1,27 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { Course } from "@/models/Course";
+import { Course, type ICourseSubject } from "@/models/Course";
 import { verifyAdmin } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
+
+function normaliseSubjects(input: unknown): ICourseSubject[] {
+  if (!Array.isArray(input)) return [];
+  const out: ICourseSubject[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const name = String(r.name ?? "").trim();
+    const fullMarks = Number(r.fullMarks);
+    const theoryMarks = Number(r.theoryMarks);
+    const practicalMarks = Number(r.practicalMarks);
+    if (!name) continue;
+    if (![fullMarks, theoryMarks, practicalMarks].every((n) => Number.isFinite(n) && n >= 0)) continue;
+    if (Math.abs(theoryMarks + practicalMarks - fullMarks) > 1) continue;
+    out.push({ name, fullMarks, theoryMarks, practicalMarks });
+  }
+  return out;
+}
 
 export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -11,7 +29,17 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     if (!isAdmin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, shortName, durationMonths, registrationFee, zone, status, hasMarksheet, hasCertificate } = body;
+    const {
+      name,
+      shortName,
+      durationMonths,
+      registrationFee,
+      zone,
+      status,
+      hasMarksheet,
+      hasCertificate,
+      subjects,
+    } = body;
     const { id } = await context.params;
 
     await connectDB();
@@ -24,6 +52,7 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     if (typeof status !== "undefined") updateData.status = status;
     if (typeof hasMarksheet !== "undefined") updateData.hasMarksheet = hasMarksheet;
     if (typeof hasCertificate !== "undefined") updateData.hasCertificate = hasCertificate;
+    if (typeof subjects !== "undefined") updateData.subjects = normaliseSubjects(subjects);
 
     const course = await Course.findByIdAndUpdate(id, updateData, { new: true });
 

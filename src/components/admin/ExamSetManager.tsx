@@ -36,7 +36,7 @@ interface PendingStudentExam {
   examMode: "online" | "offline";
   studentId?: {
     name?: string;
-    registrationNo?: string;
+    enrollmentNo?: string;
   };
 }
 
@@ -563,7 +563,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                                         <div className="flex justify-between items-start">
                                            <div>
                                               <p className="font-black text-slate-800 text-lg uppercase tracking-tight">{s.studentId?.name}</p>
-                                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">REG # {s.studentId?.registrationNo}</p>
+                                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enrollment no. {s.studentId?.enrollmentNo}</p>
                                            </div>
                                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                                              s.examMode === 'online' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'

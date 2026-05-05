@@ -7,7 +7,8 @@ import AdmitCard from "@/components/student/AdmitCard";
 interface StudentData {
   _id: string;
   name: string;
-  registrationNo: string;
+  enrollmentNo: string;
+  registrationNo?: string;
   course: string;
   tpCode: string;
 }
@@ -127,7 +128,12 @@ export default function AdmitCardViewer() {
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Admit Card</p>
               <h3 className="mt-2 text-2xl font-bold text-slate-800">{student.name}</h3>
-              <p className="text-sm text-slate-500">Registration no. {student.registrationNo}</p>
+              <p className="text-sm text-slate-500">
+                Enrollment no. {student.enrollmentNo}
+                {student.registrationNo ? (
+                  <span className="block text-slate-600">Registration no. {student.registrationNo}</span>
+                ) : null}
+              </p>
             </div>
             <button onClick={() => setShowAdmitModal(true)} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition">
               <Printer className="w-4 h-4" /> Print Admit Card

@@ -25,7 +25,7 @@ type WalletHistoryItem = {
   adminRemark?: string;
   requestedAmount?: number;
   studentName?: string;
-  registrationNo?: string;
+  enrollmentNo?: string;
   courseName?: string;
   createdAt: string;
 };
@@ -140,7 +140,7 @@ export default function WalletSection() {
       title: item.type === "credit" ? "Wallet Credit" : "Wallet Debit",
       subtitle: item.studentName || "General Wallet Entry",
       courseName: item.courseName || "",
-      registrationNo: item.registrationNo || "",
+      enrollmentNo: item.enrollmentNo || "",
       reason: item.reason,
       remark: item.adminRemark || "",
       requestedAmount: item.requestedAmount,
@@ -161,7 +161,7 @@ export default function WalletSection() {
             : "Wallet Request Pending",
       subtitle: request.transactionId ? `UTR: ${request.transactionId}` : "Wallet request submitted",
       courseName: "",
-      registrationNo: "",
+      enrollmentNo: "",
       reason: request.paymentNote || "Wallet top-up request",
       remark: request.adminRemark || "",
       requestedAmount: request.amount,
@@ -353,9 +353,9 @@ export default function WalletSection() {
                         {item.subtitle}
                         {item.courseName ? ` - ${item.courseName}` : ""}
                       </p>
-                      {item.registrationNo ? (
+                      {item.enrollmentNo ? (
                         <p className="text-slate-500">
-                          Reg ID: <span className="font-bold text-slate-700">{item.registrationNo}</span>
+                          Enrollment: <span className="font-bold text-slate-700">{item.enrollmentNo}</span>
                         </p>
                       ) : null}
                       <p className="text-slate-500">{item.reason}</p>

@@ -22,13 +22,13 @@ export async function GET(request: Request) {
       .map((item: any) => String(item.studentId || ""))
       .filter((id: string) => Boolean(id));
     const students = studentIds.length
-      ? await AtcStudent.find({ _id: { $in: studentIds } }).select("_id registrationNo").lean()
+      ? await AtcStudent.find({ _id: { $in: studentIds } }).select("_id enrollmentNo").lean()
       : [];
     const regMap = new Map<string, string>();
-    students.forEach((student: any) => regMap.set(String(student._id), String(student.registrationNo || "")));
+    students.forEach((student: any) => regMap.set(String(student._id), String(student.enrollmentNo || "")));
     const historyWithReg = history.map((item: any) => ({
       ...item,
-      registrationNo: item.studentId ? regMap.get(String(item.studentId)) || "" : "",
+      enrollmentNo: item.studentId ? regMap.get(String(item.studentId)) || "" : "",
     }));
     const walletSettings = await Settings.find({
       key: { $in: ["wallet_payment_name", "wallet_payment_upi", "wallet_payment_note", "wallet_payment_qr", "qr_code"] },

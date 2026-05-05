@@ -6,6 +6,8 @@ import { useBrand } from "@/context/BrandContext";
 type AdmitCardStudent = {
   name?: string;
   photo?: string;
+  enrollmentNo?: string;
+  /** Issued when admit card is released (Registration → Student registration format). */
   registrationNo?: string;
   session?: string;
   fatherName?: string;
@@ -72,7 +74,7 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
       const imgData = canvas.toDataURL("image/jpeg", 0.98);
       const pdf = new jsPDF("p", "mm", "a4");
       pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
-      const fileName = `${(student.registrationNo || "admit-card").toString().replace(/\s+/g, "-")}.pdf`;
+      const fileName = `${(student.registrationNo || student.enrollmentNo || "admit-card").toString().replace(/\s+/g, "-")}.pdf`;
       pdf.save(fileName);
     } finally {
       setDownloading(false);
@@ -191,7 +193,8 @@ export default function AdmitCard({ student, exam, onClose }: AdmitCardProps) {
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-12 gap-y-8">
-                     <Detail label="Registration ID" value={student.registrationNo} strong />
+                     <Detail label="Enrollment number" value={student.enrollmentNo} strong />
+                     <Detail label="Registration number" value={student.registrationNo || "—"} strong />
                      <Detail label="Examination Batch" value={student.session || "2025-2026"} />
                      <Detail label="Father's Guardian" value={student.fatherName} />
                      <Detail label="Associated Center" value={student.tpCode || "Official Branch"} />

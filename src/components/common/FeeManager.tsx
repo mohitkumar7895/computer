@@ -9,7 +9,7 @@ import { useCallback } from "react";
 
 interface Student {
   _id: string;
-  registrationNo: string;
+  enrollmentNo: string;
   name: string;
   fatherName: string;
   mobile: string;
@@ -49,7 +49,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
   
   const [formData, setFormData] = useState({
     type: "collect",
-    registrationNo: "",
+    enrollmentNo: "",
     name: "",
     course: "",
     totalFee: 0,
@@ -117,7 +117,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
           totalFee: data.student.totalFee,
           paidAmount: data.student.paidAmount,
           duesAmount: data.student.duesAmount,
-          registrationNo: regNo
+          enrollmentNo: regNo
         }));
         // Auto-generate receipt number if empty
         if (!formData.receiptNo) {
@@ -134,7 +134,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
     setSubmitting(true);
     setMsg(null);
 
-    const student = students.find(s => s.registrationNo === formData.registrationNo);
+    const student = students.find(s => s.enrollmentNo === formData.enrollmentNo);
     if (!student) {
       setMsg({ type: "error", text: "Student not found" });
       setSubmitting(false);
@@ -167,7 +167,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
           setMsg(null);
           setFormData({
             type: "collect",
-            registrationNo: "",
+            enrollmentNo: "",
             name: "",
             course: "",
             totalFee: 0,
@@ -232,8 +232,8 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
               <div class="value">${student.name}</div>
             </div>
             <div style="text-align: right;">
-              <div class="label">Registration No</div>
-              <div class="value">${student.registrationNo}</div>
+              <div class="label">Enrollment number</div>
+              <div class="value">${student.enrollmentNo}</div>
             </div>
           </div>
           <table class="table">
@@ -281,7 +281,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-green-600" />
             <input 
               type="text" 
-              placeholder="Search Reg No..." 
+              placeholder="Search enrollment no…" 
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-50 transition w-64"
@@ -312,7 +312,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                <th className="px-6 py-4">Reg No</th>
+                <th className="px-6 py-4">Enrollment</th>
                 <th className="px-6 py-4">Student Details</th>
                 <th className="px-6 py-4">Course</th>
                 <th className="px-6 py-4">Financial Summary</th>
@@ -342,7 +342,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                 <tr key={s._id} className="hover:bg-slate-50/50 transition">
                   <td className="px-6 py-4">
                     <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 border border-slate-200">
-                      {s.registrationNo}
+                      {s.enrollmentNo}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -412,15 +412,15 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registration No</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Enrollment number</label>
                   <input 
                     type="text"
                     required
-                    value={formData.registrationNo}
-                    onChange={e => setFormData({...formData, registrationNo: e.target.value})}
-                    onBlur={() => handleLookup(formData.registrationNo)}
+                    value={formData.enrollmentNo}
+                    onChange={e => setFormData({...formData, enrollmentNo: e.target.value})}
+                    onBlur={() => handleLookup(formData.enrollmentNo)}
                     className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
-                    placeholder="Search Reg No..."
+                    placeholder="Search enrollment no…"
                   />
                 </div>
 
@@ -525,7 +525,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                 </div>
                 <div>
                   <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{selectedStudent.name}</h2>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{selectedStudent.registrationNo} • {selectedStudent.course}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{selectedStudent.enrollmentNo} • {selectedStudent.course}</p>
                 </div>
               </div>
               <button onClick={() => setShowDetails(false)} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition">

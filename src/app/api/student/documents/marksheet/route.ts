@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 import { Marksheet } from "@/models/Marksheet";
 import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
+import { StudentMedia } from "@/models/StudentMedia";
+import { learningCenterLineForMarksheet } from "@/lib/marksheetLearningCenter";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -29,13 +31,31 @@ export async function GET(request: Request) {
       .populate({
         path: "studentId",
         model: AtcStudent,
-        select: "name fatherName photo classRollNo"
+        select: "name fatherName motherName photo enrollmentNo registrationNo session dob classRollNo",
       });
 
     if (!ms) return NextResponse.json({ message: "Marksheet not found" }, { status: 404 });
 
-    return NextResponse.json({ data: ms });
-  } catch (error) {
+    const data = ms.toObject() as {
+      studentId?: { _id?: unknown; photo?: string } | string | null;
+      [k: string]: unknown;
+    };
+    const studentObj =
+      data.studentId && typeof data.studentId === "object" ? data.studentId : null;
+    if (studentObj?._id) {
+      const media = (await StudentMedia.findOne({
+        studentId: studentObj._id,
+        fieldName: "photo",
+      })
+        .select("content")
+        .lean()) as { content?: string } | null;
+      if (media?.content) studentObj.photo = media.content;
+    }
+
+    const learningCenterLine = await learningCenterLineForMarksheet(ms.atcId);
+
+    return NextResponse.json({ data, learningCenterLine });
+  } catch {
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }

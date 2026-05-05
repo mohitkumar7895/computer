@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       disabilityDetails: String(formData.get("disabilityDetails") || ""),
       examMode: String(formData.get("examMode") || "online"),
       admissionDate: String(formData.get("admissionDate") || new Date().toISOString().split('T')[0]),
-      registrationNo: `DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      enrollmentNo: `DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       password: mobile, // default password
       status: "pending_atc",
       isDirectAdmission: true,

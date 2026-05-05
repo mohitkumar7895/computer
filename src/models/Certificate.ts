@@ -6,13 +6,17 @@ export interface ICertificate {
   atcId: mongoose.Types.ObjectId;
   examId: mongoose.Types.ObjectId;
   enrollmentNo: string;
-  serialNo: string; // Unique Certificate ID
+  serialNo: string;
   issueDate: Date;
-  session: string; // e.g. 2025-26
+  session: string;
   courseName: string;
   centerCode: string;
   centerName: string;
   grade: string;
+  /** e.g. "APR-2025" — month-year admission started; printed on the "From ___" line. */
+  fromLabel?: string;
+  /** Course duration in months — printed on the "___ Duration" line as e.g. "3 MONTHS". */
+  durationMonths?: number;
   isApproved: boolean;
   createdAt: Date;
 }
@@ -30,9 +34,12 @@ const CertificateSchema = new Schema<ICertificate>(
     centerCode: { type: String, required: true },
     centerName: { type: String, required: true },
     grade: { type: String, required: true },
+    fromLabel: { type: String },
+    durationMonths: { type: Number, min: 0 },
     isApproved: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-export const Certificate = models.Certificate || model<ICertificate>("Certificate", CertificateSchema);
+export const Certificate =
+  models.Certificate || model<ICertificate>("Certificate", CertificateSchema);

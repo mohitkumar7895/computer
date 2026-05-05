@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Certificate } from "@/models/Certificate";
+import { Course } from "@/models/Course";
 import { AtcStudent } from "@/models/Student";
+import { StudentMedia } from "@/models/StudentMedia";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -32,11 +34,40 @@ export async function GET(request: Request) {
     const cert = await Certificate.findOne({ examId }).populate({
       path: "studentId",
       model: AtcStudent,
-      select: "name fatherName motherName photo registrationNo session course graduationDoc highestQualDoc dob gender mobile",
+      select:
+        "name fatherName motherName photo enrollmentNo session course graduationDoc highestQualDoc dob gender mobile admissionDate",
     });
 
     if (!cert) return NextResponse.json({ message: "Certificate not found" }, { status: 404 });
-    return NextResponse.json({ data: cert });
+
+    // Photos are stored separately in StudentMedia (16 MB doc-size workaround), so the
+    // populated studentId.photo is always "". Pull the media doc and inject it back.
+    const certData = cert.toObject() as {
+      studentId?: { _id?: unknown; photo?: string } | string | null;
+      durationMonths?: number;
+      courseName?: string;
+      [k: string]: unknown;
+    };
+    const studentObj =
+      certData.studentId && typeof certData.studentId === "object" ? certData.studentId : null;
+    if (studentObj?._id) {
+      const media = (await StudentMedia.findOne({
+        studentId: studentObj._id,
+        fieldName: "photo",
+      })
+        .select("content")
+        .lean()) as { content?: string } | null;
+      if (media?.content) studentObj.photo = media.content;
+    }
+
+    if (!certData.durationMonths && certData.courseName) {
+      const course = (await Course.findOne({ name: certData.courseName })
+        .select("durationMonths")
+        .lean()) as { durationMonths?: number } | null;
+      if (course?.durationMonths) certData.durationMonths = course.durationMonths;
+    }
+
+    return NextResponse.json({ data: certData });
   } catch {
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }

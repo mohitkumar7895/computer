@@ -12,12 +12,12 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const regNo = searchParams.get("regNo");
 
-  if (!regNo) return NextResponse.json({ message: "Reg No is required" }, { status: 400 });
+  if (!regNo) return NextResponse.json({ message: "Enrollment number is required" }, { status: 400 });
 
   await connectDB();
   
   try {
-    const query: any = { registrationNo: regNo };
+    const query: any = { enrollmentNo: regNo };
     if (user.role === "atc") {
       if (!user.tpCode) {
         return NextResponse.json({ message: "Invalid session: TP Code missing." }, { status: 403 });

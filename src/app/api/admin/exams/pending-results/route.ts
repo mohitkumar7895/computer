@@ -14,7 +14,7 @@ export async function GET() {
     .populate({
       path: "studentId",
       model: AtcStudent,
-      select: "name registrationNo photo course fatherName"
+      select: "name enrollmentNo photo course fatherName"
     })
     .populate({
       path: "atcId",

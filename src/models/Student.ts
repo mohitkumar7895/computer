@@ -1,10 +1,26 @@
 import mongoose, { Schema, model, models } from "mongoose";
 
+/**
+ * Legacy DBs may still use `registrationNo` — migrate once to `enrollmentNo` (mongosh):
+ * db.atcstudents.updateMany(
+ *   { registrationNo: { $exists: true } },
+ *   [{ $set: { enrollmentNo: "$registrationNo" } }, { $unset: "registrationNo" }]
+ * )
+ *
+ * Official `enrollmentNo` is generated from Settings `reg_format_student` when admin approves
+ * admission (see assignEnrollmentNoIfPending), or when an exam is approved with `admitCardReleased`
+ * if still pending.
+ * `registrationNo` is generated from `reg_format_student_registration` at the same time
+ * (see assignRegistrationNoIfPending) and shown on the admit card.
+ */
+
 export interface IStudent {
   _id: mongoose.Types.ObjectId;
   atcId: mongoose.Types.ObjectId;
   tpCode: string;
-  registrationNo: string;
+  enrollmentNo: string;
+  /** Admit-card registration id from `reg_format_student_registration` when admit is released. */
+  registrationNo?: string;
   name: string;
   fatherName: string;
   motherName: string;
@@ -65,6 +81,7 @@ const StudentSchema = new Schema<IStudent>(
   {
     atcId: { type: Schema.Types.ObjectId, ref: "AtcUser", required: true },
     tpCode: { type: String, required: true },
+    enrollmentNo: { type: String, unique: true, sparse: true },
     registrationNo: { type: String, unique: true, sparse: true },
     name: { type: String, required: true },
     fatherName: { type: String, required: true },
@@ -127,11 +144,12 @@ const StudentSchema = new Schema<IStudent>(
 StudentSchema.index({ atcId: 1, status: 1 });
 StudentSchema.index({ atcId: 1, userStatus: 1 });
 StudentSchema.index({ atcId: 1, createdAt: -1 });
+StudentSchema.index({ enrollmentNo: 1 });
 StudentSchema.index({ registrationNo: 1 });
 
 // Force re-registration of the model to handle schema updates in development
 if (models.AtcStudent) {
-  delete (models as any).AtcStudent;
+  Reflect.deleteProperty(models as Record<string, mongoose.Model<unknown>>, "AtcStudent");
 }
 
 export const AtcStudent = model<IStudent>("AtcStudent", StudentSchema);

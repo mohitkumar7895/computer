@@ -16,7 +16,7 @@ interface ExamRequest {
   studentId: {
     _id: string;
     name: string;
-    registrationNo: string;
+    enrollmentNo: string;
     course: string;
     fatherName?: string;
     mobile?: string;
@@ -59,7 +59,7 @@ interface QuestionSet {
 interface StudentCandidate {
   _id: string;
   name: string;
-  registrationNo: string;
+  enrollmentNo: string;
   course?: string;
   fatherName?: string;
   mobile?: string;
@@ -506,7 +506,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       for (const examId of selectedExams) {
         const exam = examMap.get(examId);
         if (!exam) continue;
-        const regNo = (exam.studentId?.registrationNo || "UNKNOWN").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+        const regNo = (exam.studentId?.enrollmentNo || "UNKNOWN").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
 
         for (const docType of selectedZipDocs) {
           const needsApprovedResult =
@@ -579,7 +579,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const filtered = requests.filter(r => {
     const matchesSearch = 
       r.studentId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.studentId?.registrationNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.studentId?.enrollmentNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.atcId?.trainingPartnerName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMode = filterMode === "all" || r.examMode === filterMode;
     const matchesStatus = filterStatus === "all" || r.approvalStatus === filterStatus;
@@ -644,7 +644,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text" 
-              placeholder="Search student or registration..." 
+              placeholder="Search student or enrollment no..." 
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500 transition"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -732,7 +732,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           }}
                         />
                       </th>
-                      <th className="px-6 py-4">Reg No / ID</th>
+                      <th className="px-6 py-4">Enrollment no.</th>
                       <th className="px-6 py-4">Student Identity</th>
                       <th className="px-6 py-4">Opted Course</th>
                       <th className="px-6 py-4 text-center">Eligibility</th>
@@ -768,7 +768,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           </td>
                           <td className="px-6 py-5">
                             <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                              {s.registrationNo || "PENDING"}
+                              {s.enrollmentNo || "PENDING"}
                             </span>
                           </td>
                           <td className="px-6 py-5">
@@ -920,7 +920,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                             )}
                             <div>
                               <p className="font-bold text-slate-800 uppercase text-xs leading-none mb-1">{exam.studentId?.name || "N/A"}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">{exam.studentId?.registrationNo || "No Reg"}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">{exam.studentId?.enrollmentNo || "—"}</p>
                             </div>
                           </div>
                         </td>
@@ -1214,7 +1214,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                  <div>
                     <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Offline Result</h3>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      {selectedExam.studentId?.name} • {selectedExam.studentId?.registrationNo}
+                      {selectedExam.studentId?.name} • {selectedExam.studentId?.enrollmentNo}
                     </p>
                  </div>
                  <button onClick={() => setShowResultModal(false)} className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition">
@@ -1289,7 +1289,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
                  <div>
                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Finalize Request</h3>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">{requestExamStudent.name} • {requestExamStudent.registrationNo}</p>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">{requestExamStudent.name} • {requestExamStudent.enrollmentNo}</p>
                  </div>
                  <button onClick={() => setRequestExamStudent(null)} className="p-2 bg-white rounded-full border border-slate-100 text-slate-400">
                     <X className="w-5 h-5" />
@@ -1299,7 +1299,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className={labelCls}>Student ID</label>
-                      <input className={inputCls} value={requestExamStudent.registrationNo || "N/A"} readOnly />
+                      <input className={inputCls} value={requestExamStudent.enrollmentNo || "N/A"} readOnly />
                     </div>
                     <div className="space-y-2">
                       <label className={labelCls}>Mode (From Admission)</label>

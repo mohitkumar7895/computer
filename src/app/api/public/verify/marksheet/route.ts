@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     const student = await AtcStudent.findOne({ 
-      registrationNo: enrollment.trim(), 
+      enrollmentNo: enrollment.trim(), 
       dob: dob.trim() 
     });
 
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 
     const responseData = {
       studentName: student.name,
-      enrollmentNumber: student.registrationNo,
+      enrollmentNumber: student.enrollmentNo,
       subjects: subjects,
       totalMarks: totalMarks,
       maxTotalMarks: maxTotalMarks,

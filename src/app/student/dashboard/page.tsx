@@ -25,7 +25,8 @@ import { apiFetch } from "@/utils/api";
 type StudentRecord = {
   _id: string;
   name: string;
-  registrationNo: string;
+  enrollmentNo: string;
+  registrationNo?: string;
   tpCode?: string;
   course: string;
   status: string;
@@ -61,6 +62,7 @@ type StudentMeResponse = {
   student: Partial<StudentRecord> & {
     _id?: string;
     name?: string;
+    enrollmentNo?: string;
     registrationNo?: string;
     course?: string;
     dob?: string;
@@ -101,7 +103,8 @@ export default function StudentDashboardPage() {
         const normalizedStudent: StudentRecord = {
           _id: data.student._id ?? "",
           name: data.student.name ?? "",
-          registrationNo: data.student.registrationNo ?? "",
+          enrollmentNo: data.student.enrollmentNo ?? "",
+          registrationNo: data.student.registrationNo,
           course: data.student.course ?? "N/A",
           dob: data.student.dob ?? "N/A",
           status: data.student.status ?? "N/A",
@@ -328,7 +331,7 @@ export default function StudentDashboardPage() {
                 {/* Quick Academic Summary */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                    {[
-                     { l: 'Reg Number', v: student.registrationNo, i: Fingerprint, c: 'blue' },
+                     { l: 'Enrollment number', v: student.enrollmentNo, i: Fingerprint, c: 'blue' },
                      { l: 'TP Center Code', v: student.tpCode, i: MapPin, c: 'indigo' },
                      { l: 'Current Course', v: student.course, i: BookOpen, c: 'emerald' },
                      { l: 'Account Status', v: student.status, i: CheckCircle, c: 'green' }
@@ -388,7 +391,7 @@ export default function StudentDashboardPage() {
 
                    <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 text-amber-800 text-sm font-medium flex gap-4">
                       <ShieldCheck className="shrink-0 text-amber-400" />
-                      <p>Carry your digital ID card on your mobile during examinations. It contains your unique <span className="font-bold">Registration UID</span> and official center authorization.</p>
+                      <p>Carry your digital ID card on your mobile during examinations. It contains your unique <span className="font-bold">enrollment number</span> and official center authorization.</p>
                    </div>
                 </div>
               </div>
@@ -432,7 +435,7 @@ export default function StudentDashboardPage() {
                           {[
                             { l: 'Enrolled Course', v: student.course, i: Award },
                             { l: 'Study Center', v: student.tpCode, i: MapPin },
-                            { l: 'Registration No', v: student.registrationNo, i: Fingerprint },
+                            { l: 'Enrollment number', v: student.enrollmentNo, i: Fingerprint },
                             { l: 'Status', v: student.status, i: CheckCircle },
                             { l: 'Joining Type', v: 'New Admission', i: ReceiptText },
                           ].map(it => (

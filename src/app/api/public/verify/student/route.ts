@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     const student = await AtcStudent.findOne({ 
-      registrationNo: enrollment.trim(), 
+      enrollmentNo: enrollment.trim(), 
       dob: dob.trim() 
     }).populate("atcId");
 
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     const responseData = {
       studentName: student.name,
-      enrollmentNumber: student.registrationNo,
+      enrollmentNumber: student.enrollmentNo,
       admissionDate: student.admissionDate,
       admissionCenter: atcName,
       atcCode: atcCode,

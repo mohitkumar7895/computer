@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { 
-  FileText, CheckCircle, Clock, AlertCircle, 
-  Download, Calendar, MapPin, Monitor, Map,
-  Award, ShieldCheck, Printer
+import { useState, useEffect, useCallback } from "react";
+import {
+  FileText,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Download,
+  Calendar,
+  Award,
+  ShieldCheck,
 } from "lucide-react";
 import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
@@ -12,55 +17,70 @@ import ExamCountdown from "@/components/common/ExamCountdown";
 import { buildExamWindow } from "@/lib/exam-schedule";
 import { apiFetch } from "@/utils/api";
 
+/** Minimal student shape for this dashboard (API returns lean doc). */
+export type ExamManagerStudent = {
+  _id: string;
+  course?: string;
+};
+
+/** Row from `/api/student/exams/status` — fields used in UI only. */
+export type StudentExamRow = {
+  _id: string;
+  examMode?: "online" | "offline";
+  offlineExamStatus?: string;
+  status?: string;
+  resultDeclared?: boolean;
+  marksheetReleased?: boolean;
+  certificateReleased?: boolean;
+  courseName?: string;
+  approvalStatus?: string;
+  examDate?: string;
+  examTime?: string;
+  offlineDetails?: { preferredDate?: string; preferredCenter?: string };
+  admitCardReleased?: boolean;
+  answers?: unknown[];
+  offlineExamCopy?: string;
+  durationMinutes?: number;
+};
+
 interface ExamManagerProps {
-  student: any;
+  student: ExamManagerStudent;
 }
 
 export default function ExamManager({ student }: ExamManagerProps) {
-  const [exams, setExams] = useState<any[]>([]);
+  const [exams, setExams] = useState<StudentExamRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [modeSelection, setModeSelection] = useState<"online" | "offline" | null>(null);
   const [offlineForm, setOfflineForm] = useState({
     preferredDate: "",
-    preferredCenter: ""
+    preferredCenter: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [selectedExam, setSelectedExam] = useState<any>(null);
+  const [selectedExam, setSelectedExam] = useState<StudentExamRow | null>(null);
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
-  const [examInProgress, setExamInProgress] = useState<any>(null);
+  const [examInProgress, setExamInProgress] = useState<StudentExamRow | null>(null);
+
+  const fetchExams = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/student/exams/status?studentId=${student._id}`);
+      const data = await res.json();
+      setExams((data.exams as StudentExamRow[]) || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [student._id]);
 
   useEffect(() => {
-    fetchExams();
-  }, [student]);
+    void fetchExams();
+  }, [fetchExams]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(intervalId);
   }, []);
-
-  const fetchExams = async () => {
-    try {
-      const res = await apiFetch(`/api/student/exams/status?studentId=${student._id}`);
-      const data = await res.json();
-      setExams(data.exams || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (exam: any) => {
-    setEditingExamId(exam._id);
-    setModeSelection(exam.examMode);
-    if (exam.examMode === "offline") {
-      setOfflineForm({
-        preferredDate: exam.offlineDetails?.preferredDate || "",
-        preferredCenter: exam.offlineDetails?.preferredCenter || ""
-      });
-    }
-  };
 
   const submitRequest = async (mode: "online" | "offline") => {
     setSubmitting(true);
@@ -87,7 +107,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
       } else {
         alert(data.message || "Failed to process request");
       }
-    } catch (err) {
+    } catch {
       alert("Something went wrong");
     } finally {
       setSubmitting(false);
@@ -144,8 +164,8 @@ export default function ExamManager({ student }: ExamManagerProps) {
             {editingExamId && (
               <select 
                 value={modeSelection || ""}
-                onChange={(e) => setModeSelection(e.target.value as any)}
-                className="w-1/3 px-6 py-5 bg-slate-100 rounded-[1.5rem] font-black uppercase text-xs tracking-widest outline-none border-none"
+                onChange={(e) => setModeSelection(e.target.value as "online" | "offline")}
+                className="w-1/3 px-6 py-5 bg-slate-100 rounded-3xl font-black uppercase text-xs tracking-widest outline-none border-none"
               >
                 <option value="online">Online Mode</option>
                 <option value="offline">Offline Mode</option>
@@ -154,7 +174,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
             <button 
               disabled={submitting}
               onClick={() => submitRequest(modeSelection || "offline")}
-              className="flex-1 py-5 bg-black text-white rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-800 transition shadow-xl"
+              className="flex-1 py-5 bg-black text-white rounded-3xl font-black uppercase tracking-widest hover:bg-slate-800 transition shadow-xl"
             >
               {submitting ? "Processing..." : (editingExamId ? "Update Request" : "Submit Request")}
             </button>
@@ -164,7 +184,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
 
       {/* Official Credentials Section */}
       {publishedExam && (
-        <section className="bg-gradient-to-br from-slate-900 to-[#0a0a2e] rounded-[3rem] border border-white/10 shadow-2xl p-10 lg:p-14 animate-in fade-in zoom-in-95 duration-1000 relative overflow-hidden">
+        <section className="bg-linear-to-br from-slate-900 to-[#0a0a2e] rounded-[3rem] border border-white/10 shadow-2xl p-10 lg:p-14 animate-in fade-in zoom-in-95 duration-1000 relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
               <div>
@@ -179,7 +199,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-4xl flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
                 <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <FileText className="text-blue-400 w-8 h-8" />
                 </div>
@@ -199,7 +219,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                 )}
               </div>
 
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-4xl flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500">
                 <div className="w-16 h-16 bg-amber-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <Award className="text-amber-400 w-8 h-8" />
                 </div>
@@ -245,7 +265,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
               <tbody>
                 {exams.map((exam) => (
                   <tr key={exam._id} className="group hover:scale-[1.01] transition-transform">
-                    <td className="px-6 py-5 bg-slate-50/50 rounded-l-[1.5rem]">
+                    <td className="px-6 py-5 bg-slate-50/50 rounded-l-3xl">
                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                         exam.examMode === 'online' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'
                       }`}>
@@ -295,7 +315,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                         <span className="text-[10px] text-slate-400 font-bold uppercase">Not Released</span>
                       )}
                     </td>
-                    <td className="px-6 py-5 bg-slate-50/50 rounded-r-[1.5rem]">
+                    <td className="px-6 py-5 bg-slate-50/50 rounded-r-3xl">
                       <div className="flex items-center gap-3">
                          {exam.approvalStatus === 'approved' && exam.status === 'pending' && exam.examMode === 'online' && (
                            <div className="flex flex-col items-start gap-1">

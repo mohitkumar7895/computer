@@ -219,7 +219,7 @@ export async function POST(request: Request) {
 
     if (!tpCode) {
       const { generateNextId } = await import("@/lib/idGenerator");
-      tpCode = await generateNextId("reg_format_center", AtcUser, "tpCode");
+      tpCode = await generateNextId("reg_format_center");
     }
 
     const finalPassword = rawPassword || mobile;

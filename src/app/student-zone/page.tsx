@@ -106,7 +106,7 @@ export default function StudentZonePage() {
               <Search className="text-blue-300 mr-4" size={24} />
               <input 
                 type="text" 
-                placeholder="Enter Registration No / Roll No..."
+                placeholder="Enter enrollment number or roll no…"
                 className="bg-transparent border-none outline-none text-lg font-bold w-full placeholder:text-blue-200/50"
                 value={regNo}
                 onChange={(e) => setRegNo(e.target.value)}
@@ -146,8 +146,8 @@ export default function StudentZonePage() {
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration No</p>
-                   <p className="text-xl font-black text-slate-800">{searchResult.student?.registrationNo}</p>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Enrollment number</p>
+                   <p className="text-xl font-black text-slate-800">{searchResult.student?.enrollmentNo}</p>
                 </div>
              </div>
              

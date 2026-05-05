@@ -6,6 +6,12 @@ import { Marksheet } from "@/models/Marksheet";
 import { Certificate } from "@/models/Certificate";
 import { AtcUser } from "@/models/AtcUser";
 import { Course } from "@/models/Course";
+import {
+  buildMarksheetFromCourse,
+  formatCertificateFromLabel,
+  gradeFromPercentage,
+  type CourseSubjectInput,
+} from "@/lib/examDocumentSplit";
 
 export async function POST(request: Request) {
   try {
@@ -17,20 +23,28 @@ export async function POST(request: Request) {
     if (!exam) return NextResponse.json({ message: "Exam not found" }, { status: 404 });
 
     const student = await AtcStudent.findById(exam.studentId);
-    
-    // Fetch course settings
-    let courseSettings = { hasMarksheet: true, hasCertificate: true };
-    if (student?.course) {
-       const course = await Course.findOne({ 
-         $or: [
-           { _id: student.courseId },
-           { name: student.course }
-         ]
-       });
-       if (course) {
-          courseSettings.hasMarksheet = course.hasMarksheet;
-          courseSettings.hasCertificate = course.hasCertificate;
-       }
+
+    type CourseLite = {
+      name?: string;
+      hasMarksheet?: boolean;
+      hasCertificate?: boolean;
+      durationMonths?: number;
+      subjects?: CourseSubjectInput[];
+    };
+    const courseSettings = { hasMarksheet: true, hasCertificate: true };
+    let courseDoc: CourseLite | null = null;
+    if (student) {
+      const ors: Record<string, unknown>[] = [];
+      if (student.courseId) ors.push({ _id: student.courseId });
+      if (student.course) ors.push({ name: student.course });
+      if (ors.length) {
+        const c = (await Course.findOne({ $or: ors }).lean()) as CourseLite | null;
+        if (c) {
+          courseDoc = c;
+          courseSettings.hasMarksheet = Boolean(c.hasMarksheet);
+          courseSettings.hasCertificate = Boolean(c.hasCertificate);
+        }
+      }
     }
 
     if (status === "published") {
@@ -48,7 +62,6 @@ export async function POST(request: Request) {
       const releaseMarksheet = Boolean(marksheet) && courseSettings.hasMarksheet;
       const releaseCertificate = Boolean(certificate) && courseSettings.hasCertificate;
 
-      // 1. Update Exam record
       exam.offlineExamStatus = "published";
       exam.status = "completed";
       exam.resultDeclared = true;
@@ -56,7 +69,6 @@ export async function POST(request: Request) {
       exam.certificateReleased = releaseCertificate;
       await exam.save();
 
-      // 2. Update Student Profile
       if (student) {
         student.offlineExamStatus = "published";
         await student.save();
@@ -64,7 +76,13 @@ export async function POST(request: Request) {
 
       const atc = await AtcUser.findById(exam.atcId);
 
-      // 3. Conditional Marksheet
+      const examMax = exam.maxScore && exam.maxScore > 0 ? exam.maxScore : 100;
+      const examObt = Math.max(0, exam.totalScore || 0);
+      const built = buildMarksheetFromCourse(examObt, examMax, courseDoc?.subjects ?? []);
+      const courseTitle =
+        (courseDoc?.name && String(courseDoc.name).trim()) || student?.course?.trim() || "N/A";
+      const gradeLetter = gradeFromPercentage(built.percentage);
+
       if (releaseMarksheet) {
         await Marksheet.findOneAndUpdate(
           { examId: exam._id },
@@ -72,33 +90,27 @@ export async function POST(request: Request) {
             studentId: exam.studentId,
             atcId: exam.atcId,
             examId: exam._id,
-            enrollmentNo: student?.registrationNo || "N/A",
+            enrollmentNo: student?.enrollmentNo || "N/A",
             rollNo: student?.classRollNo || "N/A",
-            courseName: student?.course,
-            subjects: [
-              {
-                subjectName: student?.course,
-                marksObtained: exam.totalScore || 0,
-                totalMarks: 100
-              }
-            ],
-            totalObtained: exam.totalScore || 0,
-            totalMax: 100,
-            percentage: exam.totalScore || 0,
-            grade: exam.grade || "A",
-            result: (exam.totalScore || 0) >= 33 ? "Pass" : "Fail",
+            courseName: courseTitle,
+            subjects: built.rows,
+            totalObtained: built.totalObtained,
+            totalMax: built.totalMax,
+            percentage: built.percentage,
+            grade: gradeLetter,
+            result: built.percentage >= 33 ? "Pass" : "Fail",
             issueDate: new Date(),
-            isApproved: true
+            isApproved: true,
           },
-          { upsert: true }
+          { upsert: true },
         );
       }
 
-      // 4. Conditional Certificate
       if (releaseCertificate) {
         const session = exam.session || student?.session || "2024-25";
         const count = await Certificate.countDocuments();
-        const serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+        const serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, "0")}`;
+        const fromLabel = formatCertificateFromLabel(student?.admissionDate);
 
         await Certificate.findOneAndUpdate(
           { examId: exam._id },
@@ -106,33 +118,36 @@ export async function POST(request: Request) {
             studentId: exam.studentId,
             atcId: exam.atcId,
             examId: exam._id,
-            enrollmentNo: student?.registrationNo || "N/A",
+            enrollmentNo: student?.enrollmentNo || "N/A",
             serialNo,
             issueDate: new Date(),
             session,
-            courseName: student?.course,
-            centerCode: atc?.centerCode || "N/A",
-            centerName: atc?.centerName || "N/A",
-            grade: exam.grade || "A",
-            isApproved: true
+            courseName: courseTitle,
+            centerCode: atc?.tpCode || "N/A",
+            centerName: atc?.trainingPartnerName || "N/A",
+            grade: gradeLetter,
+            ...(fromLabel ? { fromLabel } : {}),
+            ...(typeof courseDoc?.durationMonths === "number" && courseDoc.durationMonths > 0
+              ? { durationMonths: courseDoc.durationMonths }
+              : {}),
+            isApproved: true,
           },
-          { upsert: true }
+          { upsert: true },
         );
       }
-
     } else {
-      // Revert to 'appeared' (rejected)
       exam.offlineExamStatus = "appeared";
       await exam.save();
-      
+
       await AtcStudent.findByIdAndUpdate(exam.studentId, {
-        offlineExamStatus: "appeared"
+        offlineExamStatus: "appeared",
       });
     }
 
     return NextResponse.json({ message: "Action completed successfully" });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[api/admin/exams/approve-result] Error:", error);
-    return NextResponse.json({ message: error.message || "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

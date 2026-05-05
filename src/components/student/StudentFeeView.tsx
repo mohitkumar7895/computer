@@ -19,7 +19,7 @@ interface Transaction {
 type FeeStudent = {
   _id: string;
   name: string;
-  registrationNo: string;
+  enrollmentNo: string;
   duesAmount?: number;
   totalFee?: number;
   admissionFees?: number | string;
@@ -83,8 +83,8 @@ export default function StudentFeeView({ student }: { student: FeeStudent }) {
               <div class="value">${student.name}</div>
             </div>
             <div style="text-align: right;">
-              <div class="label">Registration No</div>
-              <div class="value">${student.registrationNo}</div>
+              <div class="label">Enrollment number</div>
+              <div class="value">${student.enrollmentNo}</div>
             </div>
           </div>
           <table class="table">

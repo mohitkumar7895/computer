@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       }
 
       student.status = "pending_admin";
-      student.registrationNo = `PENDING-${Date.now()}-${student.aadharNo || Math.floor(Math.random() * 1000)}`;
+      student.enrollmentNo = `PENDING-${Date.now()}-${student.aadharNo || Math.floor(Math.random() * 1000)}`;
       student.totalFee = parsedFee;
       student.admissionFees = String(parsedFee);
       student.duesAmount = parsedFee - (student.paidAmount || 0);

@@ -5,6 +5,8 @@ import { StudentExam } from "@/models/StudentExam";
 import { CenterSetAssignment } from "@/models/CenterSetAssignment";
 import "@/models/QuestionSet";
 import { lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
+import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 
 export async function GET(request: Request) {
   try {
@@ -95,6 +97,15 @@ export async function POST(request: Request) {
     // Sync mode to student profile
     await AtcStudent.findByIdAndUpdate(studentId, { examMode: examMode });
 
+    if (examMode === "online" && newExam.approvalStatus === "approved" && newExam.admitCardReleased) {
+      try {
+        await assignEnrollmentNoIfPending(newExam.studentId);
+        await assignRegistrationNoIfPending(newExam.studentId);
+      } catch (e) {
+        console.error("[student/exams/status POST] assign enrollment/registration", e);
+      }
+    }
+
     return NextResponse.json({ message: "Exam mode selected successfully.", exam: newExam });
   } catch (error) {
     console.error("[student/exams/request-mode POST]", error);
@@ -154,6 +165,15 @@ export async function PUT(request: Request) {
 
     // Sync mode to student profile
     await AtcStudent.findByIdAndUpdate(exam.studentId, { examMode: examMode });
+
+    if (exam.approvalStatus === "approved" && exam.admitCardReleased) {
+      try {
+        await assignEnrollmentNoIfPending(exam.studentId);
+        await assignRegistrationNoIfPending(exam.studentId);
+      } catch (e) {
+        console.error("[student/exams/status PUT] assign enrollment/registration", e);
+      }
+    }
 
     return NextResponse.json({ message: "Exam request updated successfully.", exam });
   } catch (error: any) {

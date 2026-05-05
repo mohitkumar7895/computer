@@ -13,7 +13,7 @@ interface StudentIdCardProps {
     fatherName?: string;
     dob: string;
     course: string;
-    registrationNo: string;
+    enrollmentNo: string;
     admissionDate?: string;
     centerName?: string;
     centerAddress?: string;
@@ -123,7 +123,7 @@ export default function StudentIdCard({ student, backgrounds = {} }: StudentIdCa
             <div className="mt-10 space-y-3.5 px-2 text-left">
                 <DataRow label="FATHER NAME" value={student.fatherName || "---"} />
                 <DataRow label="DATE OF BIRTH" value={student.dob} />
-                <DataRow label="REGISTRATION NO" value={student.registrationNo} highlight />
+                <DataRow label="ENROLLMENT NO." value={student.enrollmentNo} highlight />
                 <DataRow label="ADMISSION DATE" value={student.admissionDate || "---"} />
             </div>
             <div className="mt-auto pt-8 flex justify-between items-center px-2">
