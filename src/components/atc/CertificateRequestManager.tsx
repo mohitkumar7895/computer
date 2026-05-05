@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from "react";
-import { Users, Clock, Search, RefreshCw, Calendar, X, Building2, ClipboardCheck, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, type ChangeEvent, type FormEvent } from "react";
+import { Users, Clock, Search, RefreshCw, Calendar, X, Building2, ClipboardCheck, Trash2, ScrollText } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import { deriveInternalExternalMax } from "@/lib/examDocumentSplit";
+import {
+  DEFAULT_MARKSHEET_GRADE_BANDS,
+  MARKSHEET_GRADE_BANDS_KEY,
+  gradeFromMarksOrSubjectRows,
+  parseGradeBandsJson,
+  type GradeBand,
+} from "@/lib/marksheetGradeScaleCore";
 
 interface ExamRequest {
   _id: string;
@@ -22,6 +29,7 @@ interface ExamRequest {
     mobile?: string;
     photo?: string;
     profileImage?: string;
+    session?: string;
   };
   examMode: "online" | "offline";
   offlineDetails?: {
@@ -86,6 +94,17 @@ interface AtcStudentLite {
 
 type ExamStatusForm = "not_appeared" | "appeared" | "published";
 
+type OnlineAttemptItem = {
+  order: number;
+  questionText: string;
+  options: string[];
+  correctOption: string;
+  selectedOption: string;
+  correct: boolean;
+  marksEarned: number;
+  marks: number;
+};
+
 export default function CertificateRequestManager({ atcId, role = "atc" }: { atcId?: string, role?: "admin" | "atc" }) {
   const [requests, setRequests] = useState<ExamRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,17 +138,27 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     status: "published" as "not_appeared" | "appeared" | "published",
     marks: "",
     resultStatus: "Pass" as "Pass" | "Fail" | "Waiting",
-    grade: "A",
-    session: ""
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
   const [subjectResultRows, setSubjectResultRows] = useState<SubjectResultRow[]>([]);
+  const [resultGradeBands, setResultGradeBands] = useState<GradeBand[]>(() => [
+    ...DEFAULT_MARKSHEET_GRADE_BANDS,
+  ]);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [releaseForm, setReleaseForm] = useState({ 
     marksheet: true, 
     certificate: true 
   });
+
+  const [onlineAttemptExam, setOnlineAttemptExam] = useState<ExamRequest | null>(null);
+  const [onlineAttemptPayload, setOnlineAttemptPayload] = useState<{
+    items: OnlineAttemptItem[];
+    totalScore: number;
+    maxScore: number;
+    submittedAt: string | null;
+  } | null>(null);
+  const [onlineAttemptLoading, setOnlineAttemptLoading] = useState(false);
 
   const { loading: authLoading, user: authUser } = useAuth();
 
@@ -249,8 +278,17 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       formData.append("offlineExamStatus", submitStatus);
       formData.append("totalScore", effectiveMarks);
       formData.append("offlineExamResult", resultForm.resultStatus);
-      formData.append("grade", resultForm.grade);
-      formData.append("session", resultForm.session);
+      const { grade: submitGrade } = gradeFromMarksOrSubjectRows(
+        subjectResultRows,
+        effectiveMarks,
+        selectedExam.maxScore,
+        resultGradeBands,
+      );
+      formData.append("grade", submitGrade);
+      formData.append(
+        "session",
+        selectedExam.studentId?.session?.trim() || selectedExam.session?.trim() || "",
+      );
       formData.append("examMode", selectedExam.examMode);
       if (subjectResultRows.length > 0) {
         formData.append("subjectMarks", JSON.stringify(subjectResultRows));
@@ -402,11 +440,35 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       status: "published",
       marks: marksStr,
       resultStatus: autoResultStatus as "Pass" | "Fail" | "Waiting",
-      grade: exam.grade || "A",
-      session: exam.session || ""
     });
     setResultCopyFile(null);
     setShowResultModal(true);
+  };
+
+  const openOnlineAttemptReview = async (exam: ExamRequest) => {
+    setOnlineAttemptExam(exam);
+    setOnlineAttemptPayload(null);
+    setOnlineAttemptLoading(true);
+    try {
+      const res = await apiFetch(`/api/atc/exams/${exam._id}/online-attempt`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(typeof data.message === "string" ? data.message : "Could not load attempt.");
+        setOnlineAttemptExam(null);
+        return;
+      }
+      setOnlineAttemptPayload({
+        items: Array.isArray(data.items) ? data.items : [],
+        totalScore: Number(data.totalScore) || 0,
+        maxScore: Number(data.maxScore) || 0,
+        submittedAt: data.submittedAt ?? null,
+      });
+    } catch {
+      alert("Could not load the student's paper.");
+      setOnlineAttemptExam(null);
+    } finally {
+      setOnlineAttemptLoading(false);
+    }
   };
 
   const updateSubjectScore = (
@@ -429,6 +491,35 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       return next;
     });
   };
+
+  useEffect(() => {
+    if (!showResultModal || !selectedExam) return;
+    let cancelled = false;
+    fetch(`/api/public/settings?key=${MARKSHEET_GRADE_BANDS_KEY}`)
+      .then((r) => r.json())
+      .then((d: { value?: string | null }) => {
+        if (!cancelled) setResultGradeBands(parseGradeBandsJson(d?.value ?? null));
+      })
+      .catch(() => {
+        if (!cancelled) setResultGradeBands([...DEFAULT_MARKSHEET_GRADE_BANDS]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showResultModal, selectedExam?._id]);
+
+  const derivedMarksGrade = useMemo(
+    () =>
+      selectedExam
+        ? gradeFromMarksOrSubjectRows(
+            subjectResultRows,
+            resultForm.marks,
+            selectedExam.maxScore,
+            resultGradeBands,
+          )
+        : { pct: 0, grade: "—" },
+    [selectedExam, subjectResultRows, resultForm.marks, resultGradeBands],
+  );
 
   const filtered = requests.filter(r => {
     const matchesSearch = 
@@ -606,13 +697,35 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                              </div>
                           </td>
                           <td className="px-6 py-5 text-right">
-                              <div className="flex items-center justify-end gap-2 text-slate-800">
+                              <div className="flex items-center justify-end gap-2 text-slate-800 flex-wrap">
                                 {role === "atc" && (
-                                  <button 
-                                    onClick={() => openResultModal(r)}
-                                    className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
+                                  <>
+                                    {r.examMode === "online" && r.status === "completed" && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openOnlineAttemptReview(r)}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition shadow-sm"
+                                      >
+                                        <ScrollText className="w-3.5 h-3.5" />
+                                        View paper
+                                      </button>
+                                    )}
+                                    <button 
+                                      onClick={() => openResultModal(r)}
+                                      className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100"
+                                    >
+                                      {r.examMode === "online" ? "Edit Exam Result" : "Enter Exam Result"}
+                                    </button>
+                                  </>
+                                )}
+                                {role === "admin" && r.examMode === "online" && r.status === "completed" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openOnlineAttemptReview(r)}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition shadow-sm"
                                   >
-                                    {r.examMode === "online" ? "Edit Exam Result" : "Enter Exam Result"}
+                                    <ScrollText className="w-3.5 h-3.5" />
+                                    View paper
                                   </button>
                                 )}
                                 {role === "admin" && (
@@ -779,9 +892,21 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                                </div>
                              )}
                             {role === "atc" && exam.approvalStatus === "approved" && exam.offlineExamStatus !== "published" && (
-                               <button onClick={() => openResultModal(exam)} className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition uppercase shadow-sm">
-                                 {exam.examMode === "online" ? "Edit Exam Result" : "Enter Exam Result"}
-                               </button>
+                               <div className="flex flex-wrap items-center justify-end gap-2">
+                                 {exam.examMode === "online" && exam.status === "completed" && (
+                                   <button
+                                     type="button"
+                                     onClick={() => openOnlineAttemptReview(exam)}
+                                     className="inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition uppercase shadow-sm"
+                                   >
+                                     <ScrollText className="w-3.5 h-3.5" />
+                                     View paper
+                                   </button>
+                                 )}
+                                 <button onClick={() => openResultModal(exam)} className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition uppercase shadow-sm">
+                                   {exam.examMode === "online" ? "Edit Exam Result" : "Enter Exam Result"}
+                                 </button>
+                               </div>
                             )}
                             {role === "admin" && exam.offlineExamStatus === "review_pending" && (
                                <div className="flex items-center gap-2">
@@ -806,6 +931,16 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                                        className="text-[10px] font-black px-2 py-1 rounded bg-slate-900 text-white hover:bg-black transition uppercase whitespace-nowrap"
                                      >
                                        Issue Docs
+                                     </button>
+                                   )}
+                                   {exam.examMode === "online" && (
+                                     <button
+                                       type="button"
+                                       onClick={() => openOnlineAttemptReview(exam)}
+                                       className="inline-flex items-center justify-center gap-1.5 text-[10px] font-black px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition uppercase"
+                                     >
+                                       <ScrollText className="w-3.5 h-3.5" />
+                                       View paper
                                      </button>
                                    )}
                                    <div className="flex gap-1.5">
@@ -1073,30 +1208,21 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                 )}
 
                 <div
-                  className={`grid grid-cols-1 ${selectedExam.examMode === "offline" ? "lg:grid-cols-12" : "sm:grid-cols-2"} gap-4`}
+                  className={`grid grid-cols-1 ${selectedExam.examMode === "offline" ? "lg:grid-cols-12" : "sm:grid-cols-1"} gap-4`}
                 >
-                  <div className={selectedExam.examMode === "offline" ? "lg:col-span-3" : ""}>
-                    <label className={resultModalLabelCls}>Grade *</label>
-                    <input
-                      className={resultModalInputCls}
-                      placeholder="e.g. A+"
-                      value={resultForm.grade}
-                      onChange={(e) => setResultForm({ ...resultForm, grade: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className={selectedExam.examMode === "offline" ? "lg:col-span-3" : ""}>
-                    <label className={resultModalLabelCls}>Academic session *</label>
-                    <input
-                      className={resultModalInputCls}
-                      placeholder="e.g. 2025-26"
-                      value={resultForm.session}
-                      onChange={(e) => setResultForm({ ...resultForm, session: e.target.value })}
-                      required
-                    />
+                  <div className={selectedExam.examMode === "offline" ? "lg:col-span-4" : ""}>
+                    <label className={resultModalLabelCls}>Grade (auto from marks)</label>
+                    <div className={`${resultModalInputCls} bg-slate-50/90`}>
+                      <span className="text-base font-bold text-slate-900 tabular-nums">
+                        {derivedMarksGrade.grade}
+                      </span>
+                      <p className={resultModalHelperCls + " mt-1"}>
+                        {derivedMarksGrade.pct}% total — uses the grade scale from Admin → Settings.
+                      </p>
+                    </div>
                   </div>
                   {selectedExam.examMode === "offline" && (
-                    <div className="lg:col-span-6">
+                    <div className="lg:col-span-8">
                       <label className={resultModalLabelCls}>Answer copy (PDF or image)</label>
                       <input
                         type="file"
@@ -1125,6 +1251,131 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {onlineAttemptExam && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-3 sm:p-4 text-slate-800">
+          <div className="bg-white w-full max-w-3xl max-h-[min(92vh,820px)] rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/80">
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <ScrollText className="w-5 h-5 text-indigo-600 shrink-0" />
+                  Online exam — student paper
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  <span className="font-semibold text-slate-700">{onlineAttemptExam.studentId?.name}</span>
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  {onlineAttemptExam.studentId?.enrollmentNo}
+                </p>
+                {onlineAttemptPayload && (
+                  <p className="text-xs text-slate-600 mt-2 tabular-nums">
+                    Score:{" "}
+                    <span className="font-bold text-emerald-700">
+                      {onlineAttemptPayload.totalScore} / {onlineAttemptPayload.maxScore}
+                    </span>
+                    {onlineAttemptPayload.submittedAt ? (
+                      <span className="text-slate-400 ml-2">
+                        · Submitted {new Date(onlineAttemptPayload.submittedAt).toLocaleString()}
+                      </span>
+                    ) : null}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setOnlineAttemptExam(null);
+                  setOnlineAttemptPayload(null);
+                }}
+                className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {onlineAttemptLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500 text-sm font-medium">
+                  <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+                  Loading questions…
+                </div>
+              ) : onlineAttemptPayload && onlineAttemptPayload.items.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-12">
+                  No recorded answers for this attempt yet.
+                </p>
+              ) : (
+                onlineAttemptPayload?.items.map((item) => (
+                  <div
+                    key={item.order}
+                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">
+                        Question {item.order}
+                      </p>
+                      <span
+                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          item.correct
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {item.correct ? "Correct" : "Wrong"} · {item.marksEarned}/{item.marks} pts
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 leading-snug mb-3">{item.questionText}</p>
+                    <ul className="space-y-1.5">
+                      {item.options.map((opt, oidx) => {
+                        const isSelected = opt === item.selectedOption;
+                        const isCorrect = opt === item.correctOption;
+                        return (
+                          <li
+                            key={`${item.order}-${oidx}`}
+                            className={`text-xs sm:text-sm px-3 py-2 rounded-lg border ${
+                              isSelected && isCorrect
+                                ? "border-emerald-400 bg-emerald-50 font-semibold text-emerald-900"
+                                : isSelected && !isCorrect
+                                  ? "border-rose-400 bg-rose-50 font-semibold text-rose-900"
+                                  : isCorrect
+                                    ? "border-emerald-200 bg-emerald-50/50 text-emerald-800"
+                                    : "border-slate-100 bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            {opt}
+                            {isSelected ? (
+                              <span className="ml-2 text-[10px] font-black uppercase text-slate-500">
+                                (student choice)
+                              </span>
+                            ) : null}
+                            {isCorrect && !isSelected ? (
+                              <span className="ml-2 text-[10px] font-black uppercase text-emerald-600">
+                                (correct)
+                              </span>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="shrink-0 px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setOnlineAttemptExam(null);
+                  setOnlineAttemptPayload(null);
+                }}
+                className="px-5 py-2 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-black transition"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

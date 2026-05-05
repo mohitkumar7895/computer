@@ -8,6 +8,14 @@
  * subject's totals so the overlay always has clean numbers to print.
  */
 
+import {
+  gradeFromPercentageWithBands,
+  DEFAULT_MARKSHEET_GRADE_BANDS,
+  type GradeBand,
+} from "./marksheetGradeScaleCore";
+
+export type { GradeBand };
+
 export type MarksSplit = {
   internalObtained: number;
   internalMax: number;
@@ -189,13 +197,10 @@ export function buildMarksheetFromCourse(
   return { rows, totalObtained, totalMax, percentage };
 }
 
-/** Letter grade from total percentage (marksheet legend style; &lt;50% maps to D like printed legend). */
-export function gradeFromPercentage(pct: number): string {
-  const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
-  if (p >= 85) return "S";
-  if (p >= 75) return "A";
-  if (p >= 65) return "B";
-  if (p >= 55) return "C";
-  if (p >= 50) return "D";
-  return "D";
+/** Letter grade from percentage. Pass bands from DB; defaults match legacy cutoffs. */
+export function gradeFromPercentage(
+  pct: number,
+  bands: GradeBand[] = DEFAULT_MARKSHEET_GRADE_BANDS,
+): string {
+  return gradeFromPercentageWithBands(pct, bands);
 }

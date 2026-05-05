@@ -1,7 +1,13 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, useEffect, type CSSProperties } from "react";
 import { gradeFromPercentage, splitInternalExternal } from "@/lib/examDocumentSplit";
+import {
+  DEFAULT_MARKSHEET_GRADE_BANDS,
+  MARKSHEET_GRADE_BANDS_KEY,
+  parseGradeBandsJson,
+  type GradeBand,
+} from "@/lib/marksheetGradeScaleCore";
 
 /**
  * Yukti-style portrait A4 marksheet (210×297mm).
@@ -29,7 +35,11 @@ const L = {
   mother: { top: "99mm", left: "39mm", right: "9mm" },
   course: { top: "108.5mm", left: "37mm", right: "10mm" },
 
-  table: { top: "156mm", left: "10mm", width: "188mm" },
+  /**
+   * Subject data rows — slightly higher so names sit closer to the printed headers.
+   * Totals row uses `tableFooterTop` so it stays on the original template line.
+   */
+  table: { subjectTop: "142mm", footerTop: "208.5mm", left: "10mm", width: "188mm" },
   rowH: "7.5mm",
 
   summaryTop: "218mm",
@@ -145,6 +155,23 @@ function looksLikeLearningCenterLine(t: string): boolean {
 }
 
 export default function MarksheetBackgroundOverlay({ data, learningCenter, verifyUrl }: Props) {
+  const [gradeBands, setGradeBands] = useState<GradeBand[]>(() => [...DEFAULT_MARKSHEET_GRADE_BANDS]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/public/settings?key=${MARKSHEET_GRADE_BANDS_KEY}`)
+      .then((r) => r.json())
+      .then((body: { value?: string | null }) => {
+        if (!cancelled) setGradeBands(parseGradeBandsJson(body?.value ?? null));
+      })
+      .catch(() => {
+        if (!cancelled) setGradeBands([...DEFAULT_MARKSHEET_GRADE_BANDS]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const s = pickStudent(data.studentId);
   const regNoOnly = (s?.registrationNo && String(s.registrationNo).trim()) || "";
   const stEnr = (s?.enrollmentNo && String(s.enrollmentNo).trim()) || "";
@@ -159,7 +186,7 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
   })();
   const regDisplay = regNoOnly || enrollDisplay;
   const displayGrade =
-    safeText(data.grade) || gradeFromPercentage(Number(data.percentage) || 0);
+    safeText(data.grade) || gradeFromPercentage(Number(data.percentage) || 0, gradeBands);
 
   type Cell = { intO: number; intM: number; extO: number; extM: number };
   const { rows, rowMarks, footerMarks } = useMemo(() => {
@@ -360,7 +387,7 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
         {safeText(data.courseName)}
       </p>
 
-      <div className="absolute" style={{ top: L.table.top, left: L.table.left, width: L.table.width }}>
+      <div className="absolute" style={{ top: L.table.subjectTop, left: L.table.left, width: L.table.width }}>
         <table className="w-full table-fixed border-collapse text-[10px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
@@ -407,6 +434,20 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="absolute" style={{ top: L.table.footerTop, left: L.table.left, width: L.table.width }}>
+        <table className="w-full table-fixed border-collapse text-[10px] text-black font-extrabold">
+          <colgroup>
+            <col style={{ width: "88mm" }} />
+            <col style={{ width: "25mm" }} />
+            <col style={{ width: "25mm" }} />
+            <col style={{ width: "25mm" }} />
+            <col style={{ width: "25mm" }} />
+          </colgroup>
+          <tbody>
             <tr style={{ height: L.rowH }}>
               <td className="box-border pl-[4mm] pr-[2mm] align-middle" aria-hidden />
               <td

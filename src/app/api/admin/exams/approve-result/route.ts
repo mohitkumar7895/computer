@@ -12,6 +12,7 @@ import {
   gradeFromPercentage,
   type CourseSubjectInput,
 } from "@/lib/examDocumentSplit";
+import { getMarksheetGradeBands } from "@/lib/marksheetGradeScale";
 
 export async function POST(request: Request) {
   try {
@@ -198,7 +199,8 @@ export async function POST(request: Request) {
             : 0;
       }
 
-      const gradeLetter = exam.grade || gradeFromPercentage(finalPercentage);
+      const gradeBands = await getMarksheetGradeBands();
+      const gradeLetter = exam.grade || gradeFromPercentage(finalPercentage, gradeBands);
 
       exam.offlineExamStatus = "published";
       exam.status = "completed";

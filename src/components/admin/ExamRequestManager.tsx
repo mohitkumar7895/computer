@@ -1,10 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { Users, Clock, Search, RefreshCw, Calendar, X, AlertCircle, FileText, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import {
+  DEFAULT_MARKSHEET_GRADE_BANDS,
+  MARKSHEET_GRADE_BANDS_KEY,
+  gradeFromMarksOrSubjectRows,
+  parseGradeBandsJson,
+  type GradeBand,
+} from "@/lib/marksheetGradeScaleCore";
 
 interface ExamRequest {
   _id: string;
@@ -13,6 +20,7 @@ interface ExamRequest {
     trainingPartnerName?: string;
     tpCode?: string;
   };
+  session?: string;
   studentId: {
     _id: string;
     name: string;
@@ -22,6 +30,7 @@ interface ExamRequest {
     mobile?: string;
     photo?: string;
     profileImage?: string;
+    session?: string;
   };
   examMode: "online" | "offline";
   offlineDetails?: {
@@ -123,6 +132,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const [offlineResultGradeBands, setOfflineResultGradeBands] = useState<GradeBand[]>(() => [
+    ...DEFAULT_MARKSHEET_GRADE_BANDS,
+  ]);
   const [zipLoading, setZipLoading] = useState(false);
   const [selectedZipDocs, setSelectedZipDocs] = useState<ZipDocType[]>(["certificate", "marksheet"]);
   const [issueDateExamId, setIssueDateExamId] = useState<string | null>(null);
@@ -181,6 +193,35 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     void fetchRequests();
     void fetchQuestionSets();
   }, [atcId, fetchRequests, fetchQuestionSets, authLoading, authUser]);
+
+  useEffect(() => {
+    if (!showResultModal || !selectedExam) return;
+    let cancelled = false;
+    fetch(`/api/public/settings?key=${MARKSHEET_GRADE_BANDS_KEY}`)
+      .then((r) => r.json())
+      .then((d: { value?: string | null }) => {
+        if (!cancelled) setOfflineResultGradeBands(parseGradeBandsJson(d?.value ?? null));
+      })
+      .catch(() => {
+        if (!cancelled) setOfflineResultGradeBands([...DEFAULT_MARKSHEET_GRADE_BANDS]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showResultModal, selectedExam?._id]);
+
+  const offlineDerivedGrade = useMemo(
+    () =>
+      selectedExam
+        ? gradeFromMarksOrSubjectRows(
+            [],
+            resultForm.marks,
+            selectedExam.maxScore,
+            offlineResultGradeBands,
+          )
+        : { pct: 0, grade: "—" },
+    [selectedExam, resultForm.marks, offlineResultGradeBands],
+  );
 
   const toDateInputValue = (value?: string) => {
     if (!value) return "";
@@ -280,6 +321,17 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       formData.append("offlineExamStatus", resultForm.status);
       formData.append("totalScore", resultForm.marks);
       formData.append("offlineExamResult", resultForm.resultStatus);
+      const { grade: g } = gradeFromMarksOrSubjectRows(
+        [],
+        resultForm.marks,
+        selectedExam.maxScore,
+        offlineResultGradeBands,
+      );
+      formData.append("grade", g);
+      formData.append(
+        "session",
+        selectedExam.studentId?.session?.trim() || selectedExam.session?.trim() || "",
+      );
       if (resultCopyFile) formData.append("examCopy", resultCopyFile);
 
       const res = await apiFetch("/api/atc/exams/offline-result", {
@@ -1271,6 +1323,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                           required={resultForm.status === 'published'}
                         />
                      </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-700">
+                    <span className="font-black uppercase tracking-wide text-slate-500">Grade (auto)</span>
+                    <p className="mt-1 font-bold text-slate-900 tabular-nums">
+                      {offlineDerivedGrade.grade}
+                      <span className="font-medium text-slate-500 ml-2">({offlineDerivedGrade.pct}%)</span>
+                    </p>
                   </div>
 
                   <div className="space-y-2">

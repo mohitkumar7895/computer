@@ -1,11 +1,18 @@
 "use client";
 
-import { useRef, useState, useEffect, type FormEvent } from "react";
+import { useRef, useState, useEffect, useMemo, type FormEvent } from "react";
 import NextImage from "next/image";
 import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, RefreshCw, ShieldCheck, Download, XCircle, Search, Hash, X } from "lucide-react";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import {
+  DEFAULT_MARKSHEET_GRADE_BANDS,
+  MARKSHEET_GRADE_BANDS_KEY,
+  gradeFromMarksOrSubjectRows,
+  parseGradeBandsJson,
+  type GradeBand,
+} from "@/lib/marksheetGradeScaleCore";
 
 interface Student {
   _id: string;
@@ -107,14 +114,14 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   const [requesting, setRequesting] = useState(false);
   const [showResultModal, setShowResultModal] = useState<Student | null>(null);
   const [viewIdCard, setViewIdCard] = useState<Student | null>(null);
-  const [resultForm, setResultForm] = useState({ 
-    marks: "", 
-    grade: "A", 
-    session: "2024-25",
-    examStatus: "appeared" as const
+  const [resultForm, setResultForm] = useState({
+    marks: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [resultSubmitting, setResultSubmitting] = useState(false);
+  const [resultGradeBands, setResultGradeBands] = useState<GradeBand[]>(() => [
+    ...DEFAULT_MARKSHEET_GRADE_BANDS,
+  ]);
   
   // Local validation states for modals
   const [modalInvalidFields, setModalInvalidFields] = useState<Set<string>>(new Set());
@@ -170,6 +177,27 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudent?._id]);
+
+  useEffect(() => {
+    if (!showResultModal) return;
+    let cancelled = false;
+    fetch(`/api/public/settings?key=${MARKSHEET_GRADE_BANDS_KEY}`)
+      .then((r) => r.json())
+      .then((d: { value?: string | null }) => {
+        if (!cancelled) setResultGradeBands(parseGradeBandsJson(d?.value ?? null));
+      })
+      .catch(() => {
+        if (!cancelled) setResultGradeBands([...DEFAULT_MARKSHEET_GRADE_BANDS]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showResultModal?._id]);
+
+  const simpleOfflineResultGrade = useMemo(() => {
+    if (!showResultModal) return { pct: 0, grade: "—" as string };
+    return gradeFromMarksOrSubjectRows([], resultForm.marks, 100, resultGradeBands);
+  }, [showResultModal, resultForm.marks, resultGradeBands]);
 
   const handleLookup = async () => {
     if (!lookupRegNo.trim()) return;
@@ -457,6 +485,12 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
 
     setResultSubmitting(true);
     try {
+      const { grade: submitGrade } = gradeFromMarksOrSubjectRows(
+        [],
+        resultForm.marks,
+        100,
+        resultGradeBands,
+      );
       const res = await apiFetch("/api/atc/exams/offline-result", {
         method: "POST",
         headers: { 
@@ -466,9 +500,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
           studentId: showResultModal._id,
           offlineExamStatus: "review_pending",
           totalScore: resultForm.marks,
-          offlineExamResult: parseInt(resultForm.marks) >= 33 ? "Pass" : "Fail",
-          grade: resultForm.grade,
-          session: resultForm.session
+          offlineExamResult: parseInt(resultForm.marks, 10) >= 33 ? "Pass" : "Fail",
+          grade: submitGrade,
+          session: showResultModal.session?.trim() || "",
         })
       });
       if (res.ok) {
@@ -1734,9 +1768,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 gap-5">
                 <div className="space-y-1.5">
-                  <label className={basicLabelCls}>Marks Obtained *</label>
+                  <label className={basicLabelCls}>Marks obtained *</label>
                   <input 
                     type="number"
                     value={resultForm.marks}
@@ -1749,27 +1783,18 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={basicLabelCls}>Grade *</label>
-                  <select 
-                    value={resultForm.grade}
-                    onChange={e => setResultForm({...resultForm, grade: e.target.value})}
-                    className={basicInputCls}
-                    required
-                  >
-                    <option>A+</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option>
-                  </select>
+                  <label className={basicLabelCls}>Grade (auto)</label>
+                  <div className={`${basicInputCls} bg-slate-50 text-slate-800`}>
+                    <span className="font-bold tabular-nums">{simpleOfflineResultGrade.grade}</span>
+                    <span className="text-slate-500 font-medium ml-2 tabular-nums">
+                      ({simpleOfflineResultGrade.pct}%)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-medium">
+                    Academic session sent from the student profile:{" "}
+                    <span className="text-slate-700">{showResultModal.session?.trim() || "—"}</span>
+                  </p>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className={basicLabelCls}>Academic Session *</label>
-                <input 
-                  value={resultForm.session}
-                  onChange={e => setResultForm({...resultForm, session: e.target.value})}
-                  className={basicInputCls}
-                  placeholder="e.g. 2024-25"
-                  required
-                />
               </div>
 
               <div className="p-4 bg-blue-50 rounded-2xl flex gap-3 border border-blue-100">

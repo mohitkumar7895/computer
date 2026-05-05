@@ -6,6 +6,8 @@ import { Marksheet } from "@/models/Marksheet";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { getExamScheduledAtUtc } from "@/lib/examScheduleUtc";
+import { gradeFromPercentage } from "@/lib/examDocumentSplit";
+import { getMarksheetGradeBands } from "@/lib/marksheetGradeScale";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 type OfflineExamStatus = "not_appeared" | "appeared" | "review_pending" | "published";
@@ -18,16 +20,6 @@ type IncomingSubjectRow = {
   externalObtained?: number | string;
   externalMax?: number | string;
 };
-
-function gradeFromPercentage(percentage: number): string {
-  if (percentage >= 90) return "A+";
-  if (percentage >= 80) return "A";
-  if (percentage >= 70) return "B+";
-  if (percentage >= 60) return "B";
-  if (percentage >= 50) return "C";
-  if (percentage >= 33) return "D";
-  return "F";
-}
 
 export async function POST(request: Request) {
   try {
@@ -197,7 +189,8 @@ export async function POST(request: Request) {
       const percentage = totalMaxForCalc > 0
         ? Math.round((totalObtForCalc / totalMaxForCalc) * 10000) / 100
         : 0;
-      const computedGrade = grade || gradeFromPercentage(percentage);
+      const bands = await getMarksheetGradeBands();
+      const computedGrade = grade || gradeFromPercentage(percentage, bands);
       const computedResult: "Pass" | "Fail" =
         offlineExamResult === "Fail" ? "Fail" : percentage >= 33 ? "Pass" : "Fail";
 

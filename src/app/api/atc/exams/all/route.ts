@@ -38,7 +38,7 @@ export async function GET() {
     const requests = await StudentExam.find({ atcId: new mongoose.Types.ObjectId(decoded.id) })
       .populate({
         path: "studentId",
-        select: "name enrollmentNo course courseId fatherName mobile photo profileImage",
+        select: "name enrollmentNo course courseId fatherName mobile photo profileImage session",
         model: AtcStudent,
       })
       .populate({

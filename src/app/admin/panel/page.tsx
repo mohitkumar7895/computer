@@ -9,7 +9,7 @@ import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
   Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, MapPin, BookOpen, User, Building2, CreditCard, EyeOff, Hash, Save, Printer,
-  Layout, Type, Mail, X
+  Layout, Type, Mail, X, GraduationCap
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
@@ -27,6 +27,14 @@ import {
   type YearPlan,
   type ZoneFeeRow,
 } from "@/utils/affiliationFeeShared";
+import {
+  DEFAULT_MARKSHEET_GRADE_BANDS,
+  MARKSHEET_GRADE_BANDS_KEY,
+  normalizeGradeBands,
+  parseGradeBandsJson,
+  serializeGradeBandsJson,
+  type GradeBand,
+} from "@/lib/marksheetGradeScaleCore";
 import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 import WalletRequestManager from "@/components/admin/WalletRequestManager";
@@ -107,6 +115,16 @@ interface Student {
   paidAmount?: number;
   duesAmount?: number;
 }
+
+/** Matches ATC student registration (StudentManager). */
+const ADMIN_EDIT_QUALIFICATION_OPTIONS = [
+  "Below Matric",
+  "Matriculation",
+  "Intermediate",
+  "Graduation",
+  "Post Graduation",
+  "PHD Above",
+] as const;
 
 type StudentLooseFields = {
   aadhaarNo?: string;
@@ -268,6 +286,10 @@ export default function AdminPanelPage() {
   const [walletPayQr, setWalletPayQr] = useState("");
   const [walletPaySaving, setWalletPaySaving] = useState(false);
   const [brandSaving, setBrandSaving] = useState(false);
+  const [marksheetGradeBands, setMarksheetGradeBands] = useState<GradeBand[]>(() => [
+    ...DEFAULT_MARKSHEET_GRADE_BANDS,
+  ]);
+  const [marksheetGradeBandsSaving, setMarksheetGradeBandsSaving] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
     setToastMsg({ type, text });
@@ -536,6 +558,10 @@ export default function AdminPanelPage() {
       const wpqRes = await apiFetch("/api/admin/settings?key=wallet_payment_qr");
       const wpqData = (await wpqRes.json()) as { value: string | null };
       setWalletPayQr(wpqData.value && wpqData.value !== "-" ? wpqData.value : "");
+
+      const mgRes = await apiFetch(`/api/admin/settings?key=${MARKSHEET_GRADE_BANDS_KEY}`);
+      const mgData = (await mgRes.json()) as { value: string | null };
+      setMarksheetGradeBands(parseGradeBandsJson(mgData.value));
     } catch { /* ignore */ } finally {
       setQrLoading(false);
       setSigLoading(false);
@@ -660,6 +686,30 @@ export default function AdminPanelPage() {
       showToast("error", "Failed to save brand settings.");
     } finally {
       setBrandSaving(false);
+    }
+  };
+
+  const saveMarksheetGradeBands = async () => {
+    if (!authUser) return;
+    setMarksheetGradeBandsSaving(true);
+    try {
+      const normalized = normalizeGradeBands(marksheetGradeBands);
+      const res = await apiFetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: MARKSHEET_GRADE_BANDS_KEY,
+          value: serializeGradeBandsJson(normalized),
+        }),
+      });
+      if (res.ok) {
+        setMarksheetGradeBands(normalized);
+        showToast("success", "Marksheet grade scale saved.");
+      } else showToast("error", "Could not save grade scale.");
+    } catch {
+      showToast("error", "Could not save grade scale.");
+    } finally {
+      setMarksheetGradeBandsSaving(false);
     }
   };
 
@@ -2295,6 +2345,97 @@ export default function AdminPanelPage() {
                   </div>
                 </div>
 
+                {/* Marksheet grade scale (percentage → letter) */}
+                <div className="md:col-span-2 bg-white rounded-4xl border border-slate-100 shadow-xl p-8 space-y-6">
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
+                      <GraduationCap className="w-7 h-7 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Marksheet grade scale</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-1">
+                        Minimum percentage for each grade (highest threshold wins). Used when publishing results, when ATC syncs subject marks, and on the marksheet when grade is derived from percentage.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
+                      <span>Min %</span>
+                      <span>Grade</span>
+                      <span className="w-10" aria-hidden />
+                    </div>
+                    {marksheetGradeBands.map((row, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step="any"
+                          value={row.minPercent}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setMarksheetGradeBands((prev) =>
+                              prev.map((r, j) =>
+                                j === i ? { ...r, minPercent: Number.isFinite(v) ? v : 0 } : r,
+                              ),
+                            );
+                          }}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50"
+                        />
+                        <input
+                          type="text"
+                          value={row.grade}
+                          onChange={(e) =>
+                            setMarksheetGradeBands((prev) =>
+                              prev.map((r, j) => (j === i ? { ...r, grade: e.target.value } : r)),
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50"
+                          placeholder="e.g. S"
+                        />
+                        <button
+                          type="button"
+                          disabled={marksheetGradeBands.length <= 1}
+                          onClick={() => setMarksheetGradeBands((prev) => prev.filter((_, j) => j !== i))}
+                          className="p-3 rounded-xl border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-100 disabled:opacity-40"
+                          aria-label="Remove row"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMarksheetGradeBands((prev) => [...prev, { minPercent: 0, grade: "" }])}
+                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50"
+                    >
+                      Add row
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMarksheetGradeBands([...DEFAULT_MARKSHEET_GRADE_BANDS])}
+                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50"
+                    >
+                      Reset defaults
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveMarksheetGradeBands()}
+                      disabled={marksheetGradeBandsSaving}
+                      className="ml-auto px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {marksheetGradeBandsSaving ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      Save grade scale
+                    </button>
+                  </div>
+                </div>
+
                 {/* QR Code Setting */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
                   <div className="flex items-center gap-3">
@@ -3262,15 +3403,75 @@ export default function AdminPanelPage() {
                     <div className="bg-white rounded-4xl border border-slate-100 shadow-sm p-6">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Academic & Contact</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                          { label: "Email Address", key: "email" }, { label: "Mobile Number", key: "mobile" }, { label: "Course Name", key: "course" },
-                          { label: "Session", key: "session" }, { label: "Course Type", key: "courseType" }, { label: "Highest Qualification", key: "highestQualification" },
-                          { label: "Course name", key: "qualificationDetail" }, { label: "Exam Mode", key: "examMode" },
-                          { label: "Admission Date", key: "admissionDate" }, { label: "Total Fee", key: "admissionFees" },
-                        ].map((field) => (
+                        {(
+                          [
+                            { label: "Email Address", key: "email" },
+                            { label: "Mobile Number", key: "mobile" },
+                            { label: "Course Name", key: "course" },
+                            { label: "Session", key: "session" },
+                            { label: "Course Type", key: "courseType" },
+                            { label: "Highest Qualification", key: "highestQualification", kind: "qualSelect" as const },
+                            { label: "Exam Mode", key: "examMode", kind: "examSelect" as const },
+                            { label: "Admission Date", key: "admissionDate" },
+                            { label: "Total Fee", key: "admissionFees" },
+                          ] as const
+                        ).map((field) => (
                           <div key={field.key}>
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
-                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
+                            {"kind" in field && field.kind === "qualSelect" ? (
+                              <select
+                                value={getStudentFieldValue(studentEditValues, field.key)}
+                                onChange={(e) =>
+                                  setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition bg-white"
+                              >
+                                <option value="">Select qualification</option>
+                                {ADMIN_EDIT_QUALIFICATION_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                                {(() => {
+                                  const v = getStudentFieldValue(studentEditValues, field.key);
+                                  if (!v?.trim()) return null;
+                                  if (ADMIN_EDIT_QUALIFICATION_OPTIONS.includes(v as (typeof ADMIN_EDIT_QUALIFICATION_OPTIONS)[number])) {
+                                    return null;
+                                  }
+                                  return (
+                                    <option value={v}>
+                                      {v} (current)
+                                    </option>
+                                  );
+                                })()}
+                              </select>
+                            ) : "kind" in field && field.kind === "examSelect" ? (
+                              <select
+                                value={(() => {
+                                  const em = String(studentEditValues.examMode || "").toLowerCase();
+                                  return em === "offline" ? "offline" : "online";
+                                })()}
+                                onChange={(e) =>
+                                  setStudentEditValues((prev) => ({
+                                    ...prev,
+                                    examMode: e.target.value as "online" | "offline",
+                                  }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition bg-white"
+                              >
+                                <option value="online">Online</option>
+                                <option value="offline">Offline</option>
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={getStudentFieldValue(studentEditValues, field.key)}
+                                onChange={(e) =>
+                                  setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                              />
+                            )}
                           </div>
                         ))}
                         <div>

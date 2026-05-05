@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     const requests = await StudentExam.find(query)
       .populate({
         path: "studentId",
-        select: "name enrollmentNo mobile course courseId",
+        select: "name enrollmentNo mobile course courseId session",
         model: AtcStudent
       })
       .populate({

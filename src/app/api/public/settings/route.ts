@@ -13,6 +13,8 @@ const ALLOWED_PUBLIC_KEYS = new Set([
   "brand_address",
   "brand_url",
   "brand_logo",
+  /** JSON array of { minPercent, grade } for marksheet letter grades (public read for print preview). */
+  "marksheet_grade_bands",
 ]);
 
 export const dynamic = "force-dynamic";
