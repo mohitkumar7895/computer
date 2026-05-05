@@ -7,7 +7,6 @@ import { Certificate } from "@/models/Certificate";
 import { AtcUser } from "@/models/AtcUser";
 import { Course } from "@/models/Course";
 import {
-  buildMarksheetFromCourse,
   formatCertificateFromLabel,
   gradeFromPercentage,
   type CourseSubjectInput,
@@ -15,7 +14,21 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { examId, status, marksheet = false, certificate = false } = await request.json();
+    const {
+      examId,
+      status,
+      marksheet = false,
+      certificate = false,
+      issueDate: issueDateRaw,
+    } = await request.json();
+
+    // Single source of truth: the date picked by admin in the approval modal is
+    // used as Marksheet.issueDate AND Certificate.issueDate. Falls back to now.
+    let issueDate = new Date();
+    if (issueDateRaw) {
+      const parsed = new Date(issueDateRaw);
+      if (!Number.isNaN(parsed.getTime())) issueDate = parsed;
+    }
 
     await connectDB();
 
@@ -26,6 +39,7 @@ export async function POST(request: Request) {
 
     type CourseLite = {
       name?: string;
+      shortName?: string;
       hasMarksheet?: boolean;
       hasCertificate?: boolean;
       durationMonths?: number;
@@ -36,7 +50,12 @@ export async function POST(request: Request) {
     if (student) {
       const ors: Record<string, unknown>[] = [];
       if (student.courseId) ors.push({ _id: student.courseId });
-      if (student.course) ors.push({ name: student.course });
+      if (student.course) {
+        const safe = String(student.course).trim();
+        const escaped = safe.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        ors.push({ name: { $regex: `^${escaped}$`, $options: "i" } });
+        ors.push({ shortName: { $regex: `^${escaped}$`, $options: "i" } });
+      }
       if (ors.length) {
         const c = (await Course.findOne({ $or: ors }).lean()) as CourseLite | null;
         if (c) {
@@ -48,19 +67,137 @@ export async function POST(request: Request) {
     }
 
     if (status === "published") {
-      if (exam.examMode === "offline" && exam.offlineExamStatus !== "review_pending") {
+      // Only block offline exams that clearly have no result workflow yet.
+      // Allow review_pending, appeared, legacy rows with missing status, etc.
+      if (exam.examMode === "offline" && exam.offlineExamStatus === "not_appeared") {
         return NextResponse.json({ message: "Offline result is not in admin review queue." }, { status: 400 });
       }
-      if (
-        exam.examMode === "online" &&
-        exam.status !== "completed" &&
-        exam.offlineExamStatus !== "review_pending"
-      ) {
-        return NextResponse.json({ message: "Online result is not ready for admin approval." }, { status: 400 });
+      const hasSubmittedMarks =
+        (typeof exam.totalScore === "number" && exam.totalScore > 0) ||
+        (Array.isArray(exam.subjectMarks) && exam.subjectMarks.length > 0);
+      if (exam.examMode === "online") {
+        const ready =
+          exam.status === "completed" ||
+          exam.offlineExamStatus === "review_pending" ||
+          hasSubmittedMarks;
+        if (!ready) {
+          return NextResponse.json({ message: "Online result is not ready for admin approval." }, { status: 400 });
+        }
       }
 
       const releaseMarksheet = Boolean(marksheet) && courseSettings.hasMarksheet;
       const releaseCertificate = Boolean(certificate) && courseSettings.hasCertificate;
+
+      // Marksheet rows = exactly what ATC saved (exam.subjectMarks), never
+      // buildMarksheetFromCourse. If the exam doc is missing the array (rare),
+      // fall back to a draft Marksheet row created on ATC submit (offline-result upsert).
+      type MarkRow = {
+        subjectName: string;
+        marksObtained: number;
+        totalMarks: number;
+        internalObtained: number;
+        internalMax: number;
+        externalObtained: number;
+        externalMax: number;
+      };
+
+      let markRows: MarkRow[] = Array.isArray(exam.subjectMarks)
+        ? exam.subjectMarks.map((row, idx) => {
+            const internalObtained = Number(row.internalObtained ?? 0) || 0;
+            const internalMax = Number(row.internalMax ?? 0) || 0;
+            const externalObtained = Number(row.externalObtained ?? 0) || 0;
+            const externalMax = Number(row.externalMax ?? 0) || 0;
+            const mo = Number(row.marksObtained ?? NaN);
+            const tm = Number(row.totalMarks ?? NaN);
+            const sumO = internalObtained + externalObtained;
+            const sumM = internalMax + externalMax;
+            const subjectName =
+              String(row.subjectName ?? "").trim() || `Subject ${idx + 1}`;
+            return {
+              subjectName,
+              marksObtained: Number.isFinite(mo) ? mo : sumO,
+              totalMarks: Number.isFinite(tm) ? tm : sumM,
+              internalObtained,
+              internalMax,
+              externalObtained,
+              externalMax,
+            };
+          })
+        : [];
+
+      if (releaseMarksheet && markRows.length === 0) {
+        const draft = await Marksheet.findOne({ examId: exam._id }).lean();
+        const subj = draft?.subjects;
+        if (Array.isArray(subj) && subj.length > 0) {
+          markRows = subj.map((s, idx) => {
+            const internalObtained = Number(s.internalObtained ?? 0) || 0;
+            const internalMax = Number(s.internalMax ?? 0) || 0;
+            const externalObtained = Number(s.externalObtained ?? 0) || 0;
+            const externalMax = Number(s.externalMax ?? 0) || 0;
+            const mo = Number(s.marksObtained ?? NaN);
+            const tm = Number(s.totalMarks ?? NaN);
+            const marksObtained = Number.isFinite(mo)
+              ? mo
+              : internalObtained + externalObtained;
+            const totalMarks = Number.isFinite(tm)
+              ? tm
+              : internalMax + externalMax;
+            return {
+              subjectName:
+                String(s.subjectName ?? "").trim() || `Subject ${idx + 1}`,
+              marksObtained,
+              totalMarks,
+              internalObtained,
+              internalMax,
+              externalObtained,
+              externalMax,
+            };
+          });
+        }
+      }
+
+      const examMax = exam.maxScore && exam.maxScore > 0 ? exam.maxScore : 100;
+      const examObt = Math.max(0, exam.totalScore || 0);
+
+      // No subject-wise rows: use one aggregate row so marksheet + approval still work.
+      // Never inject this if exam already had subjectMarks (those must print as ATC typed).
+      const hadExamSubjectMarks =
+        Array.isArray(exam.subjectMarks) && exam.subjectMarks.length > 0;
+      if (releaseMarksheet && markRows.length === 0 && !hadExamSubjectMarks) {
+        markRows = [
+          {
+            subjectName: "Course",
+            marksObtained: examObt,
+            totalMarks: examMax > 0 ? examMax : Math.max(1, examObt || 1),
+            internalObtained: 0,
+            internalMax: 0,
+            externalObtained: 0,
+            externalMax: 0,
+          },
+        ];
+      }
+
+      let finalTotalObtained: number;
+      let finalTotalMax: number;
+      let finalPercentage: number;
+
+      if (markRows.length > 0) {
+        finalTotalObtained = markRows.reduce((s, r) => s + r.marksObtained, 0);
+        finalTotalMax = markRows.reduce((s, r) => s + r.totalMarks, 0);
+        finalPercentage =
+          finalTotalMax > 0
+            ? Math.round((finalTotalObtained / finalTotalMax) * 10000) / 100
+            : 0;
+      } else {
+        finalTotalObtained = examObt;
+        finalTotalMax = examMax;
+        finalPercentage =
+          finalTotalMax > 0
+            ? Math.round((finalTotalObtained / finalTotalMax) * 10000) / 100
+            : 0;
+      }
+
+      const gradeLetter = exam.grade || gradeFromPercentage(finalPercentage);
 
       exam.offlineExamStatus = "published";
       exam.status = "completed";
@@ -75,13 +212,8 @@ export async function POST(request: Request) {
       }
 
       const atc = await AtcUser.findById(exam.atcId);
-
-      const examMax = exam.maxScore && exam.maxScore > 0 ? exam.maxScore : 100;
-      const examObt = Math.max(0, exam.totalScore || 0);
-      const built = buildMarksheetFromCourse(examObt, examMax, courseDoc?.subjects ?? []);
       const courseTitle =
         (courseDoc?.name && String(courseDoc.name).trim()) || student?.course?.trim() || "N/A";
-      const gradeLetter = gradeFromPercentage(built.percentage);
 
       if (releaseMarksheet) {
         await Marksheet.findOneAndUpdate(
@@ -93,13 +225,13 @@ export async function POST(request: Request) {
             enrollmentNo: student?.enrollmentNo || "N/A",
             rollNo: student?.classRollNo || "N/A",
             courseName: courseTitle,
-            subjects: built.rows,
-            totalObtained: built.totalObtained,
-            totalMax: built.totalMax,
-            percentage: built.percentage,
+            subjects: markRows,
+            totalObtained: finalTotalObtained,
+            totalMax: finalTotalMax,
+            percentage: finalPercentage,
             grade: gradeLetter,
-            result: built.percentage >= 33 ? "Pass" : "Fail",
-            issueDate: new Date(),
+            result: (exam.offlineExamResult === "Fail" || finalPercentage < 33) ? "Fail" : "Pass",
+            issueDate,
             isApproved: true,
           },
           { upsert: true },
@@ -120,7 +252,7 @@ export async function POST(request: Request) {
             examId: exam._id,
             enrollmentNo: student?.enrollmentNo || "N/A",
             serialNo,
-            issueDate: new Date(),
+            issueDate,
             session,
             courseName: courseTitle,
             centerCode: atc?.tpCode || "N/A",

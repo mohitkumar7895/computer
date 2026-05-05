@@ -158,7 +158,8 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
     return roll;
   })();
   const regDisplay = regNoOnly || enrollDisplay;
-  const displayGrade = gradeFromPercentage(Number(data.percentage) || 0);
+  const displayGrade =
+    safeText(data.grade) || gradeFromPercentage(Number(data.percentage) || 0);
 
   type Cell = { intO: number; intM: number; extO: number; extM: number };
   const { rows, rowMarks, footerMarks } = useMemo(() => {
@@ -166,20 +167,24 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
     const r = Array.from({ length: 7 }, (_, i) => subjects[i] ?? null);
     const resolve = (row: MarksheetBgSubject | null): Cell | null => {
       if (!row) return null;
-      if (
-        row.internalObtained != null &&
-        row.internalMax != null &&
-        row.externalObtained != null &&
-        row.externalMax != null
-      ) {
-        return {
-          intO: row.internalObtained,
-          intM: row.internalMax,
-          extO: row.externalObtained,
-          extM: row.externalMax,
-        };
+      const name = String(row.subjectName ?? "").trim();
+      const intO = Math.max(0, Number(row.internalObtained ?? 0) || 0);
+      const intM = Math.max(0, Number(row.internalMax ?? 0) || 0);
+      const extO = Math.max(0, Number(row.externalObtained ?? 0) || 0);
+      const extM = Math.max(0, Number(row.externalMax ?? 0) || 0);
+      const mo = Number(row.marksObtained ?? 0) || 0;
+      const tm = Number(row.totalMarks ?? 0) || 0;
+
+      // Only the legacy single total row uses 30/70 split. Real subjects (any name
+      // except exact "Course") print stored Internal/External as-is — including
+      // lowercase "course" as a subject title, case-insensitive match for aggregate.
+      const isLegacyTotalOnlyRow = /^course$/i.test(name);
+
+      if (name && !isLegacyTotalOnlyRow) {
+        return { intO, intM, extO, extM };
       }
-      const sp = splitInternalExternal(row.marksObtained, row.totalMarks);
+
+      const sp = splitInternalExternal(mo, tm > 0 ? tm : Math.max(1, mo));
       return { intO: sp.internalObtained, intM: sp.internalMax, extO: sp.externalObtained, extM: sp.externalMax };
     };
     const marks = r.map(resolve);
@@ -343,7 +348,7 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
         {safeText(s?.motherName)}
       </p>
       <p
-        className={`${nameCls} !leading-tight`}
+        className={`${nameCls} leading-tight!`}
         style={{
           ...courseNudge,
           ...valFont,
@@ -356,7 +361,7 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
       </p>
 
       <div className="absolute" style={{ top: L.table.top, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse [font-size:10px] text-black [font-weight:800]">
+        <table className="w-full table-fixed border-collapse text-[10px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -434,13 +439,13 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
       </div>
 
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none [font-size:10.5px] text-black [font-weight:800]"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.gradeCx, L.summaryTop), ...valFont }}
       >
         {safeText(displayGrade)}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none [font-size:10.5px] text-black [font-weight:800]"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.pctCx, L.summaryTop), ...valFont }}
       >
         {data.percentage !== "" && data.percentage != null
@@ -448,20 +453,20 @@ export default function MarksheetBackgroundOverlay({ data, learningCenter, verif
           : ""}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none [font-size:10.5px] text-black [font-weight:800]"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.maxCx, L.summaryTop), ...valFont }}
       >
         {data.totalMax}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none [font-size:10.5px] text-black [font-weight:800]"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.obtCx, L.summaryTop), ...valFont }}
       >
         {data.totalObtained}
       </p>
 
       <p
-        className="absolute tabular-nums leading-none [font-size:10.25px] text-black [font-weight:800]"
+        className="absolute tabular-nums leading-none text-[10.25px] text-black font-extrabold"
         style={{ ...fieldNudge, ...valFont, top: L.date.top, left: L.date.left }}
       >
         {formatDateDDMMYYYY(data.issueDate)}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } fr
 import { Users, Clock, Search, RefreshCw, Calendar, X, Building2, ClipboardCheck, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import { deriveInternalExternalMax } from "@/lib/examDocumentSplit";
 
 interface ExamRequest {
   _id: string;
@@ -43,9 +44,32 @@ interface ExamRequest {
   certificateReleased?: boolean;
   grade?: string;
   session?: string;
+  courseSubjects?: Array<{
+    name: string;
+    fullMarks: number;
+    theoryMarks: number;
+    practicalMarks: number;
+  }>;
+  subjectMarks?: Array<{
+    subjectName: string;
+    internalObtained: number;
+    internalMax: number;
+    externalObtained: number;
+    externalMax: number;
+    marksObtained?: number;
+    totalMarks?: number;
+  }>;
   submittedAt?: string;
   updatedAt: string;
 }
+
+type SubjectResultRow = {
+  subjectName: string;
+  internalObtained: number;
+  internalMax: number;
+  externalObtained: number;
+  externalMax: number;
+};
 
 interface QuestionSet {
   _id: string;
@@ -100,6 +124,7 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
   });
   const [resultSaving, setResultSaving] = useState(false);
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
+  const [subjectResultRows, setSubjectResultRows] = useState<SubjectResultRow[]>([]);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [releaseForm, setReleaseForm] = useState({ 
     marksheet: true, 
@@ -208,10 +233,16 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
     setResultSaving(true);
     try {
       const submitStatus = role === "atc" ? "published" : resultForm.status;
+      const rowSum = subjectResultRows.reduce(
+        (s, r) => s + (Number(r.internalObtained) || 0) + (Number(r.externalObtained) || 0),
+        0,
+      );
       const effectiveMarks =
-        selectedExam.examMode === "online"
-          ? String(resultForm.marks || selectedExam.totalScore || 0)
-          : resultForm.marks;
+        subjectResultRows.length > 0
+          ? String(rowSum)
+          : selectedExam.examMode === "online"
+            ? String(resultForm.marks || selectedExam.totalScore || 0)
+            : resultForm.marks;
       const formData = new FormData();
       formData.append("studentId", selectedExam.studentId?._id);
       formData.append("examId", selectedExam._id);
@@ -221,6 +252,9 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       formData.append("grade", resultForm.grade);
       formData.append("session", resultForm.session);
       formData.append("examMode", selectedExam.examMode);
+      if (subjectResultRows.length > 0) {
+        formData.append("subjectMarks", JSON.stringify(subjectResultRows));
+      }
       if (resultCopyFile) formData.append("examCopy", resultCopyFile);
 
       const res = await apiFetch("/api/atc/exams/offline-result", {
@@ -322,16 +356,78 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
       exam.offlineExamResult ||
       (typeof exam.totalScore === "number" ? (exam.totalScore >= 33 ? "Pass" : "Fail") : "Pass");
 
+    let initialRows: SubjectResultRow[] = [];
+    if (Array.isArray(exam.subjectMarks) && exam.subjectMarks.length > 0) {
+      initialRows = exam.subjectMarks.map((m) => ({
+        subjectName: m.subjectName,
+        internalObtained: Number(m.internalObtained ?? 0),
+        internalMax: Number(m.internalMax ?? 0),
+        externalObtained: Number(m.externalObtained ?? 0),
+        externalMax: Number(m.externalMax ?? 0),
+      }));
+    } else if (Array.isArray(exam.courseSubjects) && exam.courseSubjects.length > 0) {
+      const subs = exam.courseSubjects;
+      initialRows = subs.map((s) => {
+        let internalMax = Number(s.practicalMarks || 0);
+        let externalMax = Number(s.theoryMarks || 0);
+        const fullMarks = Number(s.fullMarks || internalMax + externalMax || 0);
+        if (internalMax === 0 && externalMax === 0 && fullMarks > 0) {
+          const d = deriveInternalExternalMax(fullMarks);
+          internalMax = d.internalMax;
+          externalMax = d.externalMax;
+        }
+        return {
+          subjectName: s.name,
+          internalObtained: 0,
+          internalMax,
+          externalObtained: 0,
+          externalMax,
+        };
+      });
+    }
+
+    setSubjectResultRows(initialRows);
+
+    const rowSum = initialRows.reduce(
+      (s, r) => s + (Number(r.internalObtained) || 0) + (Number(r.externalObtained) || 0),
+      0,
+    );
+    const marksStr =
+      initialRows.length > 0
+        ? String(rowSum)
+        : exam.totalScore?.toString() || "";
+
     setSelectedExam(exam);
     setResultForm({
       status: "published",
-      marks: exam.totalScore?.toString() || "",
+      marks: marksStr,
       resultStatus: autoResultStatus as "Pass" | "Fail" | "Waiting",
       grade: exam.grade || "A",
       session: exam.session || ""
     });
     setResultCopyFile(null);
     setShowResultModal(true);
+  };
+
+  const updateSubjectScore = (
+    index: number,
+    field: "internalObtained" | "externalObtained",
+    rawValue: string,
+  ) => {
+    setSubjectResultRows((prev) => {
+      const next = prev.map((row, idx) => {
+        if (idx !== index) return row;
+        const cap = field === "internalObtained" ? row.internalMax : row.externalMax;
+        const numeric = Math.max(0, Math.min(cap, Number(rawValue) || 0));
+        return { ...row, [field]: numeric };
+      });
+      const newTotal = next.reduce(
+        (sum, r) => sum + (Number(r.internalObtained) || 0) + (Number(r.externalObtained) || 0),
+        0,
+      );
+      setResultForm((rf) => ({ ...rf, marks: String(newTotal) }));
+      return next;
+    });
   };
 
   const filtered = requests.filter(r => {
@@ -880,20 +976,69 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
                     </div>
 
                     <div className="space-y-2">
-                       <label className={labelCls}>Final Score {selectedExam.examMode === 'online' ? '(System Calculated)' : '*'}</label>
+                       <label className={labelCls}>Final Score *</label>
                        <input 
-                         className={`${inputCls} ${selectedExam.examMode === 'online' ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                         placeholder={selectedExam.examMode === 'online' ? "System Score" : "e.g. 85"}
+                         className={`${inputCls} ${subjectResultRows.length > 0 ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                         placeholder="e.g. 85"
                          value={resultForm.marks}
                          onChange={e => setResultForm({...resultForm, marks: e.target.value})}
-                         readOnly={selectedExam.examMode === 'online'}
-                         required={selectedExam.examMode === 'offline'}
+                         readOnly={subjectResultRows.length > 0}
+                         required
                        />
-                       {selectedExam.examMode === 'online' && (
-                         <p className="text-[9px] font-bold text-blue-600 uppercase">System recorded {resultForm.marks} marks.</p>
-                       )}
+                       {subjectResultRows.length > 0 ? (
+                         <p className="text-[9px] font-bold text-emerald-600 uppercase">
+                           Auto-calculated from subject-wise marks below.
+                         </p>
+                       ) : selectedExam.examMode === 'online' ? (
+                         <p className="text-[9px] font-bold text-blue-600 uppercase">
+                           System recorded {resultForm.marks || 0} marks. You can edit.
+                         </p>
+                       ) : null}
                     </div>
                  </div>
+
+                 {subjectResultRows.length > 0 && (
+                   <div className="space-y-2">
+                     <label className={labelCls}>Subject-wise Internal / External Marks</label>
+                     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                       <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                         <div className="col-span-4">Subject</div>
+                         <div className="col-span-4 text-center">Internal Obt / Max</div>
+                         <div className="col-span-4 text-center">External Obt / Max</div>
+                       </div>
+                       {subjectResultRows.map((row, idx) => (
+                         <div key={`${row.subjectName}-${idx}`} className="grid grid-cols-12 gap-2 px-4 py-2 items-center border-t border-slate-100">
+                           <div className="col-span-4 text-xs font-bold text-slate-700 truncate">{row.subjectName}</div>
+                           <div className="col-span-4 flex items-center gap-2 justify-center">
+                             <input
+                               type="number"
+                               min={0}
+                               max={row.internalMax}
+                               value={row.internalObtained}
+                               onChange={(e) => updateSubjectScore(idx, "internalObtained", e.target.value)}
+                               className="w-20 px-2 py-1 bg-slate-50 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-orange-500"
+                             />
+                             <span className="text-[10px] font-bold text-slate-400">/ {row.internalMax}</span>
+                           </div>
+                           <div className="col-span-4 flex items-center gap-2 justify-center">
+                             <input
+                               type="number"
+                               min={0}
+                               max={row.externalMax}
+                               value={row.externalObtained}
+                               onChange={(e) => updateSubjectScore(idx, "externalObtained", e.target.value)}
+                               className="w-20 px-2 py-1 bg-slate-50 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-orange-500"
+                             />
+                             <span className="text-[10px] font-bold text-slate-400">/ {row.externalMax}</span>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                       Yeh exact marks student ki marksheet par aayenge.
+                     </p>
+                   </div>
+                 )}
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div className="space-y-2">

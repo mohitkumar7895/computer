@@ -2,12 +2,31 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
+import { Marksheet } from "@/models/Marksheet";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 type OfflineExamStatus = "not_appeared" | "appeared" | "review_pending" | "published";
 type OfflineExamResult = "Pass" | "Fail" | "Waiting";
+
+type IncomingSubjectRow = {
+  subjectName?: string;
+  internalObtained?: number | string;
+  internalMax?: number | string;
+  externalObtained?: number | string;
+  externalMax?: number | string;
+};
+
+function gradeFromPercentage(percentage: number): string {
+  if (percentage >= 90) return "A+";
+  if (percentage >= 80) return "A";
+  if (percentage >= 70) return "B+";
+  if (percentage >= 60) return "B";
+  if (percentage >= 50) return "C";
+  if (percentage >= 33) return "D";
+  return "F";
+}
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +37,7 @@ export async function POST(request: Request) {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     
     let studentId, offlineExamStatus, totalScoreStr, offlineExamResult, examCopyFile, grade, session, examId;
+    let subjectMarksRaw: string | null = null;
 
     if (request.headers.get("content-type")?.includes("application/json")) {
       const body = await request.json();
@@ -27,6 +47,7 @@ export async function POST(request: Request) {
       offlineExamResult = body.offlineExamResult;
       grade = body.grade;
       session = body.session;
+      subjectMarksRaw = body.subjectMarks ? JSON.stringify(body.subjectMarks) : null;
     } else {
       const formData = await request.formData();
       examId = formData.get("examId") as string;
@@ -36,6 +57,7 @@ export async function POST(request: Request) {
       examCopyFile = formData.get("examCopy") as File | null;
       grade = formData.get("grade") as string;
       session = formData.get("session") as string;
+      subjectMarksRaw = formData.get("subjectMarks") as string | null;
     }
 
     if (!examId && !studentId) {
@@ -102,8 +124,48 @@ export async function POST(request: Request) {
       base64Copy = `data:${examCopyFile.type || "application/pdf"};base64,${base64}`;
     }
 
+    // Parse subject-wise marks if ATC entered them
+    let parsedSubjectMarks: Array<{
+      subjectName: string;
+      internalObtained: number;
+      internalMax: number;
+      externalObtained: number;
+      externalMax: number;
+      marksObtained: number;
+      totalMarks: number;
+    }> = [];
+    if (subjectMarksRaw) {
+      try {
+        const rows = JSON.parse(subjectMarksRaw) as IncomingSubjectRow[];
+        if (Array.isArray(rows)) {
+          parsedSubjectMarks = rows.map((row, idx) => {
+            const internalObtained = Number(row.internalObtained ?? 0) || 0;
+            const internalMax = Number(row.internalMax ?? 0) || 0;
+            const externalObtained = Number(row.externalObtained ?? 0) || 0;
+            const externalMax = Number(row.externalMax ?? 0) || 0;
+            const subjectName = String(row.subjectName ?? "").trim() || `Subject ${idx + 1}`;
+            return {
+              subjectName,
+              internalObtained,
+              internalMax,
+              externalObtained,
+              externalMax,
+              marksObtained: internalObtained + externalObtained,
+              totalMarks: internalMax + externalMax,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn("[offline-result] Could not parse subjectMarks", err);
+      }
+    }
+
+    const subjectTotalObtained = parsedSubjectMarks.reduce((s, r) => s + r.marksObtained, 0);
+    const subjectTotalMax = parsedSubjectMarks.reduce((s, r) => s + r.totalMarks, 0);
+
     // Update StudentExam record
-    const totalScore = parseInt(totalScoreStr) || 0;
+    const totalScore =
+      parsedSubjectMarks.length > 0 ? subjectTotalObtained : parseInt(totalScoreStr) || 0;
     
     // ATC can only submit for review or as 'appeared'
     // If they were trying to 'publish', we set it to 'review_pending'
@@ -112,6 +174,10 @@ export async function POST(request: Request) {
     exam.offlineExamStatus = finalStatus as OfflineExamStatus;
     exam.offlineExamResult = offlineExamResult as OfflineExamResult;
     exam.totalScore = totalScore;
+    if (parsedSubjectMarks.length > 0) {
+      exam.subjectMarks = parsedSubjectMarks;
+      if (subjectTotalMax > 0) exam.maxScore = subjectTotalMax;
+    }
     if (base64Copy) exam.offlineExamCopy = base64Copy;
     
     // We don't set status to completed here anymore if it's pending review
@@ -125,6 +191,63 @@ export async function POST(request: Request) {
     }
 
     await exam.save();
+
+    // If ATC supplied subject-wise marks, immediately mirror them to the
+    // existing Marksheet document (if any). This guarantees that what ATC
+    // typed is exactly what the student/admin will see — no recalculation,
+    // no proportional split, no fallback values.
+    if (parsedSubjectMarks.length > 0) {
+      const totalMaxForCalc = subjectTotalMax > 0 ? subjectTotalMax : Number(exam.maxScore) || 0;
+      const totalObtForCalc = subjectTotalObtained;
+      const percentage = totalMaxForCalc > 0
+        ? Math.round((totalObtForCalc / totalMaxForCalc) * 10000) / 100
+        : 0;
+      const computedGrade = grade || gradeFromPercentage(percentage);
+      const computedResult: "Pass" | "Fail" =
+        offlineExamResult === "Fail" ? "Fail" : percentage >= 33 ? "Pass" : "Fail";
+
+      const stu = await AtcStudent.findById(exam.studentId)
+        .select("enrollmentNo classRollNo course")
+        .lean();
+      const enrollmentNo =
+        (stu?.enrollmentNo != null && String(stu.enrollmentNo).trim()) || "N/A";
+      const rollNo =
+        (stu?.classRollNo != null && String(stu.classRollNo).trim()) || "N/A";
+      const courseName =
+        (stu?.course != null && String(stu.course).trim()) || "N/A";
+
+      try {
+        await Marksheet.findOneAndUpdate(
+          { examId: exam._id },
+          {
+            studentId: exam.studentId,
+            atcId: exam.atcId,
+            examId: exam._id,
+            enrollmentNo,
+            rollNo,
+            courseName,
+            subjects: parsedSubjectMarks.map((r) => ({
+              subjectName: r.subjectName,
+              marksObtained: r.marksObtained,
+              totalMarks: r.totalMarks,
+              internalObtained: r.internalObtained,
+              internalMax: r.internalMax,
+              externalObtained: r.externalObtained,
+              externalMax: r.externalMax,
+            })),
+            totalObtained: totalObtForCalc,
+            totalMax: totalMaxForCalc,
+            percentage,
+            grade: computedGrade,
+            result: computedResult,
+            isApproved: false,
+          },
+          { upsert: true },
+        );
+      } catch (err) {
+        console.warn("[offline-result] Marksheet sync failed", err);
+      }
+    }
 
     // Sync to AtcStudent profile
     await AtcStudent.findByIdAndUpdate(exam.studentId, {

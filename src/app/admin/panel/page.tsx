@@ -9,7 +9,7 @@ import {
   CheckCircle, XCircle, Clock, Users, FileText, PlusCircle,
   LogOut, ShieldCheck, ChevronDown, Eye, RefreshCw, Settings, QrCode, Upload, Menu, Layers, Monitor,
   Trash2, Lock, Edit2, AlertTriangle, ShieldAlert, MapPin, BookOpen, User, Building2, CreditCard, EyeOff, Hash, Save, Printer,
-  Layout, Type, Mail
+  Layout, Type, Mail, X
 } from "lucide-react";
 import AdminAtcForm from "@/components/admin/AdminAtcForm";
 import CourseManager from "@/components/admin/CourseManager";
@@ -125,8 +125,21 @@ type PendingResult = {
   studentId?: Student;
   atcId?: Partial<Application>;
   totalScore?: number;
+  maxScore?: number;
   grade?: string;
+  session?: string;
+  examMode?: "online" | "offline";
   offlineExamCopy?: string;
+  offlineExamResult?: string;
+  subjectMarks?: Array<{
+    subjectName: string;
+    internalObtained: number;
+    internalMax: number;
+    externalObtained: number;
+    externalMax: number;
+    marksObtained?: number;
+    totalMarks?: number;
+  }>;
 };
 
 type CenterWalletHistoryItem = {
@@ -216,6 +229,15 @@ export default function AdminPanelPage() {
   const [pendingResults, setPendingResults] = useState<PendingResult[]>([]);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [selectedResults, setSelectedResults] = useState<string[]>([]);
+  const [reviewResult, setReviewResult] = useState<PendingResult | null>(null);
+  const [reviewIssueDate, setReviewIssueDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [bulkApproveDialog, setBulkApproveDialog] = useState(false);
+  const [bulkIssueDate, setBulkIssueDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
 
   // Application Filters
   const [appSearch] = useState("");
@@ -1154,7 +1176,11 @@ export default function AdminPanelPage() {
     finally { setPassSaving(false); }
   };
 
-  const handleResultApproval = async (examId: string, status: "published" | "appeared") => {
+  const handleResultApproval = async (
+    examId: string,
+    status: "published" | "appeared",
+    issueDate?: string,
+  ) => {
     if (!sessionReady || authLoading || !authUser) return;
     try {
       const res = await apiFetch("/api/admin/exams/approve-result", {
@@ -1162,13 +1188,35 @@ export default function AdminPanelPage() {
         headers: { 
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ examId, status, marksheet: true, certificate: true })
+        body: JSON.stringify({
+          examId,
+          status,
+          marksheet: true,
+          certificate: true,
+          ...(issueDate ? { issueDate } : {}),
+        })
       });
       if (res.ok) {
         alert("Result Submitted Successfully");
         void fetchPendingResults();
       }
     } catch { showToast("error", "Action failed"); }
+  };
+
+  const openReviewModal = (result: PendingResult) => {
+    setReviewResult(result);
+    setReviewIssueDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const submitReviewApproval = async () => {
+    if (!reviewResult) return;
+    setReviewSubmitting(true);
+    try {
+      await handleResultApproval(reviewResult._id, "published", reviewIssueDate);
+      setReviewResult(null);
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -1817,23 +1865,9 @@ export default function AdminPanelPage() {
                       </div>
                       <div className="flex items-center gap-3">
                          <button 
-                           onClick={async () => {
-                             if (!confirm(`Approve and generate documents for ${selectedResults.length} students?`)) return;
-                             setResultsLoading(true);
-                             try {
-                               for (const id of selectedResults) {
-                                 await apiFetch("/api/admin/exams/approve-result", {
-                                   method: "POST",
-                                   headers: { 
-                                     "Content-Type": "application/json",
-                                   },
-                                   body: JSON.stringify({ examId: id, status: "published" }),
-                                 });
-                               }
-                               setSelectedResults([]);
-                               await fetchPendingResults();
-                             } catch { showToast("error", "Bulk approval failed"); }
-                             finally { setResultsLoading(false); }
+                           onClick={() => {
+                             setBulkIssueDate(new Date().toISOString().slice(0, 10));
+                             setBulkApproveDialog(true);
                            }} 
                            className="px-5 py-2 rounded-xl bg-white text-amber-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition"
                          >
@@ -1922,14 +1956,203 @@ export default function AdminPanelPage() {
                               Reject
                             </button>
                             <button 
-                              onClick={() => handleResultApproval(res._id, "published")}
+                              onClick={() => openReviewModal(res)}
                               className="grow md:flex-none px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100"
                             >
-                              Approve & Generate
+                              Review & Approve
                             </button>
                          </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {reviewResult && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+                      <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+                        <div>
+                          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
+                            Review &amp; Approve Result
+                          </h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                            {reviewResult.studentId?.name} • {reviewResult.studentId?.enrollmentNo} •{" "}
+                            {reviewResult.atcId?.trainingPartnerName}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setReviewResult(null)}
+                          className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition"
+                          aria-label="Close"
+                        >
+                          <X className="w-5 h-5 text-slate-400" />
+                        </button>
+                      </div>
+
+                      <div className="px-8 py-6 space-y-6 overflow-y-auto">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-50 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mode</p>
+                            <p className="text-sm font-black text-slate-800 mt-1 uppercase">{reviewResult.examMode || "—"}</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Score</p>
+                            <p className="text-sm font-black text-slate-800 mt-1">
+                              {reviewResult.totalScore ?? 0} / {reviewResult.maxScore ?? 100}
+                            </p>
+                          </div>
+                          <div className="bg-slate-50 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Result</p>
+                            <p className="text-sm font-black text-slate-800 mt-1 uppercase">
+                              {reviewResult.offlineExamResult || "—"}
+                            </p>
+                          </div>
+                          <div className="bg-slate-50 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grade</p>
+                            <p className="text-sm font-black text-slate-800 mt-1 uppercase">
+                              {reviewResult.grade || "—"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
+                            ATC Submitted Subject-wise Marks
+                          </h4>
+                          {reviewResult.subjectMarks && reviewResult.subjectMarks.length > 0 ? (
+                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                              <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                <div className="col-span-4">Subject</div>
+                                <div className="col-span-2 text-center">Internal</div>
+                                <div className="col-span-2 text-center">Int. Max</div>
+                                <div className="col-span-2 text-center">External</div>
+                                <div className="col-span-2 text-center">Ext. Max</div>
+                              </div>
+                              {reviewResult.subjectMarks.map((row, idx) => (
+                                <div
+                                  key={`${row.subjectName}-${idx}`}
+                                  className="grid grid-cols-12 gap-2 px-4 py-2 items-center border-t border-slate-100"
+                                >
+                                  <div className="col-span-4 text-xs font-bold text-slate-700 truncate">
+                                    {row.subjectName}
+                                  </div>
+                                  <div className="col-span-2 text-center text-xs font-black text-slate-800">
+                                    {row.internalObtained}
+                                  </div>
+                                  <div className="col-span-2 text-center text-[11px] font-bold text-slate-400">
+                                    {row.internalMax}
+                                  </div>
+                                  <div className="col-span-2 text-center text-xs font-black text-slate-800">
+                                    {row.externalObtained}
+                                  </div>
+                                  <div className="col-span-2 text-center text-[11px] font-bold text-slate-400">
+                                    {row.externalMax}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 text-xs font-bold">
+                              ATC ne subject-wise marks submit nahi kiye. Marksheet course ke default split se generate hogi.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            Issue Date *
+                          </label>
+                          <input
+                            type="date"
+                            value={reviewIssueDate}
+                            onChange={(e) => setReviewIssueDate(e.target.value)}
+                            className="w-full md:w-1/2 px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-amber-500"
+                          />
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            Yahi date marksheet aur certificate dono pe issue date ke roop me chhapegi.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 px-8 py-5 border-t border-slate-100 bg-slate-50/50">
+                        <button
+                          onClick={() => setReviewResult(null)}
+                          className="px-6 py-3 bg-white text-slate-600 rounded-xl text-xs font-black uppercase border border-slate-200 hover:bg-slate-50 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={submitReviewApproval}
+                          disabled={reviewSubmitting || !reviewIssueDate}
+                          className="ml-auto px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100 disabled:opacity-60"
+                        >
+                          {reviewSubmitting ? "Approving..." : "Approve & Release Documents"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {bulkApproveDialog && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+                      <div className="px-8 py-6 border-b border-slate-100">
+                        <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">
+                          Bulk Approve {selectedResults.length} Results
+                        </h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                          Same issue date will apply to all marksheets and certificates.
+                        </p>
+                      </div>
+                      <div className="px-8 py-6 space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                          Issue Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={bulkIssueDate}
+                          onChange={(e) => setBulkIssueDate(e.target.value)}
+                          className="w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 px-8 py-5 border-t border-slate-100 bg-slate-50/50">
+                        <button
+                          onClick={() => setBulkApproveDialog(false)}
+                          className="px-6 py-3 bg-white text-slate-600 rounded-xl text-xs font-black uppercase border border-slate-200 hover:bg-slate-50 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!bulkIssueDate) return;
+                            setResultsLoading(true);
+                            try {
+                              for (const id of selectedResults) {
+                                await apiFetch("/api/admin/exams/approve-result", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    examId: id,
+                                    status: "published",
+                                    marksheet: true,
+                                    certificate: true,
+                                    issueDate: bulkIssueDate,
+                                  }),
+                                });
+                              }
+                              setSelectedResults([]);
+                              setBulkApproveDialog(false);
+                              await fetchPendingResults();
+                            } catch { showToast("error", "Bulk approval failed"); }
+                            finally { setResultsLoading(false); }
+                          }}
+                          disabled={!bulkIssueDate}
+                          className="ml-auto px-8 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-100 disabled:opacity-60"
+                        >
+                          Approve All
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

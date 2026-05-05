@@ -45,6 +45,20 @@ export function splitInternalExternal(obtained: number, totalMax: number): Marks
   };
 }
 
+/**
+ * When a subject row only has `fullMarks` but theory/practical maxes were left at 0
+ * in the DB, derive Internal (practical) / External (theory) max columns using the
+ * same ~30/70 caps as {@link splitInternalExternal}.
+ */
+export function deriveInternalExternalMax(fullMarks: number): { internalMax: number; externalMax: number } {
+  const fm = Math.round(Number(fullMarks) || 0);
+  if (fm <= 0) return { internalMax: 0, externalMax: 0 };
+  let internalMax = Math.round(fm * 0.3);
+  internalMax = Math.max(1, Math.min(internalMax, fm - 1));
+  const externalMax = fm - internalMax;
+  return { internalMax, externalMax };
+}
+
 /** Format admission date → "APR-2025"-style label. Returns undefined if unparseable. */
 export function formatCertificateFromLabel(admissionDate?: string | null): string | undefined {
   if (!admissionDate?.trim()) return undefined;
@@ -141,8 +155,13 @@ export function buildMarksheetFromCourse(
 
   const rows: MarksheetRow[] = subjects.map((sub) => {
     const fullMarks = Math.max(0, Math.round(sub.fullMarks || 0));
-    const internalMax = Math.max(0, Math.round(sub.practicalMarks || 0));
-    const externalMax = Math.max(0, Math.round(sub.theoryMarks || 0));
+    let internalMax = Math.max(0, Math.round(sub.practicalMarks || 0));
+    let externalMax = Math.max(0, Math.round(sub.theoryMarks || 0));
+    if (internalMax === 0 && externalMax === 0 && fullMarks > 0) {
+      const derived = deriveInternalExternalMax(fullMarks);
+      internalMax = derived.internalMax;
+      externalMax = derived.externalMax;
+    }
 
     let internalObtained = Math.round(internalMax * pct);
     let externalObtained = Math.round(externalMax * pct);

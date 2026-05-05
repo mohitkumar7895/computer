@@ -125,6 +125,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [resultCopyFile, setResultCopyFile] = useState<File | null>(null);
   const [zipLoading, setZipLoading] = useState(false);
   const [selectedZipDocs, setSelectedZipDocs] = useState<ZipDocType[]>(["certificate", "marksheet"]);
+  const [issueDateExamId, setIssueDateExamId] = useState<string | null>(null);
+  const [issueDateValue, setIssueDateValue] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const { loading: authLoading, user: authUser } = useAuth();
   const showRosterTab = role === "atc";
 
@@ -293,7 +297,11 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     }
   };
 
-  const handleApproveResult = async (examId: string, status: "published" | "appeared" = "published") => {
+  const handleApproveResult = async (
+    examId: string,
+    status: "published" | "appeared" = "published",
+    issueDate?: string,
+  ) => {
     setActionLoading(examId);
     try {
       const shouldReleaseDocs = status === "published";
@@ -307,6 +315,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           status,
           marksheet: shouldReleaseDocs,
           certificate: shouldReleaseDocs,
+          ...(issueDate ? { issueDate } : {}),
         }),
       });
       if (res.ok) {
@@ -319,6 +328,19 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       // no-op
     }
     setActionLoading(null);
+  };
+
+  const promptIssueDateAndApprove = (examId: string) => {
+    setIssueDateExamId(examId);
+    setIssueDateValue(new Date().toISOString().slice(0, 10));
+  };
+
+  const confirmIssueDateApproval = async () => {
+    if (!issueDateExamId) return;
+    const id = issueDateExamId;
+    const date = issueDateValue;
+    setIssueDateExamId(null);
+    await handleApproveResult(id, "published", date);
   };
 
   const handleBulkAction = async (action: "approve" | "reject" | "delete") => {
@@ -1039,7 +1061,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                             {role === "admin" && exam.offlineExamStatus === "review_pending" && (
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => handleApproveResult(exam._id, "published")}
+                                  onClick={() => promptIssueDateAndApprove(exam._id)}
                                   className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition"
                                 >
                                   Approve Result
@@ -1374,6 +1396,55 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                   </div>
               </form>
            </div>
+        </div>
+      )}
+
+      {issueDateExamId && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Issue Date</h3>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
+                  Marksheet aur certificate dono pe yahi date chhapegi.
+                </p>
+              </div>
+              <button
+                onClick={() => setIssueDateExamId(null)}
+                className="p-2 bg-slate-50 rounded-full text-slate-400"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-7 py-5 space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                Pick Issue Date *
+              </label>
+              <input
+                type="date"
+                value={issueDateValue}
+                onChange={(e) => setIssueDateValue(e.target.value)}
+                className={inputCls}
+                required
+              />
+            </div>
+            <div className="flex items-center gap-3 px-7 py-5 border-t border-slate-100 bg-slate-50/50">
+              <button
+                onClick={() => setIssueDateExamId(null)}
+                className="px-5 py-3 bg-white text-slate-600 rounded-xl text-xs font-black uppercase border border-slate-200 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmIssueDateApproval}
+                disabled={!issueDateValue || actionLoading === issueDateExamId}
+                className="ml-auto px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition shadow-lg shadow-emerald-100 disabled:opacity-60"
+              >
+                {actionLoading === issueDateExamId ? "Approving..." : "Approve & Release"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

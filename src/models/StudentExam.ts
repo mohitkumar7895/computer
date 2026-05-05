@@ -7,6 +7,16 @@ export interface IStudentExamAnswer {
   marksEarned: number;
 }
 
+export interface IExamSubjectMark {
+  subjectName: string;
+  internalObtained: number;
+  internalMax: number;
+  externalObtained: number;
+  externalMax: number;
+  marksObtained: number;
+  totalMarks: number;
+}
+
 export interface IStudentExam {
   _id: mongoose.Types.ObjectId;
   studentId: mongoose.Types.ObjectId;
@@ -39,9 +49,23 @@ export interface IStudentExam {
   offlineExamCopy?: string;
   marksheetReleased?: boolean;
   certificateReleased?: boolean;
+  subjectMarks?: IExamSubjectMark[];
   createdAt: Date;
   updatedAt: Date;
 }
+
+const ExamSubjectMarkSchema = new Schema<IExamSubjectMark>(
+  {
+    subjectName: { type: String, required: true },
+    internalObtained: { type: Number, default: 0 },
+    internalMax: { type: Number, default: 0 },
+    externalObtained: { type: Number, default: 0 },
+    externalMax: { type: Number, default: 0 },
+    marksObtained: { type: Number, default: 0 },
+    totalMarks: { type: Number, default: 0 },
+  },
+  { _id: false },
+);
 
 const StudentExamAnswerSchema = new Schema<IStudentExamAnswer>(
   {
@@ -94,6 +118,7 @@ const StudentExamSchema = new Schema<IStudentExam>(
     offlineExamCopy: { type: String }, // Base64 PDF
     marksheetReleased: { type: Boolean, default: false },
     certificateReleased: { type: Boolean, default: false },
+    subjectMarks: { type: [ExamSubjectMarkSchema], default: [] },
   },
   { timestamps: true },
 );
