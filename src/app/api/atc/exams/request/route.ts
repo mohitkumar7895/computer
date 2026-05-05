@@ -4,6 +4,7 @@ import { StudentExam } from "@/models/StudentExam";
 import { AtcStudent } from "@/models/Student";
 import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 import { verifyAtc } from "@/lib/auth";
+import { buildExamDateTimeUtc } from "@/lib/examScheduleUtc";
 
 export async function POST(request: Request) {
   try {
@@ -49,8 +50,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Student exam mode is invalid." }, { status: 400 });
     }
 
-    const dateTime = new Date(`${examDate}T${examTime}:00`);
-    if (Number.isNaN(dateTime.getTime())) {
+    const dateTime = buildExamDateTimeUtc(examDate, examTime);
+    if (!dateTime) {
       return NextResponse.json({ message: "Invalid exam date/time." }, { status: 400 });
     }
 

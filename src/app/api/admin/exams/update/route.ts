@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
 import { lifecycleStatusForExam } from "@/lib/exam-schedule";
+import { buildExamDateTimeUtc } from "@/lib/examScheduleUtc";
 import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
 import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 
@@ -24,8 +25,8 @@ export async function POST(request: Request) {
     if (setId) updateData.setId = setId;
     if (admitCardReleased !== undefined) updateData.admitCardReleased = admitCardReleased;
     if (examDate && examTime) {
-      const dt = new Date(`${examDate}T${examTime}:00`);
-      if (!Number.isNaN(dt.getTime())) {
+      const dt = buildExamDateTimeUtc(examDate, String(examTime));
+      if (dt) {
         updateData.examDateTime = dt;
       }
     }

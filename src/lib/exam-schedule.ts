@@ -1,3 +1,5 @@
+import { buildExamDateTimeUtc } from "./examScheduleUtc";
+
 export type ExamLifecycleStatus = "upcoming" | "active" | "completed";
 
 type ExamLike = {
@@ -16,45 +18,8 @@ export type ExamWindow = {
 
 export function buildExamWindow(exam: ExamLike, now = new Date()): ExamWindow {
   let startsAt: Date | null = null;
-  // Prefer explicit date + time entered by admin (local wall-clock intent).
-  // examDateTime can be shifted when created on UTC servers.
   if (exam.examDate && exam.examTime) {
-    // Build local datetime directly from provided date + time (avoid UTC date shift).
-    const dateRaw = typeof exam.examDate === "string"
-      ? exam.examDate.slice(0, 10)
-      : `${exam.examDate.getFullYear()}-${String(exam.examDate.getMonth() + 1).padStart(2, "0")}-${String(exam.examDate.getDate()).padStart(2, "0")}`;
-
-    const timeRaw = String(exam.examTime).trim();
-    let hh = 0;
-    let mm = 0;
-    const ampmMatch = timeRaw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    const twentyFourMatch = timeRaw.match(/^(\d{1,2}):(\d{2})$/);
-
-    if (ampmMatch) {
-      hh = Number(ampmMatch[1]);
-      mm = Number(ampmMatch[2]);
-      const meridiem = ampmMatch[3].toUpperCase();
-      if (meridiem === "PM" && hh < 12) hh += 12;
-      if (meridiem === "AM" && hh === 12) hh = 0;
-    } else if (twentyFourMatch) {
-      hh = Number(twentyFourMatch[1]);
-      mm = Number(twentyFourMatch[2]);
-    } else {
-      // Keep old fallback behavior for unexpected formats.
-      const fallback = timeRaw.slice(0, 5);
-      const parsed = new Date(`${dateRaw}T${fallback}:00`);
-      startsAt = Number.isNaN(parsed.getTime()) ? null : parsed;
-      if (startsAt) {
-        const duration = Math.max(1, Number(exam.durationMinutes ?? 0) || 0);
-        const endsAt = new Date(startsAt.getTime() + duration * 60_000);
-        return { startsAt, endsAt, now };
-      }
-    }
-
-    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
-      const parsed = new Date(`${dateRaw}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`);
-      startsAt = Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
+    startsAt = buildExamDateTimeUtc(exam.examDate as string | Date, String(exam.examTime));
   } else if (exam.examDateTime) {
     startsAt = new Date(exam.examDateTime);
   } else if (exam.examDate) {

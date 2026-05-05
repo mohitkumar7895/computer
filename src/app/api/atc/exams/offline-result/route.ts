@@ -5,6 +5,7 @@ import { AtcStudent } from "@/models/Student";
 import { Marksheet } from "@/models/Marksheet";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { getExamScheduledAtUtc } from "@/lib/examScheduleUtc";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 type OfflineExamStatus = "not_appeared" | "appeared" | "review_pending" | "published";
@@ -83,17 +84,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Exam is not approved yet." }, { status: 400 });
     }
 
-    let scheduledAt: Date | null = null;
-    if (exam.examDateTime) {
-      scheduledAt = new Date(exam.examDateTime);
-    } else if (exam.examDate && exam.examTime) {
-      const baseDate = new Date(exam.examDate);
-      const [hours, minutes] = String(exam.examTime).split(":").map((part) => Number(part));
-      if (!Number.isNaN(baseDate.getTime()) && Number.isFinite(hours) && Number.isFinite(minutes)) {
-        baseDate.setHours(hours, minutes, 0, 0);
-        scheduledAt = baseDate;
-      }
-    }
+    let scheduledAt: Date | null = getExamScheduledAtUtc({
+      examDate: exam.examDate,
+      examTime: exam.examTime,
+      examDateTime: exam.examDateTime,
+    });
     const shouldBlockBySchedule =
       exam.examMode === "offline" || (exam.examMode === "online" && String(exam.status) !== "completed");
     if (shouldBlockBySchedule && scheduledAt && !Number.isNaN(scheduledAt.getTime()) && Date.now() < scheduledAt.getTime()) {

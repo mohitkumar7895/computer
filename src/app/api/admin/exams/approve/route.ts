@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { StudentExam } from "@/models/StudentExam";
 import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
 import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
+import { buildExamDateTimeUtc } from "@/lib/examScheduleUtc";
 
 export async function POST(request: Request) {
   try {
@@ -23,8 +24,8 @@ export async function POST(request: Request) {
     if (durationMinutes !== undefined) updateData.durationMinutes = Number(durationMinutes);
     if (admitCardReleased !== undefined) updateData.admitCardReleased = admitCardReleased;
     if (examDate && examTime) {
-      const dt = new Date(`${examDate}T${examTime}:00`);
-      if (!Number.isNaN(dt.getTime())) {
+      const dt = buildExamDateTimeUtc(examDate, String(examTime));
+      if (dt) {
         updateData.examDateTime = dt;
       }
     }
