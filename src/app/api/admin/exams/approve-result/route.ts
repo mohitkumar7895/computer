@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { StudentExam } from "@/models/StudentExam";
+import { StudentExam, type IExamSubjectMark } from "@/models/StudentExam";
+import type { ISubjectMark } from "@/models/Marksheet";
 import { AtcStudent } from "@/models/Student";
 import { Marksheet } from "@/models/Marksheet";
 import { Certificate } from "@/models/Certificate";
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       };
 
       let markRows: MarkRow[] = Array.isArray(exam.subjectMarks)
-        ? exam.subjectMarks.map((row, idx) => {
+        ? exam.subjectMarks.map((row: IExamSubjectMark, idx: number) => {
             const internalObtained = Number(row.internalObtained ?? 0) || 0;
             const internalMax = Number(row.internalMax ?? 0) || 0;
             const externalObtained = Number(row.externalObtained ?? 0) || 0;
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
         const draft = await Marksheet.findOne({ examId: exam._id }).lean();
         const subj = draft?.subjects;
         if (Array.isArray(subj) && subj.length > 0) {
-          markRows = subj.map((s, idx) => {
+          markRows = subj.map((s: ISubjectMark, idx: number) => {
             const internalObtained = Number(s.internalObtained ?? 0) || 0;
             const internalMax = Number(s.internalMax ?? 0) || 0;
             const externalObtained = Number(s.externalObtained ?? 0) || 0;
