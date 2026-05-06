@@ -475,7 +475,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     }
     setZipLoading(true);
     try {
-      const [{ default: JSZip }, { toPng }, { default: jsPDF }] = await Promise.all([
+      const [{ default: JSZip }, { toJpeg }, { default: jsPDF }] = await Promise.all([
         import("jszip"),
         import("html-to-image"),
         import("jspdf"),
@@ -560,9 +560,10 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
         const A4_W = 2480;
         const A4_H = 3508;
-        const png = await toPng(node, {
+        const jpeg = await toJpeg(node, {
           cacheBust: true,
           pixelRatio: 1,
+          quality: 0.8,
           backgroundColor: "#ffffff",
           width: A4_W,
           height: A4_H,
@@ -573,7 +574,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
         const pdf = new jsPDF("p", "mm", "a4");
         // 1:1 A4 mapping for exact visual alignment.
-        pdf.addImage(png, "PNG", 0, 0, 210, 297);
+        pdf.addImage(jpeg, "JPEG", 0, 0, 210, 297);
         return pdf.output("arraybuffer");
       };
 

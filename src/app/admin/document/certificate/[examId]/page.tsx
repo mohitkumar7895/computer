@@ -8,6 +8,7 @@ import { downloadElementAsA4Pdf } from "@/lib/downloadA4";
 import CertificateBackgroundOverlay, {
   type CertificatePageData,
 } from "@/components/certificate/CertificateBackgroundOverlay";
+import DocumentTemplateBackground from "@/components/documents/DocumentTemplateBackground";
 
 export default function AdminCertificatePage() {
   const { examId } = useParams();
@@ -21,10 +22,23 @@ export default function AdminCertificatePage() {
   const [data, setData] = useState<CertificatePageData | null>(null);
   const [bg, setBg] = useState("");
   const [sig, setSig] = useState("");
-  const [bgLoaded, setBgLoaded] = useState(false);
+  const [templatePainted, setTemplatePainted] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [bgResolved, setBgResolved] = useState(false);
+
+  const showBgForTemplate = !!(data && !isPrintMode && !isZipPrintMode && bg);
 
   useEffect(() => {
+    if (!showBgForTemplate) setTemplatePainted(true);
+    else setTemplatePainted(false);
+  }, [showBgForTemplate]);
+
+  const onTemplatePainted = useCallback(() => {
+    setTemplatePainted(true);
+  }, []);
+
+  useEffect(() => {
+    setBgResolved(false);
     fetch(`/api/admin/documents/certificate?examId=${examId}`)
       .then((r) => r.json())
       .then((d) =>
@@ -32,13 +46,13 @@ export default function AdminCertificatePage() {
       )
       .catch(() => router.push("/admin/panel"));
 
-    fetch("/api/public/backgrounds")
+    fetch("/api/public/background/certificate")
       .then((r) => r.json())
-      .then((bgs) => {
-        if (typeof bgs?.certificate === "string") setBg(bgs.certificate);
+      .then((body) => {
+        if (typeof body?.url === "string" && body.url.trim() !== "") setBg(body.url);
       })
       .catch(() => setBg(""))
-      .finally(() => setBgLoaded(true));
+      .finally(() => setBgResolved(true));
 
     fetch("/api/public/settings?key=authorized_signature")
       .then((r) => r.json())
@@ -51,6 +65,8 @@ export default function AdminCertificatePage() {
   const downloadPdf = useCallback(async () => {
     const el = document.getElementById("cert-a4");
     if (!el || !data) return;
+    const needsDecodedBg = !(isPrintMode || isZipPrintMode) && !!bg;
+    if (!bgResolved || (needsDecodedBg && !templatePainted)) return;
     setDownloading(true);
     try {
       const studentObj =
@@ -65,16 +81,21 @@ export default function AdminCertificatePage() {
     } finally {
       setDownloading(false);
     }
-  }, [data, isPrintMode, isZipPrintMode]);
+  }, [data, isPrintMode, isZipPrintMode, bg, templatePainted, bgResolved]);
+
+  const needsTemplateDecode = !isPrintMode && !isZipPrintMode && !!bg;
+  const textOnTemplateReady = bgResolved && (!needsTemplateDecode || templatePainted);
+
+  const pdfReady = textOnTemplateReady;
 
   useEffect(() => {
     if (!data || !shouldDownload) return;
-    if (!(isPrintMode || isZipPrintMode) && !bgLoaded) return;
+    if (!pdfReady) return;
     const t = window.setTimeout(() => {
       void downloadPdf();
     }, 350);
     return () => window.clearTimeout(t);
-  }, [data, shouldDownload, isPrintMode, isZipPrintMode, bgLoaded, downloadPdf]);
+  }, [data, shouldDownload, pdfReady, downloadPdf]);
 
   useEffect(() => {
     if (!data || !isPrintMode || isZipPrintMode) return;
@@ -113,7 +134,7 @@ export default function AdminCertificatePage() {
           <button
             type="button"
             onClick={downloadPdf}
-            disabled={downloading}
+            disabled={downloading || !pdfReady}
             className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700 disabled:opacity-60"
           >
             <Download size={14} /> {downloading ? "Preparing…" : "Download PDF"}
@@ -121,7 +142,8 @@ export default function AdminCertificatePage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700"
+            disabled={!pdfReady}
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-60"
           >
             <Printer size={14} /> Print
           </button>
@@ -133,19 +155,16 @@ export default function AdminCertificatePage() {
         className="relative mx-auto h-[210mm] w-[297mm] overflow-hidden bg-white shadow-2xl print:m-0 print:shadow-none"
       >
         {showBg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={bg}
-            alt=""
-            className="absolute inset-0 z-0 h-full w-full bg-white object-fill print:hidden"
+          <DocumentTemplateBackground src={bg} onPainted={onTemplatePainted} />
+        ) : null}
+        {textOnTemplateReady ? (
+          <CertificateBackgroundOverlay
+            data={data}
+            brandName={brandName || undefined}
+            signatureUrl={sig || undefined}
+            verifyUrl={verifyUrl}
           />
         ) : null}
-        <CertificateBackgroundOverlay
-          data={data}
-          brandName={brandName || undefined}
-          signatureUrl={sig || undefined}
-          verifyUrl={verifyUrl}
-        />
       </div>
 
       <style jsx global>{`

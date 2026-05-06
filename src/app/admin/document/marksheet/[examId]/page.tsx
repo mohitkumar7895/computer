@@ -8,6 +8,7 @@ import MarksheetBackgroundOverlay, {
   type MarksheetPageData,
 } from "@/components/marksheet/MarksheetBackgroundOverlay";
 import { downloadElementAsA4Pdf } from "@/lib/downloadA4";
+import DocumentTemplateBackground from "@/components/documents/DocumentTemplateBackground";
 
 export default function AdminMarksheetPage() {
   const { examId } = useParams();
@@ -22,10 +23,23 @@ export default function AdminMarksheetPage() {
   const [data, setData] = useState<MarksheetPageData | null>(null);
   const [learningCenterLine, setLearningCenterLine] = useState("");
   const [bg, setBg] = useState("");
-  const [bgLoaded, setBgLoaded] = useState(false);
+  const [templatePainted, setTemplatePainted] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [bgResolved, setBgResolved] = useState(false);
+
+  const showBgForTemplate = !!(data && !isPrintMode && !isZipPrintMode && bg);
 
   useEffect(() => {
+    if (!showBgForTemplate) setTemplatePainted(true);
+    else setTemplatePainted(false);
+  }, [showBgForTemplate]);
+
+  const onTemplatePainted = useCallback(() => {
+    setTemplatePainted(true);
+  }, []);
+
+  useEffect(() => {
+    setBgResolved(false);
     fetch(`/api/admin/documents/marksheet?examId=${examId}`)
       .then((r) => r.json())
       .then((d) => {
@@ -36,18 +50,20 @@ export default function AdminMarksheetPage() {
       })
       .catch(() => router.push("/admin/panel"));
 
-    fetch("/api/public/backgrounds")
+    fetch("/api/public/background/marksheet")
       .then((r) => r.json())
-      .then((bgs) => {
-        if (typeof bgs?.marksheet === "string") setBg(bgs.marksheet);
+      .then((body) => {
+        if (typeof body?.url === "string" && body.url.trim() !== "") setBg(body.url);
       })
       .catch(() => setBg(""))
-      .finally(() => setBgLoaded(true));
+      .finally(() => setBgResolved(true));
   }, [examId, router]);
 
   const downloadPdf = useCallback(async () => {
     const el = document.getElementById("cert-a4");
     if (!el || !data) return;
+    const needsDecodedBg = !(isPrintMode || isZipPrintMode) && !!bg;
+    if (!bgResolved || (needsDecodedBg && !templatePainted)) return;
     setDownloading(true);
     try {
       const studentObj = data?.studentId && typeof data.studentId === "object" ? data.studentId : null;
@@ -55,22 +71,26 @@ export default function AdminMarksheetPage() {
         studentObj?.enrollmentNo || data?.enrollmentNo || "marksheet",
       ).replace(/\s+/g, "_");
       const suffix = isPrintMode || isZipPrintMode ? "Marksheet_Print" : "Marksheet";
-      await downloadElementAsA4Pdf(el, `${fileName}_${suffix}`, "portrait", 2);
+      await downloadElementAsA4Pdf(el, `${fileName}_${suffix}`, "portrait");
     } catch (err) {
       console.error("Marksheet download failed", err);
     } finally {
       setDownloading(false);
     }
-  }, [data, isPrintMode, isZipPrintMode]);
+  }, [data, isPrintMode, isZipPrintMode, bg, templatePainted, bgResolved]);
+
+  const needsTemplateDecode = !isPrintMode && !isZipPrintMode && !!bg;
+  const textOnTemplateReady = bgResolved && (!needsTemplateDecode || templatePainted);
+  const pdfReady = textOnTemplateReady;
 
   useEffect(() => {
     if (!data || !shouldDownload) return;
-    if (!(isPrintMode || isZipPrintMode) && !bgLoaded) return;
+    if (!pdfReady) return;
     const t = window.setTimeout(() => {
       void downloadPdf();
     }, 350);
     return () => window.clearTimeout(t);
-  }, [data, shouldDownload, isPrintMode, isZipPrintMode, bgLoaded, downloadPdf]);
+  }, [data, shouldDownload, pdfReady, downloadPdf]);
 
   useEffect(() => {
     if (!data || !isPrintMode || isZipPrintMode) return;
@@ -109,7 +129,7 @@ export default function AdminMarksheetPage() {
           <button
             type="button"
             onClick={downloadPdf}
-            disabled={downloading}
+            disabled={downloading || !pdfReady}
             className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700 disabled:opacity-60"
           >
             <Download size={14} /> {downloading ? "Preparing…" : "Download PDF"}
@@ -117,7 +137,8 @@ export default function AdminMarksheetPage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700"
+            disabled={!pdfReady}
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-60"
           >
             <Printer size={14} /> Print
           </button>
@@ -129,18 +150,15 @@ export default function AdminMarksheetPage() {
         className="relative mx-auto h-[297mm] w-[210mm] overflow-visible bg-white shadow-2xl print:m-0 print:shadow-none"
       >
         {showBg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={bg}
-            alt=""
-            className="absolute inset-0 z-0 h-full w-full bg-white object-fill print:hidden"
+          <DocumentTemplateBackground src={bg} onPainted={onTemplatePainted} />
+        ) : null}
+        {textOnTemplateReady ? (
+          <MarksheetBackgroundOverlay
+            data={data}
+            learningCenter={learningCenterLine || brandName?.toUpperCase() || ""}
+            verifyUrl={verifyUrl}
           />
         ) : null}
-        <MarksheetBackgroundOverlay
-          data={data}
-          learningCenter={learningCenterLine || brandName?.toUpperCase() || ""}
-          verifyUrl={verifyUrl}
-        />
       </div>
 
       <style jsx global>{`

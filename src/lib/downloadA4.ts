@@ -1,6 +1,6 @@
 /**
- * Helpers for capturing an A4 (or A4-landscape) overlay element to PNG and
- * embedding it in a single-page jsPDF document.
+ * Helpers for capturing an A4 (or A4-landscape) overlay element to JPEG and
+ * embedding it in a single-page jsPDF document (smaller than PNG for typical templates).
  *
  * The earlier inline implementation (`toPng(el, { pixelRatio: 2 })`) clipped
  * the right-hand side of the certificate on viewports narrower than 297 mm
@@ -66,24 +66,29 @@ export async function downloadElementAsA4Pdf(
   el: HTMLElement,
   fileName: string,
   orientation: A4Orientation = "portrait",
-  pixelRatio = 2,
+  /** Lower values → smaller PDF; default keeps text sharp on A4 without multi‑MB PNGs. */
+  pixelRatio = 1.35,
+  jpegQuality = 0.82,
 ): Promise<void> {
   await waitForImages(el);
   await waitForLayout();
 
-  const [{ toPng }, { default: jsPDF }] = await Promise.all([
+  const [{ toJpeg }, { default: jsPDF }] = await Promise.all([
     import("html-to-image"),
     import("jspdf"),
   ]);
 
   const { w, h } = capturePixelSize(el);
-  const png = await toPng(el, {
+  const cw = Math.max(1, Math.round(w * pixelRatio));
+  const ch = Math.max(1, Math.round(h * pixelRatio));
+  const jpeg = await toJpeg(el, {
     cacheBust: true,
     pixelRatio,
+    quality: jpegQuality,
     width: w,
     height: h,
-    canvasWidth: w * pixelRatio,
-    canvasHeight: h * pixelRatio,
+    canvasWidth: cw,
+    canvasHeight: ch,
     backgroundColor: "#ffffff",
     style: {
       transform: "none",
@@ -93,7 +98,7 @@ export async function downloadElementAsA4Pdf(
 
   const dims = ORIENTATION_TO_MM[orientation];
   const pdf = new jsPDF({ orientation, unit: "mm", format: "a4" });
-  pdf.addImage(png, "PNG", 0, 0, dims.width, dims.height);
+  pdf.addImage(jpeg, "JPEG", 0, 0, dims.width, dims.height);
   const safeName = fileName.trim() || "document";
   pdf.save(safeName.endsWith(".pdf") ? safeName : `${safeName}.pdf`);
 }
