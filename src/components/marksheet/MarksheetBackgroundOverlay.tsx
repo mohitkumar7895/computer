@@ -39,7 +39,7 @@ const L = {
    * Subject data rows — slightly higher so names sit closer to the printed headers.
    * Totals row uses `tableFooterTop` so it stays on the original template line.
    */
-  table: { subjectTop: "142mm", footerTop: "208.5mm", left: "10mm", width: "188mm" },
+  table: { subjectTop: "142mm", footerTop: "208mm", left: "10mm", width: "188mm" },
   rowH: "7.5mm",
 
   summaryTop: "218mm",
