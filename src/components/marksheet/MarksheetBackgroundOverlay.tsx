@@ -290,7 +290,7 @@ export default function MarksheetBackgroundOverlay({
 
   return (
     <div
-      className="document-overlay-print-root pointer-events-none absolute inset-0 z-[20]"
+      className="document-overlay-print-root pointer-events-none absolute inset-0 z-[80]"
       style={{ color: ink, fontFamily: "Arial, Helvetica, sans-serif" }}
     >
       <style dangerouslySetInnerHTML={{ __html: captureSafeCss }} />

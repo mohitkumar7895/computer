@@ -157,7 +157,7 @@ export default function StudentMarksheetPage() {
 
       <div
         id="cert-a4"
-        className="relative h-[297mm] w-[210mm] overflow-visible bg-white shadow-2xl print:shadow-none"
+        className="relative isolate h-[297mm] w-[210mm] overflow-hidden bg-white shadow-2xl print:shadow-none"
       >
         {bg ? <DocumentTemplateBackground src={bg} onPainted={onTemplatePainted} /> : null}
         {showTextOverlay ? (

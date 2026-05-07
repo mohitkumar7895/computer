@@ -157,7 +157,7 @@ export default function StudentCertificatePage() {
 
       <div
         id="cert-a4"
-        className="relative h-[210mm] w-[297mm] overflow-hidden bg-white shadow-2xl print:shadow-none"
+        className="relative isolate h-[210mm] w-[297mm] overflow-hidden bg-white shadow-2xl print:shadow-none"
       >
         {bg ? <DocumentTemplateBackground src={bg} onPainted={onTemplatePainted} /> : null}
         {showTextOverlay ? (

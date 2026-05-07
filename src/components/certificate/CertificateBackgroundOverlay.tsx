@@ -168,7 +168,7 @@ export default function CertificateBackgroundOverlay({
 
   return (
     <div
-      className="document-overlay-print-root pointer-events-none absolute inset-0 z-[20]"
+      className="document-overlay-print-root pointer-events-none absolute inset-0 z-[80]"
       style={{ fontFamily: "Arial, Helvetica, sans-serif", color: ink }}
     >
       <style dangerouslySetInnerHTML={{ __html: captureSafeCss }} />
