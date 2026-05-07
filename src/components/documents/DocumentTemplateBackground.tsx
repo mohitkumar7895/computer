@@ -66,7 +66,7 @@ export default function DocumentTemplateBackground({ src, onPainted }: Props) {
       decoding="sync"
       onLoad={fire}
       onError={fire}
-      className="absolute inset-0 z-[1] h-full w-full bg-white object-fill print:hidden"
+      className="document-template-bg absolute inset-0 z-[1] h-full w-full bg-white object-fill print:hidden"
     />
   );
 }

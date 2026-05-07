@@ -73,6 +73,40 @@ function capturePixelSize(el: HTMLElement): { w: number; h: number } {
   return { w: Math.max(1, w), h: Math.max(1, h) };
 }
 
+function buildExportClone(el: HTMLElement, w: number, h: number): HTMLElement {
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.style.position = "fixed";
+  clone.style.left = "-100000px";
+  clone.style.top = "0";
+  clone.style.width = `${w}px`;
+  clone.style.height = `${h}px`;
+  clone.style.margin = "0";
+  clone.style.transform = "none";
+  clone.style.overflow = "hidden";
+  clone.style.background = "#ffffff";
+  clone.style.isolation = "isolate";
+  clone.setAttribute("data-export-clone", "true");
+
+  // Force deterministic layer order for PDF export:
+  // background image at bottom, all text/signature overlays above it.
+  clone.querySelectorAll<HTMLElement>("img").forEach((img) => {
+    if (img.classList.contains("document-template-bg")) {
+      img.style.position = "absolute";
+      img.style.inset = "0";
+      img.style.zIndex = "1";
+    }
+  });
+  clone.querySelectorAll<HTMLElement>(".document-overlay-print-root").forEach((overlay) => {
+    overlay.style.position = "absolute";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "80";
+    overlay.style.isolation = "isolate";
+  });
+
+  document.body.appendChild(clone);
+  return clone;
+}
+
 /** Render `el` (sized to A4 in CSS units) to a single-page PDF and trigger a download. */
 export async function downloadElementAsA4Pdf(
   el: HTMLElement,
@@ -93,9 +127,12 @@ export async function downloadElementAsA4Pdf(
   const { w, h } = capturePixelSize(el);
   const cw = Math.max(1, Math.round(w * pixelRatio));
   const ch = Math.max(1, Math.round(h * pixelRatio));
+  const exportEl = buildExportClone(el, w, h);
+  await waitForImages(exportEl);
+  await waitForFontsAndPaintSettle();
   const captureWithHtml2Canvas = async (): Promise<string> => {
     const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(el, {
+    const canvas = await html2canvas(exportEl, {
       backgroundColor: "#ffffff",
       useCORS: true,
       allowTaint: false,
@@ -109,7 +146,7 @@ export async function downloadElementAsA4Pdf(
   };
 
   const captureWithHtmlToImage = async (): Promise<string> =>
-    toJpeg(el, {
+    toJpeg(exportEl, {
       cacheBust: true,
       pixelRatio,
       quality: jpegQuality,
@@ -135,6 +172,8 @@ export async function downloadElementAsA4Pdf(
   } catch {
     // Fallback path if canvas capture fails on specific browser/env combinations.
     jpeg = await captureWithHtmlToImage();
+  } finally {
+    exportEl.remove();
   }
 
   const dims = ORIENTATION_TO_MM[orientation];
