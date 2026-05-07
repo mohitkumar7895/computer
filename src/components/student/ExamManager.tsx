@@ -193,7 +193,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                   <span className="text-[10px] font-black uppercase tracking-widest">Formal Certification</span>
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight">Official Credentials</h2>
-                <p className="text-slate-400 font-medium mt-2">Download and print your authenticated academic documents.</p>
+                <p className="text-slate-400 font-medium mt-2">Download your authenticated academic documents.</p>
               </div>
               <ShieldCheck className="w-16 h-16 text-white/5 absolute -top-4 -right-4 lg:static lg:opacity-20" />
             </div>
@@ -210,7 +210,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                     onClick={() => window.open(`/student/document/marksheet/${publishedExam._id}`, '_blank')}
                     className="mt-auto w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-50 transition active:scale-95 flex items-center justify-center gap-3"
                   >
-                    <Download className="w-4 h-4" /> Print Marksheet
+                    <Download className="w-4 h-4" /> Download Marksheet
                   </button>
                 ) : (
                   <div className="mt-auto w-full py-4 bg-white/5 border border-white/10 text-slate-500 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-center italic">
@@ -230,7 +230,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
                     onClick={() => window.open(`/student/document/certificate/${publishedExam._id}`, '_blank')}
                     className="mt-auto w-full py-4 bg-amber-500 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-amber-400 transition active:scale-95 flex items-center justify-center gap-3"
                   >
-                    <Award className="w-4 h-4" /> Print Certificate
+                    <Download className="w-4 h-4" /> Download Certificate
                   </button>
                 ) : (
                   <div className="mt-auto w-full py-4 bg-white/5 border border-white/10 text-slate-500 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-center italic">
