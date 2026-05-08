@@ -49,6 +49,7 @@ export interface IStudent {
   qualSchoolOther?: string;
   qualYearPassing?: string;
   qualPercentObtained?: string;
+  credentialEntries?: string;
   qualificationDoc?: string;
   photo?: string;
   idProof?: string;
@@ -116,6 +117,7 @@ const StudentSchema = new Schema<IStudent>(
     qualSchoolOther: { type: String, default: "" },
     qualYearPassing: { type: String, default: "" },
     qualPercentObtained: { type: String, default: "" },
+    credentialEntries: { type: String, default: "" },
     qualificationDoc: { type: String },
     photo: { type: String },
     idProof: { type: String },

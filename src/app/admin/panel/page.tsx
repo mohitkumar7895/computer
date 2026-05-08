@@ -95,6 +95,7 @@ interface Student {
   qualSchoolOther?: string;
   qualYearPassing?: string;
   qualPercentObtained?: string;
+  credentialEntries?: string;
   qualificationDetail?: string;
   status: "pending" | "approved" | "rejected" | "active" | "pending_atc" | "pending_admin";
   isDirectAdmission?: boolean;
@@ -176,6 +177,62 @@ const parseInfra = (infraStr: string | undefined): Record<string, { rooms: strin
   } catch {
     return {};
   }
+};
+
+const credentialEntriesToEditorText = (raw?: string): string => {
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw) as Array<{
+      courseName?: string;
+      schoolName?: string;
+      courseTitle?: string;
+      yearPassing?: string;
+      obtained?: string;
+    }>;
+    if (!Array.isArray(parsed)) return "";
+    return parsed
+      .map((item) =>
+        [
+          String(item.courseName ?? "").trim(),
+          String(item.schoolName ?? "").trim(),
+          String(item.courseTitle ?? "").trim(),
+          String(item.yearPassing ?? "").trim(),
+          String(item.obtained ?? "").trim(),
+        ].join(" | ")
+      )
+      .filter((line) => line.replace(/\|/g, "").trim().length > 0)
+      .join("\n");
+  } catch {
+    return "";
+  }
+};
+
+const editorTextToCredentialEntries = (text: string): string => {
+  const rows = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|").map((v) => v.trim());
+      return {
+        courseName: parts[0] || "",
+        schoolName: parts[1] || "",
+        courseTitle: parts[2] || "",
+        yearPassing: parts[3] || "",
+        obtained: parts[4] || "",
+      };
+    })
+    .filter((row) => Object.values(row).some((v) => String(v).trim().length > 0));
+  return rows.length > 0 ? JSON.stringify(rows) : "";
+};
+
+const fallbackCredentialTextFromStudent = (student: Pick<Student, "qualSchool" | "qualSchoolOther" | "qualYearPassing" | "qualPercentObtained" | "highestQualification">): string => {
+  const school = formatQualSchoolDisplay(student.qualSchool, student.qualSchoolOther).trim();
+  const year = String(student.qualYearPassing || "").trim();
+  const obtained = String(student.qualPercentObtained || "").trim();
+  const qual = String(student.highestQualification || "").trim();
+  if (!school && !year && !obtained && !qual) return "";
+  return `${qual} | ${school} |  | ${year} | ${obtained}`;
 };
 
 type Tab = "dashboard" | "create" | "courses" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds" | "walletRequests" | "walletPayment";
@@ -297,14 +354,55 @@ export default function AdminPanelPage() {
 
   const openStudentDoc = (url: string) => {
     if (!url) return;
-    const isPdf = url.includes("application/pdf") || url.toLowerCase().endsWith(".pdf");
-    if (!isPdf) {
-      window.open(url, "_blank");
-      return;
+    try {
+      const win = window.open("", "_blank");
+      if (!win) return;
+
+      let finalUrl = url;
+      let mime = "";
+
+      // Data URLs can fail to open directly in some browsers (especially large PDFs).
+      // Convert to Blob URL for reliable viewing.
+      if (url.startsWith("data:")) {
+        const [meta, base64] = url.split(",");
+        const mimeMatch = meta.match(/^data:([^;]+);base64$/i) || meta.match(/^data:([^;]+);/i);
+        mime = mimeMatch?.[1] || "application/octet-stream";
+        const normalizedBase64 = decodeURIComponent((base64 || "").replace(/\s/g, ""));
+        const binary = atob(normalizedBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        finalUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        // Revoke later to avoid leaking object URLs.
+        setTimeout(() => URL.revokeObjectURL(finalUrl), 120_000);
+      }
+
+      const lower = `${mime} ${finalUrl}`.toLowerCase();
+      const isPdf = lower.includes("application/pdf") || finalUrl.toLowerCase().endsWith(".pdf");
+      if (isPdf) {
+        win.document.open();
+        win.document.write(`
+          <!doctype html>
+          <html>
+            <head><title>Document Preview</title><style>html,body,iframe{margin:0;padding:0;width:100%;height:100%;border:0;background:#0f172a;}</style></head>
+            <body><iframe src="${finalUrl}" title="Document Preview"></iframe></body>
+          </html>
+        `);
+        win.document.close();
+      } else {
+        win.location.replace(finalUrl);
+      }
+    } catch {
+      const fallbackWin = window.open("", "_blank");
+      if (fallbackWin) fallbackWin.location.replace(url);
     }
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(`<iframe src="${url}" frameborder="0" style="border:0;top:0;left:0;bottom:0;right:0;width:100%;height:100%;" allowfullscreen></iframe>`);
+  };
+
+  const getStudentDocUrl = (key: string): string => {
+    const valFromEdit = studentEditValues[key];
+    if (typeof valFromEdit === "string" && valFromEdit.trim()) return valFromEdit;
+    const fallback = (editingStudent as unknown as Record<string, unknown> | null)?.[key];
+    if (typeof fallback === "string" && fallback.trim()) return fallback;
+    return "";
   };
 
   const getStudentFieldValue = (values: StudentEditValues, key: string) => {
@@ -329,7 +427,10 @@ export default function AdminPanelPage() {
         qualYearPassing: String(mergedStudent.qualYearPassing || "").replace(/\D/g, "").slice(0, 4),
       };
       setEditingStudent(normalizedStudent);
-      setStudentEditValues(normalizedStudent as StudentEditValues);
+      setStudentEditValues({
+        ...(normalizedStudent as StudentEditValues),
+        credentialEntriesText: credentialEntriesToEditorText(normalizedStudent.credentialEntries) || fallbackCredentialTextFromStudent(normalizedStudent),
+      });
     } catch {
       const studentLoose = student as unknown as StudentLooseFields;
       const normalizedStudent: Student = {
@@ -340,7 +441,10 @@ export default function AdminPanelPage() {
         qualYearPassing: String(student.qualYearPassing || "").replace(/\D/g, "").slice(0, 4),
       };
       setEditingStudent(normalizedStudent);
-      setStudentEditValues(normalizedStudent as StudentEditValues);
+      setStudentEditValues({
+        ...(normalizedStudent as StudentEditValues),
+        credentialEntriesText: credentialEntriesToEditorText(normalizedStudent.credentialEntries) || fallbackCredentialTextFromStudent(normalizedStudent),
+      });
       showToast("error", "Could not load full document set. Showing available details.");
     }
   };
@@ -1314,6 +1418,14 @@ export default function AdminPanelPage() {
     if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_admin";
     return s.status === studentFilter;
   });
+  const studentCourseOptions = Array.from(
+    new Set(
+      [
+        ...students.map((s) => String(s.course || "").trim()),
+        String(studentEditValues.course || "").trim(),
+      ].filter((v) => v.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
   const studentCounts = {
     all: students.length,
     pending: students.filter((s) => s.status === "pending" || s.status === "pending_admin").length,
@@ -1788,6 +1900,18 @@ export default function AdminPanelPage() {
                             await fetchApplications();
                           }}
                         />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Added Qualifications (one per line)</label>
+                        <textarea
+                          value={String(studentEditValues.credentialEntriesText || "")}
+                          onChange={(e) => setStudentEditValues((prev) => ({ ...prev, credentialEntriesText: e.target.value }))}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition h-28"
+                          placeholder="Qualification | School/College | Course Name | Year | Obtained"
+                        />
+                        <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                          Format: Qualification | School/College | Course Name | Year | Obtained
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -3370,10 +3494,17 @@ export default function AdminPanelPage() {
                 <form className="grid grid-cols-1 lg:grid-cols-12 gap-8" onSubmit={async (e) => {
                   e.preventDefault();
                   try {
+                    const { credentialEntriesText, ...restStudentEditValues } = studentEditValues as StudentEditValues & {
+                      credentialEntriesText?: string;
+                    };
+                    const updatePayload = {
+                      ...restStudentEditValues,
+                      credentialEntries: editorTextToCredentialEntries(String(credentialEntriesText || "")),
+                    };
                     const res = await apiFetch(`/api/admin/students/${editingStudent._id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ action: "updateDetails", updateData: studentEditValues }),
+                      body: JSON.stringify({ action: "updateDetails", updateData: updatePayload }),
                     });
                     if (!res.ok) throw new Error("Update failed");
                     showToast("success", "Student details updated successfully");
@@ -3388,14 +3519,36 @@ export default function AdminPanelPage() {
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Personal Identity</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {[
-                          { label: "Full Name", key: "name" }, { label: "Father Name", key: "fatherName" }, { label: "Mother Name", key: "motherName" },
-                          { label: "Date of Birth", key: "dob" }, { label: "Gender", key: "gender" }, { label: "Category", key: "category" },
-                          { label: "Religion", key: "religion" }, { label: "Nationality", key: "nationality" }, { label: "Marital Status", key: "maritalStatus" },
-                          { label: "Aadhar Number", key: "aadharNo" }, { label: "Parents/Emergency Mobile", key: "parentsMobile" }, { label: "Referred By", key: "referredBy" },
+                          { label: "Full Name", key: "name" },
+                          { label: "Father Name", key: "fatherName" },
+                          { label: "Mother Name", key: "motherName" },
+                          { label: "Date of Birth", key: "dob" },
+                          { label: "Gender", key: "gender", options: ["Male", "Female", "Other"] },
+                          { label: "Category", key: "category", options: ["General", "OBC", "SC", "ST"] },
+                          { label: "Religion", key: "religion", options: ["", "Hindu", "Muslim", "Christian", "Jain", "Buddhism", "Other"] },
+                          { label: "Nationality", key: "nationality", options: ["Indian", "Other"] },
+                          { label: "Marital Status", key: "maritalStatus", options: ["", "Married", "Unmarried", "Others"] },
+                          { label: "Aadhar Number", key: "aadharNo" },
+                          { label: "Parents/Emergency Mobile", key: "parentsMobile" },
+                          { label: "Referred By", key: "referredBy" },
                         ].map((field) => (
                           <div key={field.key}>
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">{field.label}</label>
-                            <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
+                            {field.options ? (
+                              <select
+                                value={getStudentFieldValue(studentEditValues, field.key)}
+                                onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition bg-white"
+                              >
+                                {field.options.map((opt) => (
+                                  <option key={opt || "blank"} value={opt}>
+                                    {opt || "Select"}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input type="text" value={getStudentFieldValue(studentEditValues, field.key)} onChange={(e) => setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition" />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -3408,9 +3561,9 @@ export default function AdminPanelPage() {
                           [
                             { label: "Email Address", key: "email" },
                             { label: "Mobile Number", key: "mobile" },
-                            { label: "Course Name", key: "course" },
+                            { label: "Course Name", key: "course", kind: "courseSelect" as const },
                             { label: "Session", key: "session" },
-                            { label: "Course Type", key: "courseType" },
+                            { label: "Course Type", key: "courseType", kind: "courseTypeSelect" as const },
                             { label: "Highest Qualification", key: "highestQualification", kind: "qualSelect" as const },
                             { label: "College / School name", key: "qualSchool" },
                             { label: "Year of passing", key: "qualYearPassing" },
@@ -3431,11 +3584,44 @@ export default function AdminPanelPage() {
                                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition bg-white"
                               >
                                 <option value="">Select qualification</option>
+                                {(() => {
+                                  const current = getStudentFieldValue(studentEditValues, field.key);
+                                  return current && !ADMIN_QUALIFICATION_DROPDOWN_OPTIONS.includes(current as (typeof ADMIN_QUALIFICATION_DROPDOWN_OPTIONS)[number]) ? (
+                                    <option value={current}>{current}</option>
+                                  ) : null;
+                                })()}
                                 {ADMIN_QUALIFICATION_DROPDOWN_OPTIONS.map((opt) => (
                                   <option key={opt} value={opt}>
                                     {opt}
                                   </option>
                                 ))}
+                              </select>
+                            ) : "kind" in field && field.kind === "courseSelect" ? (
+                              <select
+                                value={getStudentFieldValue(studentEditValues, field.key)}
+                                onChange={(e) =>
+                                  setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition bg-white"
+                              >
+                                <option value="">Select course</option>
+                                {studentCourseOptions.map((courseName) => (
+                                  <option key={courseName} value={courseName}>
+                                    {courseName}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : "kind" in field && field.kind === "courseTypeSelect" ? (
+                              <select
+                                value={getStudentFieldValue(studentEditValues, field.key)}
+                                onChange={(e) =>
+                                  setStudentEditValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition bg-white"
+                              >
+                                <option value="">Select course type</option>
+                                <option value="Regular">Regular</option>
+                                <option value="ODL (Open Distance Learning)">ODL (Open Distance Learning)</option>
                               </select>
                             ) : "kind" in field && field.kind === "examSelect" ? (
                               <select
@@ -3533,7 +3719,7 @@ export default function AdminPanelPage() {
                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">{d.label}</p>
                             <label className="w-full h-24 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative group shadow-sm hover:border-blue-400 transition cursor-pointer">
                               {(() => {
-                                const docUrl = studentEditValues[d.key];
+                                const docUrl = getStudentDocUrl(String(d.key));
                                 const isPdf = typeof docUrl === "string" && (docUrl.includes("application/pdf") || docUrl.toLowerCase().endsWith(".pdf"));
                                 const isImage = typeof docUrl === "string" && !isPdf && (docUrl.includes("image/") || docUrl.toLowerCase().endsWith(".jpg") || docUrl.toLowerCase().endsWith(".jpeg") || docUrl.toLowerCase().endsWith(".png") || docUrl.toLowerCase().endsWith(".webp"));
                                 if (isImage) return <Image src={docUrl} alt={d.label} width={160} height={96} unoptimized className="w-full h-full object-cover" />;
@@ -3553,7 +3739,9 @@ export default function AdminPanelPage() {
                                 };
                               }} />
                             </label>
-                            {typeof studentEditValues[d.key] === "string" && <button type="button" onClick={() => openStudentDoc(studentEditValues[d.key] as string)} className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View</button>}
+                            {getStudentDocUrl(String(d.key)) ? (
+                              <button type="button" onClick={() => openStudentDoc(getStudentDocUrl(String(d.key)))} className="text-[8px] font-bold text-blue-600 hover:underline uppercase text-center">View</button>
+                            ) : null}
                           </div>
                         ))}
                       </div>

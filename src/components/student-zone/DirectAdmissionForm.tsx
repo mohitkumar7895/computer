@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, type FormEvent } from "react";
-import { CheckCircle, FileText, User, MapPin, CreditCard } from "lucide-react";
+import { CheckCircle, FileText, User, MapPin, CreditCard, Plus, Trash2 } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
 import HighestQualificationMultiSelect from "@/components/common/HighestQualificationMultiSelect";
 import {
@@ -19,6 +19,46 @@ interface Center {
   trainingPartnerName: string;
 }
 
+type CredentialDocumentType =
+  | "marksheet10th"
+  | "marksheet12th"
+  | "graduationDoc"
+  | "highestQualDoc"
+  | "aadharDoc"
+  | "otherDocs";
+
+type CredentialEntry = {
+  id: string;
+  courseName: string;
+  schoolName: string;
+  courseTitle: string;
+  yearPassing: string;
+  obtained: string;
+  documentFile: File | null;
+};
+
+const createCredentialEntry = (): CredentialEntry => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  courseName: "",
+  schoolName: "",
+  courseTitle: "",
+  yearPassing: "",
+  obtained: "",
+  documentFile: null,
+});
+
+const guessCredentialDocumentType = (courseName: string): CredentialDocumentType => {
+  const text = courseName.toLowerCase();
+  if (text.includes("10") || text.includes("matric")) return "marksheet10th";
+  if (text.includes("12") || text.includes("inter")) return "marksheet12th";
+  if (text.includes("grad") || text.includes("b.a") || text.includes("b.sc") || text.includes("b.com")) return "graduationDoc";
+  if (text.includes("aadhar") || text.includes("aadhaar")) return "aadharDoc";
+  if (text.includes("post") || text.includes("master") || text.includes("pg")) return "highestQualDoc";
+  return "otherDocs";
+};
+
+const QUALIFICATION_KEYS = new Set(["Below matric", "10th", "12th", "Graduation", "Other"]);
+
 export default function DirectAdmissionForm() {
   const { brandName } = useBrand();
   const formRef = useRef<HTMLFormElement>(null);
@@ -34,6 +74,8 @@ export default function DirectAdmissionForm() {
   const [qualSchool, setQualSchool] = useState("");
   const [qualYearPassing, setQualYearPassing] = useState("");
   const [qualPercent, setQualPercent] = useState("");
+  const [credentialEntries, setCredentialEntries] = useState<CredentialEntry[]>([]);
+  const [draftCredential, setDraftCredential] = useState<CredentialEntry>(createCredentialEntry());
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [admissionDate, setAdmissionDate] = useState("");
   const [isMounted, setIsMounted] = useState(false);
@@ -45,6 +87,15 @@ export default function DirectAdmissionForm() {
     void fetchCenters();
     setAdmissionDate(new Date().toISOString().split('T')[0]);
   }, []);
+
+  useEffect(() => {
+    const selectedQualification = qualSelected[0] === "Other" ? (qualOther.trim() || "Other") : (qualSelected[0] || "");
+    setDraftCredential((prev) => {
+      const shouldAutoMap = !prev.courseName.trim() || QUALIFICATION_KEYS.has(prev.courseName.trim());
+      if (!shouldAutoMap) return prev;
+      return { ...prev, courseName: selectedQualification };
+    });
+  }, [qualSelected, qualOther]);
 
   const fetchCourses = async () => {
     try {
@@ -128,11 +179,45 @@ export default function DirectAdmissionForm() {
     try {
       const form = new FormData(formEl);
       if (sameAddress) form.set("permanentAddress", currentAddr);
+      const filledCredentialEntries = credentialEntries.filter((entry) =>
+        Boolean(
+          entry.courseName.trim() ||
+          entry.schoolName.trim() ||
+          entry.yearPassing.trim() ||
+          entry.obtained.trim() ||
+          entry.documentFile
+        )
+      );
+      const firstCredential = filledCredentialEntries[0];
+
       form.set("highestQualification", formatHighestQualificationMulti(qualSelected, qualOther));
-      form.set("qualSchool", qualSchool);
+      form.set("qualSchool", firstCredential?.schoolName.trim() || qualSchool);
       form.set("qualSchoolOther", "");
-      form.set("qualYearPassing", qualYearPassing);
-      form.set("qualPercentObtained", qualPercent);
+      form.set("qualYearPassing", firstCredential?.yearPassing.trim() || qualYearPassing);
+      form.set("qualPercentObtained", firstCredential?.obtained.trim() || qualPercent);
+      form.set(
+        "credentialEntries",
+        JSON.stringify(
+          filledCredentialEntries.map((entry) => ({
+            courseName: entry.courseName.trim(),
+            schoolName: entry.schoolName.trim(),
+            courseTitle: entry.courseTitle.trim(),
+            yearPassing: entry.yearPassing.trim(),
+            obtained: entry.obtained.trim(),
+            documentType: guessCredentialDocumentType(entry.courseName),
+            documentName: entry.documentFile?.name || "",
+          }))
+        )
+      );
+
+      const mappedDocs = new Set<CredentialDocumentType>();
+      for (const entry of filledCredentialEntries) {
+        const docType = guessCredentialDocumentType(entry.courseName);
+        if (entry.documentFile && !mappedDocs.has(docType)) {
+          form.set(docType, entry.documentFile);
+          mappedDocs.add(docType);
+        }
+      }
 
       const res = await fetch("/api/direct-admission", { 
         method: "POST", 
@@ -155,6 +240,8 @@ export default function DirectAdmissionForm() {
       setQualSchool("");
       setQualYearPassing("");
       setQualPercent("");
+      setCredentialEntries([]);
+      setDraftCredential(createCredentialEntry());
     } catch (err: unknown) {
       setMsg({
         type: "error",
@@ -164,6 +251,32 @@ export default function DirectAdmissionForm() {
       setLoading(false);
     }
   };
+
+  const updateDraftCredential = <K extends keyof CredentialEntry>(field: K, value: CredentialEntry[K]) => {
+    setDraftCredential((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const addCredentialEntry = () => {
+    const next = {
+      ...draftCredential,
+      courseName: draftCredential.courseName.trim(),
+      schoolName: draftCredential.schoolName.trim(),
+      courseTitle: draftCredential.courseTitle.trim(),
+      yearPassing: draftCredential.yearPassing.trim(),
+      obtained: draftCredential.obtained.trim(),
+    };
+    if (!next.courseName || !next.schoolName || !next.courseTitle || !next.yearPassing || !next.obtained) {
+      setMsg({ type: "error", text: "Please fill qualification, school/college, course name, year, and obtained before adding." });
+      return;
+    }
+    setCredentialEntries((prev) => [...prev, { ...next, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }]);
+    setDraftCredential((prev) => ({ ...createCredentialEntry(), courseName: prev.courseName }));
+  };
+
+  const removeCredentialEntry = (id: string) => {
+    setCredentialEntries((prev) => prev.filter((entry) => entry.id !== id));
+  };
+  const shouldShowCredentialEntries = qualSelected.length > 0 || qualOther.trim().length > 0;
 
   const inputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${invalidFields.has(name || "") ? "border-red-800 bg-red-50/60 ring-4 ring-red-100" : "border-slate-200"} rounded-xl text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition placeholder:text-slate-400`;
   const labelCls = (name?: string) =>
@@ -365,44 +478,126 @@ export default function DirectAdmissionForm() {
               labelCls={labelCls}
               inputCls={inputCls}
             />
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className={labelCls("qualSchool")}>College / School name</label>
-                  <input
-                    type="text"
-                    value={qualSchool}
-                    onChange={(e) => setQualSchool(e.target.value)}
-                    className={`${inputCls("qualSchool")} py-3 text-base`}
-                    placeholder="e.g. as on marksheet"
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
-                  <label className={labelCls("qualYearPassing")}>Year of passing</label>
-                  <input
-                    type="text"
-                    value={qualYearPassing}
-                    onChange={(e) => setQualYearPassing(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    className={`${inputCls("qualYearPassing")} py-3 text-base`}
-                    placeholder="e.g. 2024"
-                    inputMode="numeric"
-                    maxLength={4}
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
-                  <label className={labelCls("qualPercentObtained")}>% Obtained</label>
-                  <input
-                    type="text"
-                    value={qualPercent}
-                    onChange={(e) => setQualPercent(e.target.value)}
-                    className={`${inputCls("qualPercentObtained")} py-3 text-base`}
-                    placeholder="e.g. 72% or CGPA"
-                    autoComplete="off"
-                  />
-                </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+              <div className="space-y-3">
+                {credentialEntries.length > 0 && (
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Added Details</p>
+                )}
+                {credentialEntries.map((entry, index) => (
+                  <div key={entry.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="mb-2 text-[11px] font-bold text-slate-600">
+                      Details for: <span className="text-slate-900">{entry.courseName.trim() || `Qualification ${index + 1}`}</span>
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div><label className={labelCls("courseName")}>Qualification</label><input type="text" value={entry.courseName} readOnly className={`${inputCls("courseName")} py-2.5 bg-slate-50`} /></div>
+                      <div><label className={labelCls("qualSchool")}>School / College</label><input type="text" value={entry.schoolName} readOnly className={`${inputCls("qualSchool")} py-2.5 bg-slate-50`} /></div>
+                      <div><label className={labelCls("courseTitle")}>Course Name</label><input type="text" value={entry.courseTitle} readOnly className={`${inputCls("courseTitle")} py-2.5 bg-slate-50`} /></div>
+                      <div><label className={labelCls("qualYearPassing")}>Year of Passing</label><input type="text" value={entry.yearPassing} readOnly className={`${inputCls("qualYearPassing")} py-2.5 bg-slate-50`} /></div>
+                      <div><label className={labelCls("qualPercentObtained")}>Obtained / Grade</label><input type="text" value={entry.obtained} readOnly className={`${inputCls("qualPercentObtained")} py-2.5 bg-slate-50`} /></div>
+                      <div className="flex items-end gap-2">
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          {entry.documentFile?.name || "No file"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeCredentialEntry(entry.id)}
+                          className="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700 hover:bg-red-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
+              {shouldShowCredentialEntries ? (
+                <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 mt-3">
+                  <p className="mb-2 text-[11px] font-bold text-slate-700">Add qualification details</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelCls("courseName")}>Qualification</label>
+                      <input
+                        type="text"
+                        value={draftCredential.courseName}
+                        readOnly
+                        className={`${inputCls("courseName")} py-2.5 bg-slate-50`}
+                        placeholder="e.g. 10th, 12th, Graduation"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls("qualSchool")}>School / College</label>
+                      <input
+                        type="text"
+                        value={draftCredential.schoolName}
+                        onChange={(e) => updateDraftCredential("schoolName", e.target.value)}
+                        className={`${inputCls("qualSchool")} py-2.5`}
+                        placeholder="Institution name"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls("courseTitle")}>Course Name</label>
+                      <input
+                        type="text"
+                        value={draftCredential.courseTitle}
+                        onChange={(e) => updateDraftCredential("courseTitle", e.target.value)}
+                        className={`${inputCls("courseTitle")} py-2.5`}
+                        placeholder="e.g. Science, Commerce, BCA"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls("qualYearPassing")}>Year of Passing</label>
+                      <input
+                        type="text"
+                        value={draftCredential.yearPassing}
+                        onChange={(e) =>
+                          updateDraftCredential("yearPassing", e.target.value.replace(/\D/g, "").slice(0, 4))
+                        }
+                        className={`${inputCls("qualYearPassing")} py-2.5`}
+                        placeholder="YYYY"
+                        inputMode="numeric"
+                        maxLength={4}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls("qualPercentObtained")}>Obtained / Grade</label>
+                      <input
+                        type="text"
+                        value={draftCredential.obtained}
+                        onChange={(e) => updateDraftCredential("obtained", e.target.value)}
+                        className={`${inputCls("qualPercentObtained")} py-2.5`}
+                        placeholder="e.g. 72% / A Grade"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls("credentialDoc")}>Upload Document (Max 500KB)</label>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => updateDraftCredential("documentFile", e.target.files?.[0] ?? null)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-600 file:mr-3 file:rounded-lg file:border file:border-slate-200 file:bg-slate-100 file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:uppercase file:text-slate-700 file:cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={addCredentialEntry}
+                      className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-blue-800 hover:bg-blue-200"
+                    >
+                      <Plus className="h-4 w-4" /> Add
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Select qualification to continue.
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className={labelCls("aadharNo")}>Aadhar Number</label><input name="aadharNo" className={`${inputCls("aadharNo")} py-3 text-base`} placeholder="12-digit UID" maxLength={12} /></div>
@@ -414,12 +609,6 @@ export default function DirectAdmissionForm() {
               {[
                 { label: "Student Photo (JPG/PNG) * - Max 100KB", name: "photo", required: true },
                 { label: "Student Signature (JPG/PNG) * - Max 100KB", name: "studentSignature", required: true },
-                { label: "Aadhar Card PDF - Max 500KB", name: "aadharDoc", required: false },
-                { label: "10th Marksheet - Max 500KB (PDF/JPG/PNG)", name: "marksheet10th", required: false },
-                { label: "12th Marksheet (JPG/PNG/PDF) - Max 500KB", name: "marksheet12th", required: false },
-                { label: "Graduation Doc (JPG/PNG/PDF) - Max 500KB", name: "graduationDoc", required: false },
-                { label: "Highest Qual. Doc (JPG/PNG/PDF) - Max 500KB", name: "highestQualDoc", required: false },
-                { label: "Other Documents (PDF) - Max 500KB", name: "otherDocs", required: false },
               ].map(doc => (
                 <div key={doc.name} className={`group relative p-3 rounded-2xl border transition-all ${invalidFields.has(doc.name) ? "border-red-700 bg-red-50/50 ring-4 ring-red-50" : "border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200"}`}>
                   <label className={`block text-[10px] font-black uppercase mb-2 tracking-tighter ${invalidFields.has(doc.name) ? "text-red-800" : "text-slate-400 group-hover:text-blue-500"}`}>
@@ -431,7 +620,7 @@ export default function DirectAdmissionForm() {
                     name={doc.name} 
                     required={doc.required}
                     accept="image/*,application/pdf" 
-                    className="w-full text-[10px] text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:cursor-pointer transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-600 file:mr-3 file:rounded-lg file:border file:border-slate-200 file:bg-slate-100 file:px-3 file:py-1.5 file:text-[10px] file:font-black file:uppercase file:text-slate-700 file:cursor-pointer"
                   />
                 </div>
               ))}

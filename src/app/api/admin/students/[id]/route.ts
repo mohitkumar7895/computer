@@ -114,7 +114,7 @@ export async function PATCH(
         "graduationDoc", "aadharDoc", "otherDocs",
         "dob", "gender", "category", "religion", "nationality", "session",
         "maritalStatus", "courseType", "highestQualification", "qualSchool", "qualSchoolOther",
-        "qualYearPassing", "qualPercentObtained", "admissionFees",
+        "qualYearPassing", "qualPercentObtained", "credentialEntries", "admissionFees",
         "admissionDate", "referredBy", "examMode", "totalFee"
       ];
       

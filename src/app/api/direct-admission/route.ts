@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       qualSchoolOther: String(formData.get("qualSchoolOther") ?? "").trim(),
       qualYearPassing,
       qualPercentObtained: String(formData.get("qualPercentObtained") ?? "").trim(),
+      credentialEntries: String(formData.get("credentialEntries") ?? "").trim(),
       aadharNo: String(formData.get("aadharNo") || "").trim(),
       referredBy: String(formData.get("referredBy") || "").trim(),
       category: String(formData.get("category") || "General"),

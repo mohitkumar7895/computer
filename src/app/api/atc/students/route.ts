@@ -152,6 +152,7 @@ export async function POST(request: Request) {
       qualSchoolOther: String(formData.get("qualSchoolOther") ?? "").trim(),
       qualYearPassing,
       qualPercentObtained: String(formData.get("qualPercentObtained") ?? "").trim(),
+      credentialEntries: String(formData.get("credentialEntries") ?? "").trim(),
       photo,
       studentSignature,
       aadharDoc,
