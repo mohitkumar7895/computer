@@ -79,6 +79,16 @@ interface StudentCandidate {
   profileImage?: string;
 }
 
+const TODAY_ISO_DATE = new Date().toISOString().slice(0, 10);
+
+const sanitizeIsoDateInput = (value: string): string => {
+  const cleaned = value.replace(/[^\d-]/g, "");
+  const [year = "", month = "", day = ""] = cleaned.split("-");
+  return [year.slice(0, 4), month.slice(0, 2), day.slice(0, 2)]
+    .filter(Boolean)
+    .join("-");
+};
+
 type ZipDocType =
   | "admitCard"
   | "examCopy"
@@ -1186,8 +1196,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                     <input 
                         type="date"
                         className={inputCls}
+                        min="1900-01-01"
+                        max={TODAY_ISO_DATE}
                         value={approvalForm.examDate}
-                        onChange={(e) => setApprovalForm({...approvalForm, examDate: e.target.value})}
+                        onChange={(e) => setApprovalForm({...approvalForm, examDate: sanitizeIsoDateInput(e.target.value)})}
+                        onInput={(e) => {
+                          const target = e.currentTarget;
+                          target.value = sanitizeIsoDateInput(target.value);
+                        }}
                     />
                   </div>
 
@@ -1400,8 +1416,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                          type="date"
                          className={inputCls}
                          required
+                         min="1900-01-01"
+                         max={TODAY_ISO_DATE}
                          value={examReqForm.examDate}
-                         onChange={e => setExamReqForm({...examReqForm, examDate: e.target.value})}
+                         onChange={e => setExamReqForm({...examReqForm, examDate: sanitizeIsoDateInput(e.target.value)})}
+                         onInput={(e) => {
+                           const target = e.currentTarget;
+                           target.value = sanitizeIsoDateInput(target.value);
+                         }}
                        />
                     </div>
 

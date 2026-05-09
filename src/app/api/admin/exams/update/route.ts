@@ -6,10 +6,26 @@ import { buildExamDateTimeUtc } from "@/lib/examScheduleUtc";
 import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
 import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 
+const normalizeIsoDate = (raw: unknown): string => {
+  const cleaned = String(raw ?? "").trim().replace(/[^\d-]/g, "");
+  const [year = "", month = "", day = ""] = cleaned.split("-");
+  return [year.slice(0, 4), month.slice(0, 2), day.slice(0, 2)]
+    .filter(Boolean)
+    .join("-");
+};
+
+const isValidIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toISOString().slice(0, 10) === value;
+};
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { requestId, status, examDate, examTime, setId, examMode, durationMinutes, admitCardReleased } = body;
+    const normalizedExamDate = examDate ? normalizeIsoDate(examDate) : "";
 
     if (!requestId || !status) {
       return NextResponse.json({ message: "requestId and status are required." }, { status: 400 });
@@ -18,14 +34,19 @@ export async function POST(request: Request) {
     await connectDB();
 
     const updateData: Record<string, unknown> = { approvalStatus: status };
-    if (examDate) updateData.examDate = examDate;
+    if (examDate) {
+      if (!isValidIsoDate(normalizedExamDate)) {
+        return NextResponse.json({ message: "Exam date must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+      }
+      updateData.examDate = normalizedExamDate;
+    }
     if (examTime) updateData.examTime = examTime;
     if (durationMinutes !== undefined) updateData.durationMinutes = Number(durationMinutes);
     if (examMode) updateData.examMode = examMode;
     if (setId) updateData.setId = setId;
     if (admitCardReleased !== undefined) updateData.admitCardReleased = admitCardReleased;
     if (examDate && examTime) {
-      const dt = buildExamDateTimeUtc(examDate, String(examTime));
+      const dt = buildExamDateTimeUtc(normalizedExamDate, String(examTime));
       if (dt) {
         updateData.examDateTime = dt;
       }

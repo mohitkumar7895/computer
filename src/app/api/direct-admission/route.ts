@@ -6,6 +6,22 @@ import { AtcUser } from "@/models/AtcUser";
 
 export const dynamic = 'force-dynamic';
 
+const normalizeIsoDate = (raw: unknown): string => {
+  const cleaned = String(raw ?? "").trim().replace(/[^\d-]/g, "");
+  const parts = cleaned.split("-");
+  const year = (parts[0] || "").slice(0, 4);
+  const month = (parts[1] || "").slice(0, 2);
+  const day = (parts[2] || "").slice(0, 2);
+  return [year, month, day].filter(Boolean).join("-");
+};
+
+const isValidIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toISOString().slice(0, 10) === value;
+};
+
 const toBase64 = async (file: any) => {
   try {
     if (!file || typeof file === "string") return file || "";
@@ -48,6 +64,8 @@ export async function POST(request: Request) {
     const email = String(formData.get("email") ?? "");
     const centerCode = String(formData.get("centerCode") ?? "");
     const qualYearPassing = String(formData.get("qualYearPassing") ?? "").replace(/\D/g, "").slice(0, 4);
+    const dob = normalizeIsoDate(formData.get("dob"));
+    const admissionDate = normalizeIsoDate(formData.get("admissionDate") || new Date().toISOString().split("T")[0]);
 
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json({ message: "Mobile must be exactly 10 digits." }, { status: 400 });
@@ -57,6 +75,12 @@ export async function POST(request: Request) {
     }
     if (qualYearPassing && !/^\d{4}$/.test(qualYearPassing)) {
       return NextResponse.json({ message: "Year of passing must be exactly 4 digits." }, { status: 400 });
+    }
+    if (!isValidIsoDate(dob)) {
+      return NextResponse.json({ message: "Date of birth must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+    }
+    if (!isValidIsoDate(admissionDate)) {
+      return NextResponse.json({ message: "Admission date must be a valid date in YYYY-MM-DD format." }, { status: 400 });
     }
 
     await connectDB();
@@ -83,7 +107,7 @@ export async function POST(request: Request) {
       name: String(formData.get("name")).trim(),
       fatherName: String(formData.get("fatherName")).trim(),
       motherName: String(formData.get("motherName")).trim(),
-      dob: String(formData.get("dob")),
+      dob,
       gender: String(formData.get("gender")),
       mobile: mobile,
       parentsMobile: String(formData.get("parentsMobile") || "").trim(),
@@ -107,7 +131,7 @@ export async function POST(request: Request) {
       disability: formData.get("disability") === "Yes",
       disabilityDetails: String(formData.get("disabilityDetails") || ""),
       examMode: String(formData.get("examMode") || "online"),
-      admissionDate: String(formData.get("admissionDate") || new Date().toISOString().split('T')[0]),
+      admissionDate,
       enrollmentNo: `DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       password: mobile, // default password
       status: "pending_atc",

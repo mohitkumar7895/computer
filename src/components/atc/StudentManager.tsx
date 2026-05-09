@@ -188,6 +188,31 @@ interface StudentManagerProps {
   initialFilter?: "all" | "pending" | "approved" | "rejected" | "disabled";
 }
 
+const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const TODAY_ISO_DATE = new Date().toISOString().split("T")[0];
+
+const sanitizeIsoDateInput = (value: string): string => {
+  const cleaned = value.replace(/[^\d-]/g, "");
+  const parts = cleaned.split("-");
+  if (parts.length === 0) return "";
+  const [year = "", month = "", day = ""] = parts;
+  const y = year.slice(0, 4);
+  const m = month.slice(0, 2);
+  const d = day.slice(0, 2);
+  return [y, m, d].filter((part) => part.length > 0).join("-");
+};
+
+const normalizeIsoDateForInput = (value?: string): string => {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const direct = text.match(ISO_DATE_REGEX);
+  if (direct) return `${direct[1]}-${direct[2]}-${direct[3]}`;
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return sanitizeIsoDateInput(text);
+  return date.toISOString().split("T")[0];
+};
+
 export default function StudentManager({ isDirectAdmission = false, initialFilter }: StudentManagerProps) {
   const [tab, setTab] = useState<"list" | "add">("list");
   const [students, setStudents] = useState<Student[]>([]);
@@ -1194,7 +1219,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                   name: s.name || "",
                                   fatherName: s.fatherName || "",
                                   motherName: s.motherName || "",
-                                  dob: s.dob || "",
+                                  dob: normalizeIsoDateForInput(s.dob),
                                   gender: s.gender || "Male",
                                   mobile: s.mobile || "",
                                   parentsMobile: s.parentsMobile || "",
@@ -1202,7 +1227,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                   course: s.course || "",
                                   courseType: s.courseType || "Regular",
                                   session: s.session || "",
-                                  admissionDate: s.admissionDate || "",
+                                  admissionDate: normalizeIsoDateForInput(s.admissionDate),
                                   currentAddress: s.currentAddress || "",
                                   permanentAddress: s.permanentAddress || "",
                                   highestQualification: s.highestQualification || "",
@@ -1286,7 +1311,21 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                   <label className={labelCls("motherName")}>Mother&apos;s Name *</label>
                   <input required name="motherName" className={inputCls("motherName")} placeholder="Mother&apos;s Name" />
                 </div>
-                <div><label className={labelCls("dob")}>Date of Birth *</label><input required type="date" name="dob" className={inputCls("dob")} /></div>
+                <div>
+                  <label className={labelCls("dob")}>Date of Birth *</label>
+                  <input
+                    required
+                    type="date"
+                    name="dob"
+                    className={inputCls("dob")}
+                    min="1900-01-01"
+                    max={TODAY_ISO_DATE}
+                    onInput={(e) => {
+                      const target = e.currentTarget;
+                      target.value = sanitizeIsoDateInput(target.value);
+                    }}
+                  />
+                </div>
                 <div>
                   <label className={labelCls("gender")}>Gender *</label>
                   <select required name="gender" className={inputCls("gender")}>
@@ -1372,7 +1411,19 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                 </div>
                 <div className="md:col-span-2">
                   <label className={labelCls("admissionDate")}>Admission Date *</label>
-                  <input required type="date" name="admissionDate" className={inputCls("admissionDate")} defaultValue={new Date().toISOString().split('T')[0]} />
+                  <input
+                    required
+                    type="date"
+                    name="admissionDate"
+                    className={inputCls("admissionDate")}
+                    defaultValue={TODAY_ISO_DATE}
+                    min="1900-01-01"
+                    max={TODAY_ISO_DATE}
+                    onInput={(e) => {
+                      const target = e.currentTarget;
+                      target.value = sanitizeIsoDateInput(target.value);
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -1718,8 +1769,10 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                 <input 
                                   type={item.type || "text"}
                                   value={String(editForm[item.key as keyof typeof editForm] ?? "")}
-                                  onChange={e => setEditForm({...editForm, [item.key]: e.target.value})}
+                                  onChange={e => setEditForm({...editForm, [item.key]: item.type === "date" ? sanitizeIsoDateInput(e.target.value) : e.target.value})}
                                   className={modalInputCls(item.key)}
+                                  min={item.type === "date" ? "1900-01-01" : undefined}
+                                  max={item.type === "date" ? TODAY_ISO_DATE : undefined}
                                 />
                               )
                             ) : (

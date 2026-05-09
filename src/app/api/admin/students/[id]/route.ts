@@ -11,6 +11,20 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const normalizeIsoDate = (raw: unknown): string => {
+  const cleaned = String(raw ?? "").trim().replace(/[^\d-]/g, "");
+  const parts = cleaned.split("-");
+  const year = (parts[0] || "").slice(0, 4);
+  const month = (parts[1] || "").slice(0, 2);
+  const day = (parts[2] || "").slice(0, 2);
+  return [year, month, day].filter(Boolean).join("-");
+};
+const isValidIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toISOString().slice(0, 10) === value;
+};
 
 async function verifyAdmin() {
   const cookieStore = await cookies();
@@ -104,6 +118,20 @@ export async function PATCH(
           return NextResponse.json({ message: "Year of passing must be exactly 4 digits." }, { status: 400 });
         }
         updateData.qualYearPassing = normalizedYear;
+      }
+      if (typeof updateData.dob === "string") {
+        const dob = normalizeIsoDate(updateData.dob);
+        if (!isValidIsoDate(dob)) {
+          return NextResponse.json({ message: "Date of birth must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+        }
+        updateData.dob = dob;
+      }
+      if (typeof updateData.admissionDate === "string") {
+        const admissionDate = normalizeIsoDate(updateData.admissionDate);
+        if (!isValidIsoDate(admissionDate)) {
+          return NextResponse.json({ message: "Admission date must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+        }
+        updateData.admissionDate = admissionDate;
       }
       // Filter out fields we don't want to update via this action
       const allowedFields = [

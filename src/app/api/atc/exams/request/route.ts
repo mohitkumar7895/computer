@@ -6,18 +6,37 @@ import { lifecycleStatusForExam } from "@/lib/exam-schedule";
 import { verifyAtc } from "@/lib/auth";
 import { buildExamDateTimeUtc } from "@/lib/examScheduleUtc";
 
+const normalizeIsoDate = (raw: unknown): string => {
+  const cleaned = String(raw ?? "").trim().replace(/[^\d-]/g, "");
+  const [year = "", month = "", day = ""] = cleaned.split("-");
+  return [year.slice(0, 4), month.slice(0, 2), day.slice(0, 2)]
+    .filter(Boolean)
+    .join("-");
+};
+
+const isValidIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toISOString().slice(0, 10) === value;
+};
+
 export async function POST(request: Request) {
   try {
     const atc = await verifyAtc(request);
     if (!atc) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     
     const { studentId, examDate, examTime, durationMinutes, setId, examMode } = await request.json();
+    const normalizedExamDate = normalizeIsoDate(examDate);
 
-    if (!studentId || !examDate || !examTime || !durationMinutes) {
+    if (!studentId || !normalizedExamDate || !examTime || !durationMinutes) {
       return NextResponse.json(
         { message: "studentId, examDate, examTime, and durationMinutes are required." },
         { status: 400 },
       );
+    }
+    if (!isValidIsoDate(normalizedExamDate)) {
+      return NextResponse.json({ message: "Exam date must be a valid date in YYYY-MM-DD format." }, { status: 400 });
     }
 
     await dbConnect();
@@ -50,7 +69,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Student exam mode is invalid." }, { status: 400 });
     }
 
-    const dateTime = buildExamDateTimeUtc(examDate, examTime);
+    const dateTime = buildExamDateTimeUtc(normalizedExamDate, examTime);
     if (!dateTime) {
       return NextResponse.json({ message: "Invalid exam date/time." }, { status: 400 });
     }
@@ -68,7 +87,7 @@ export async function POST(request: Request) {
       studentId,
       atcId: atc.id,
       examMode: mode,
-      examDate,
+      examDate: normalizedExamDate,
       examTime,
       examDateTime: dateTime,
       durationMinutes: duration,

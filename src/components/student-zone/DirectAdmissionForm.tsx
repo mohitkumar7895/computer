@@ -19,6 +19,19 @@ interface Center {
   trainingPartnerName: string;
 }
 
+const TODAY_ISO_DATE = new Date().toISOString().split("T")[0];
+
+const sanitizeIsoDateInput = (value: string): string => {
+  const cleaned = value.replace(/[^\d-]/g, "");
+  const parts = cleaned.split("-");
+  if (parts.length === 0) return "";
+  const [year = "", month = "", day = ""] = parts;
+  const y = year.slice(0, 4);
+  const m = month.slice(0, 2);
+  const d = day.slice(0, 2);
+  return [y, m, d].filter((part) => part.length > 0).join("-");
+};
+
 type CredentialDocumentType =
   | "marksheet10th"
   | "marksheet12th"
@@ -85,7 +98,7 @@ export default function DirectAdmissionForm() {
     setIsMounted(true);
     void fetchCourses();
     void fetchCenters();
-    setAdmissionDate(new Date().toISOString().split('T')[0]);
+    setAdmissionDate(TODAY_ISO_DATE);
   }, []);
 
   useEffect(() => {
@@ -318,7 +331,21 @@ export default function DirectAdmissionForm() {
               <label className={labelCls("motherName")}>{"Mother's Name *"}</label>
               <input required name="motherName" className={inputCls("motherName")} placeholder="Mother's Name" />
             </div>
-            <div><label className={labelCls("dob")}>Date of Birth *</label><input required type="date" name="dob" className={inputCls("dob")} /></div>
+            <div>
+              <label className={labelCls("dob")}>Date of Birth *</label>
+              <input
+                required
+                type="date"
+                name="dob"
+                className={inputCls("dob")}
+                min="1900-01-01"
+                max={TODAY_ISO_DATE}
+                onInput={(e) => {
+                  const target = e.currentTarget;
+                  target.value = sanitizeIsoDateInput(target.value);
+                }}
+              />
+            </div>
             <div>
               <label className={labelCls("gender")}>Gender *</label>
               <select required name="gender" className={inputCls("gender")}>
@@ -408,7 +435,21 @@ export default function DirectAdmissionForm() {
             </div>
             <div className="md:col-span-1">
               <label className={labelCls("admissionDate")}>Admission Date *</label>
-              <input required type="date" name="admissionDate" className={inputCls("admissionDate")} value={admissionDate} onChange={(e) => setAdmissionDate(e.target.value)} suppressHydrationWarning />
+              <input
+                required
+                type="date"
+                name="admissionDate"
+                className={inputCls("admissionDate")}
+                value={admissionDate}
+                min="1900-01-01"
+                max={TODAY_ISO_DATE}
+                onChange={(e) => setAdmissionDate(sanitizeIsoDateInput(e.target.value))}
+                onInput={(e) => {
+                  const target = e.currentTarget;
+                  target.value = sanitizeIsoDateInput(target.value);
+                }}
+                suppressHydrationWarning
+              />
             </div>
           </div>
         </div>

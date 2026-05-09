@@ -4,6 +4,22 @@ import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
 import { verifyAtc } from "@/lib/auth";
 
+const normalizeIsoDate = (raw: unknown): string => {
+  const cleaned = String(raw ?? "").trim().replace(/[^\d-]/g, "");
+  const parts = cleaned.split("-");
+  const year = (parts[0] || "").slice(0, 4);
+  const month = (parts[1] || "").slice(0, 2);
+  const day = (parts[2] || "").slice(0, 2);
+  return [year, month, day].filter(Boolean).join("-");
+};
+
+const isValidIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toISOString().slice(0, 10) === value;
+};
+
 export async function GET(request: Request) {
   const user = await verifyAtc(request);
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -114,9 +130,17 @@ export async function POST(request: Request) {
     const studentMobile = String(formData.get("mobile") || "").trim();
     const aadharNo = String(formData.get("aadharNo") || "").trim();
     const qualYearPassing = String(formData.get("qualYearPassing") ?? "").replace(/\D/g, "").slice(0, 4);
+    const dob = normalizeIsoDate(formData.get("dob"));
+    const admissionDate = normalizeIsoDate(formData.get("admissionDate"));
 
     if (qualYearPassing && !/^\d{4}$/.test(qualYearPassing)) {
       return NextResponse.json({ message: "Year of passing must be exactly 4 digits." }, { status: 400 });
+    }
+    if (!isValidIsoDate(dob)) {
+      return NextResponse.json({ message: "Date of birth must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+    }
+    if (!isValidIsoDate(admissionDate)) {
+      return NextResponse.json({ message: "Admission date must be a valid date in YYYY-MM-DD format." }, { status: 400 });
     }
     
     const studentData: any = {
@@ -125,7 +149,7 @@ export async function POST(request: Request) {
       name: String(formData.get("name")).trim(),
       fatherName: String(formData.get("fatherName")).trim(),
       motherName: String(formData.get("motherName")).trim(),
-      dob: String(formData.get("dob")),
+      dob,
       gender: String(formData.get("gender")),
       mobile: studentMobile,
       parentsMobile: String(formData.get("parentsMobile") || "").trim(),
@@ -147,7 +171,7 @@ export async function POST(request: Request) {
       totalFee: Number(formData.get("admissionFees") || 0),
       paidAmount: 0,
       duesAmount: Number(formData.get("admissionFees") || 0),
-      admissionDate: String(formData.get("admissionDate")).trim(),
+      admissionDate,
       highestQualification: String(formData.get("highestQualification") ?? "").trim(),
       qualSchool: String(formData.get("qualSchool") ?? "").trim(),
       qualSchoolOther: String(formData.get("qualSchoolOther") ?? "").trim(),
@@ -247,6 +271,27 @@ export async function PUT(request: Request) {
     // Handle data type conversions
     if (updateData.disability === "Yes" || updateData.disability === "No") {
       updateData.disability = updateData.disability === "Yes";
+    }
+    if (typeof updateData.dob === "string") {
+      const dob = normalizeIsoDate(updateData.dob);
+      if (!isValidIsoDate(dob)) {
+        return NextResponse.json({ message: "Date of birth must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+      }
+      updateData.dob = dob;
+    }
+    if (typeof updateData.admissionDate === "string") {
+      const admissionDate = normalizeIsoDate(updateData.admissionDate);
+      if (!isValidIsoDate(admissionDate)) {
+        return NextResponse.json({ message: "Admission date must be a valid date in YYYY-MM-DD format." }, { status: 400 });
+      }
+      updateData.admissionDate = admissionDate;
+    }
+    if (typeof updateData.qualYearPassing === "string") {
+      const normalizedYear = updateData.qualYearPassing.replace(/\D/g, "").slice(0, 4);
+      if (normalizedYear && !/^\d{4}$/.test(normalizedYear)) {
+        return NextResponse.json({ message: "Year of passing must be exactly 4 digits." }, { status: 400 });
+      }
+      updateData.qualYearPassing = normalizedYear;
     }
 
     // Recalculate financial fields if totalFee changed
