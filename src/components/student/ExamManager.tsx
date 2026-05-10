@@ -16,6 +16,7 @@ import LiveExam from "./LiveExam";
 import ExamCountdown from "@/components/common/ExamCountdown";
 import { buildExamWindow } from "@/lib/exam-schedule";
 import { apiFetch } from "@/utils/api";
+import { ISO_DATE_MAX_SCHEDULE, ISO_DATE_MIN, sanitizeIsoDateInput } from "@/lib/isoDate";
 
 /** Minimal student shape for this dashboard (API returns lean doc). */
 export type ExamManagerStudent = {
@@ -141,9 +142,15 @@ export default function ExamManager({ student }: ExamManagerProps) {
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preferred Exam Date</label>
                 <input 
                   type="date" 
+                  min={ISO_DATE_MIN}
+                  max={ISO_DATE_MAX_SCHEDULE}
                   className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 transition"
                   value={offlineForm.preferredDate}
-                  onChange={(e) => setOfflineForm({...offlineForm, preferredDate: e.target.value})}
+                  onChange={(e) =>
+                    setOfflineForm({
+                      ...offlineForm,
+                      preferredDate: sanitizeIsoDateInput(e.target.value),
+                    })}
                 />
               </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, ShieldCheck, LogIn } from "lucide-react";
@@ -8,6 +9,7 @@ import { useBrand } from "@/context/BrandContext";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
   const { brandName, brandLogo } = useBrand();
   const [isHydrated, setIsHydrated] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
@@ -40,7 +42,7 @@ export default function AdminLoginPage() {
       
       if (data.token && data.user) {
         login(data.token, data.user);
-        window.open("/admin/panel", "_blank", "noopener,noreferrer");
+        router.push("/admin/panel");
       } else {
         setError("Invalid response from server.");
       }

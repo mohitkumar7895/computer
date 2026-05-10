@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Fragment, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useState, useCallback, useMemo, Fragment, type FormEvent, type ChangeEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -37,6 +37,7 @@ import {
   type GradeBand,
 } from "@/lib/marksheetGradeScaleCore";
 import { HIGHEST_QUALIFICATION_SELECT_OPTIONS, formatQualSchoolDisplay } from "@/lib/qualificationOptions";
+import { ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate";
 import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 import WalletRequestManager from "@/components/admin/WalletRequestManager";
@@ -247,6 +248,7 @@ const PrintField = ({ label, value }: { label: string; value: string | number | 
 
 export default function AdminPanelPage() {
   usePageTitle("admin");
+  const issueDateMax = useMemo(() => isoDateToday(), []);
   const { brandName: globalBrandName, brandLogo: globalBrandLogo } = useBrand();
   const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -313,6 +315,19 @@ export default function AdminPanelPage() {
   const [bulkIssueDate, setBulkIssueDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   );
+
+  const reviewSubjectTotals = useMemo(() => {
+    const rows = reviewResult?.subjectMarks;
+    if (!rows?.length) return null;
+    return {
+      intObtained: rows.reduce((a, r) => a + (Number(r.internalObtained) || 0), 0),
+      intMax: rows.reduce((a, r) => a + (Number(r.internalMax) || 0), 0),
+      extObtained: rows.reduce((a, r) => a + (Number(r.externalObtained) || 0), 0),
+      extMax: rows.reduce((a, r) => a + (Number(r.externalMax) || 0), 0),
+      marksObtained: rows.reduce((a, r) => a + (Number(r.marksObtained) || 0), 0),
+      totalMarks: rows.reduce((a, r) => a + (Number(r.totalMarks) || 0), 0),
+    };
+  }, [reviewResult?.subjectMarks]);
 
   // Application Filters
   const [appSearch] = useState("");
@@ -2153,7 +2168,7 @@ export default function AdminPanelPage() {
 
                 {reviewResult && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+                    <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
                       <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
                         <div>
                           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
@@ -2201,39 +2216,140 @@ export default function AdminPanelPage() {
 
                         <div>
                           <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
-                            ATC Submitted Subject-wise Marks
+                            Full subject-wise marking (ATC submitted)
                           </h4>
                           {reviewResult.subjectMarks && reviewResult.subjectMarks.length > 0 ? (
                             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                              <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                                <div className="col-span-4">Subject</div>
-                                <div className="col-span-2 text-center">Internal</div>
-                                <div className="col-span-2 text-center">Int. Max</div>
-                                <div className="col-span-2 text-center">External</div>
-                                <div className="col-span-2 text-center">Ext. Max</div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-180 text-left text-[11px]">
+                                  <thead>
+                                    <tr className="border-b border-slate-100 bg-slate-50 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                      <th className="px-3 py-2.5">Subject</th>
+                                      <th className="px-2 py-2.5 text-center whitespace-nowrap">Int. obtained</th>
+                                      <th className="px-2 py-2.5 text-center whitespace-nowrap">Int. max</th>
+                                      <th className="px-2 py-2.5 text-center whitespace-nowrap">Ext. obtained</th>
+                                      <th className="px-2 py-2.5 text-center whitespace-nowrap">Ext. max</th>
+                                      <th className="px-2 py-2.5 text-center whitespace-nowrap">Marks obtained</th>
+                                      <th className="px-2 py-2.5 text-center whitespace-nowrap">Total</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {reviewResult.subjectMarks.map((row, idx) => (
+                                      <tr key={`${row.subjectName}-${idx}`} className="border-t border-slate-100">
+                                        <td className="px-3 py-2 font-bold text-slate-800 max-w-50 truncate" title={row.subjectName}>
+                                          {row.subjectName}
+                                        </td>
+                                        <td className="px-2 py-2 text-center tabular-nums font-semibold text-slate-900">
+                                          {row.internalObtained}
+                                        </td>
+                                        <td className="px-2 py-2 text-center tabular-nums text-slate-500">{row.internalMax}</td>
+                                        <td className="px-2 py-2 text-center tabular-nums font-semibold text-slate-900">
+                                          {row.externalObtained}
+                                        </td>
+                                        <td className="px-2 py-2 text-center tabular-nums text-slate-500">{row.externalMax}</td>
+                                        <td className="px-2 py-2 text-center tabular-nums text-slate-800">
+                                          {row.marksObtained ?? "—"}
+                                        </td>
+                                        <td className="px-2 py-2 text-center tabular-nums font-black text-slate-900">
+                                          {row.totalMarks ?? "—"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  {reviewSubjectTotals ? (
+                                    <tfoot>
+                                      <tr className="border-t border-slate-100 bg-slate-50">
+                                        <td className="px-3 py-3 align-top" />
+                                        <td className="px-2 py-3 align-top">
+                                          <div className="flex justify-center">
+                                            <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                              <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                                Σ Int. obt.
+                                              </span>
+                                              <span className="tabular-nums text-sm font-black text-slate-900">
+                                                {reviewSubjectTotals.intObtained}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-2 py-3 align-top">
+                                          <div className="flex justify-center">
+                                            <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                              <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                                Σ Int. max
+                                              </span>
+                                              <span className="tabular-nums text-sm font-black text-slate-900">
+                                                {reviewSubjectTotals.intMax}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-2 py-3 align-top">
+                                          <div className="flex justify-center">
+                                            <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                              <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                                Σ Ext. obt.
+                                              </span>
+                                              <span className="tabular-nums text-sm font-black text-slate-900">
+                                                {reviewSubjectTotals.extObtained}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-2 py-3 align-top">
+                                          <div className="flex justify-center">
+                                            <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                              <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                                Σ Ext. max
+                                              </span>
+                                              <span className="tabular-nums text-sm font-black text-slate-900">
+                                                {reviewSubjectTotals.extMax}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-2 py-3 align-top">
+                                          <div className="flex justify-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                              <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-25">
+                                                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                                  Σ Marks obt.
+                                                </span>
+                                                <span className="tabular-nums text-sm font-black text-slate-900">
+                                                  {reviewSubjectTotals.marksObtained || "—"}
+                                                </span>
+                                              </div>
+                                              <p className="text-[10px] font-bold text-slate-600 tabular-nums text-center leading-tight">
+                                                Exam: {reviewResult.totalScore ?? 0}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-2 py-3 align-top">
+                                          <div className="flex justify-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                              <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-200 ring-1 ring-slate-200 text-center min-w-25">
+                                                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                                  Σ Subj. total
+                                                </span>
+                                                <span className="tabular-nums text-sm font-black text-slate-900">
+                                                  {reviewSubjectTotals.totalMarks || "—"}
+                                                </span>
+                                              </div>
+                                              <p className="text-[10px] font-black text-slate-700 tabular-nums text-center leading-tight">
+                                                Exam record{" "}
+                                                <span className="text-slate-900">
+                                                  {reviewResult.totalScore ?? 0}/{reviewResult.maxScore ?? 100}
+                                                </span>
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </tfoot>
+                                  ) : null}
+                                </table>
                               </div>
-                              {reviewResult.subjectMarks.map((row, idx) => (
-                                <div
-                                  key={`${row.subjectName}-${idx}`}
-                                  className="grid grid-cols-12 gap-2 px-4 py-2 items-center border-t border-slate-100"
-                                >
-                                  <div className="col-span-4 text-xs font-bold text-slate-700 truncate">
-                                    {row.subjectName}
-                                  </div>
-                                  <div className="col-span-2 text-center text-xs font-black text-slate-800">
-                                    {row.internalObtained}
-                                  </div>
-                                  <div className="col-span-2 text-center text-[11px] font-bold text-slate-400">
-                                    {row.internalMax}
-                                  </div>
-                                  <div className="col-span-2 text-center text-xs font-black text-slate-800">
-                                    {row.externalObtained}
-                                  </div>
-                                  <div className="col-span-2 text-center text-[11px] font-bold text-slate-400">
-                                    {row.externalMax}
-                                  </div>
-                                </div>
-                              ))}
                             </div>
                           ) : (
                             <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 text-xs font-bold">
@@ -2248,8 +2364,10 @@ export default function AdminPanelPage() {
                           </label>
                           <input
                             type="date"
+                            min={ISO_DATE_MIN}
+                            max={issueDateMax}
                             value={reviewIssueDate}
-                            onChange={(e) => setReviewIssueDate(e.target.value)}
+                            onChange={(e) => setReviewIssueDate(sanitizeIsoDateInput(e.target.value))}
                             className="w-full md:w-1/2 px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-amber-500"
                           />
                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -2294,8 +2412,10 @@ export default function AdminPanelPage() {
                         </label>
                         <input
                           type="date"
+                          min={ISO_DATE_MIN}
+                          max={issueDateMax}
                           value={bulkIssueDate}
-                          onChange={(e) => setBulkIssueDate(e.target.value)}
+                          onChange={(e) => setBulkIssueDate(sanitizeIsoDateInput(e.target.value))}
                           className="w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-amber-500"
                         />
                       </div>

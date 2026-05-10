@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
 import { resolveAffiliationFeeForPersist } from "@/lib/affiliationFee";
+import { isValidIsoDate, normalizeIsoDate } from "@/lib/isoDate";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -55,6 +56,14 @@ export async function POST(request: Request) {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
+  }
+
+  const dobNormalized = normalizeIsoDate(formData.get("dob"));
+  if (!isValidIsoDate(dobNormalized)) {
+    return NextResponse.json(
+      { message: "Date of birth must be a valid date (YYYY-MM-DD, year exactly 4 digits)." },
+      { status: 400 },
+    );
   }
 
   try {
@@ -117,7 +126,7 @@ export async function POST(request: Request) {
       designation: String(formData.get("designation") ?? ""),
       educationQualification: String(formData.get("educationQualification") ?? ""),
       professionalExperience: String(formData.get("professionalExperience") ?? ""),
-      dob: String(formData.get("dob") ?? ""),
+      dob: dobNormalized,
       photo: base64Files.photo || "",
       logo: base64Files.logo || "",
       signature: base64Files.signature || "",

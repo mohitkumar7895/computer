@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import InternalPageLayout from "@/components/InternalPageLayout";
 import { Search, FileText, User, Calendar, BookOpen, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 
@@ -80,9 +80,11 @@ export default function MarksheetVerification() {
                   <input
                     type="date"
                     required
+                    min={ISO_DATE_MIN}
+                    max={dobMax}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0a0aa1] focus:border-transparent transition-all outline-none"
                     value={dob}
-                    onChange={(e) => setDob(e.target.value)}
+                    onChange={(e) => setDob(sanitizeIsoDateInput(e.target.value))}
                   />
                 </div>
               </div>

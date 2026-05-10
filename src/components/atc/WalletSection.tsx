@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/utils/api";
+import { ISO_DATE_MIN, isValidIsoDate, isoDateToday, normalizeIsoDate } from "@/lib/isoDate";
 
 type WalletRequest = {
   _id: string;
@@ -52,6 +53,7 @@ export default function WalletSection() {
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
+  const paymentDateMax = useMemo(() => isoDateToday(), []);
 
   const loadWallet = async () => {
     setLoading(true);
@@ -101,6 +103,16 @@ export default function WalletSection() {
       setMsg({ type: "error", text: "Payment screenshot is required." });
       return;
     }
+    if (paymentDate.trim()) {
+      const pd = normalizeIsoDate(paymentDate);
+      if (!isValidIsoDate(pd)) {
+        setMsg({
+          type: "error",
+          text: "Payment date must be valid (YYYY-MM-DD, year 4 digits only).",
+        });
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       const res = await apiFetch("/api/atc/wallet", {
@@ -109,7 +121,7 @@ export default function WalletSection() {
         body: JSON.stringify({
           amount: numericAmount,
           transactionId: transactionId.trim(),
-          paymentDate: paymentDate || undefined,
+          paymentDate: paymentDate.trim() ? normalizeIsoDate(paymentDate) : undefined,
           paymentScreenshot,
           paymentNote: paymentNote.trim(),
         }),
@@ -238,12 +250,19 @@ export default function WalletSection() {
                   onChange={(e) => setTransactionId(e.target.value)}
                   className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-green-500"
                 />
-                <input
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-green-500"
-                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                    Payment date (optional)
+                  </label>
+                  <input
+                    type="date"
+                    min={ISO_DATE_MIN}
+                    max={paymentDateMax}
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(normalizeIsoDate(e.target.value))}
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-green-500"
+                  />
+                </div>
               </div>
               <input
                 type="text"

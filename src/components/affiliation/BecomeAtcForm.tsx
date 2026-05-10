@@ -16,6 +16,7 @@ import {
 import type { FeeCalculationSnapshot, ZoneFeeRow } from "@/utils/affiliationFeeShared";
 import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
+import { ISO_DATE_MIN, isValidIsoDate, normalizeIsoDate } from "@/lib/isoDate";
 
 type FormState = {
   affiliationYear: string; trainingPartnerName: string; trainingPartnerAddress: string;
@@ -151,6 +152,7 @@ export default function BecomeAtcForm() {
   }, []);
 
   const districtOptions = DISTRICTS_BY_STATE[form.state] ?? [];
+  const dobMax = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const setStateField = (value: string) => {
     setForm((current) => ({
@@ -183,6 +185,9 @@ export default function BecomeAtcForm() {
     if (!form.educationQualification.trim()) r.push("Education qualification is required.");
     if (!form.professionalExperience.trim()) r.push("Professional experience is required.");
     if (!form.dob.trim()) r.push("Date of birth is required.");
+    else if (!isValidIsoDate(normalizeIsoDate(form.dob))) {
+      r.push("Date of birth must be a valid date (year exactly 4 digits, YYYY-MM-DD).");
+    }
     if (!/^\d{12}$/.test(form.aadharNo)) r.push("Aadhar number must be exactly 12 digits.");
     if (!photo) r.push("Passport size photo is required.");
     if (!signature) r.push("Signature is required.");
@@ -221,7 +226,7 @@ export default function BecomeAtcForm() {
       designation: !form.designation.trim(),
       educationQualification: !form.educationQualification.trim(),
       professionalExperience: !form.professionalExperience.trim(),
-      dob: !form.dob.trim(),
+      dob: !form.dob.trim() || !isValidIsoDate(normalizeIsoDate(form.dob)),
       aadharNo: !form.aadharNo.trim(),
       photo: !photo,
       signature: !signature,
@@ -610,8 +615,14 @@ export default function BecomeAtcForm() {
               <Label>Date of Birth *</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="date" className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`} value={form.dob}
-                  onChange={(e) => setField("dob", e.target.value)} />
+                <input
+                  type="date"
+                  min={ISO_DATE_MIN}
+                  max={dobMax}
+                  className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-700 ring-2 ring-red-700/10 bg-red-50/40" : ""}`}
+                  value={form.dob}
+                  onChange={(e) => setField("dob", normalizeIsoDate(e.target.value))}
+                />
               </div>
               {requiredHint("dob")}
             </div>

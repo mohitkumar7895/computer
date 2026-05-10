@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Search, History, CreditCard, Printer, X, Plus, Minus, FileText, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
 import { useCallback } from "react";
+import { ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate";
 
 interface Student {
   _id: string;
@@ -34,6 +35,7 @@ interface Transaction {
 }
 
 export default function FeeManager({ role }: { role: "admin" | "atc" }) {
+  const paymentDateMax = useMemo(() => isoDateToday(), []);
   const { brandName } = useBrand();
   const roleLabel = role === "admin" ? "Admin" : "ATC";
   const [students, setStudents] = useState<Student[]>([]);
@@ -448,8 +450,10 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
                   <input 
                     type="date"
                     required
+                    min={ISO_DATE_MIN}
+                    max={paymentDateMax}
                     value={formData.date}
-                    onChange={e => setFormData({...formData, date: e.target.value})}
+                    onChange={e => setFormData({ ...formData, date: sanitizeIsoDateInput(e.target.value) })}
                     className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-green-500 transition"
                   />
                 </div>

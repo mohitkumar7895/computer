@@ -14,6 +14,7 @@ import { DISTRICTS_BY_STATE, getYearOptions } from "@/utils/atcSettings";
 import type { FeeCalculationSnapshot, ZoneFeeRow } from "@/utils/affiliationFeeShared";
 import AffiliationZoneFeeBlock from "@/components/affiliation/AffiliationZoneFeeBlock";
 import { useBrand } from "@/context/BrandContext";
+import { ISO_DATE_MIN, isValidIsoDate, normalizeIsoDate } from "@/lib/isoDate";
 
 type InfrastructureRow = { rooms: string; seats: string; area: string };
 type FormState = {
@@ -251,6 +252,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
   }, []);
 
   const districtOptions = DISTRICTS_BY_STATE[form.state] ?? [];
+  const dobMax = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const setStateField = (value: string) => {
     setForm((current) => ({
@@ -283,6 +285,9 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
     if (!form.educationQualification.trim()) r.push("Education qualification is required.");
     if (!form.professionalExperience.trim()) r.push("Professional experience is required.");
     if (!form.dob.trim()) r.push("Date of birth is required.");
+    else if (!isValidIsoDate(normalizeIsoDate(form.dob))) {
+      r.push("Date of birth must be a valid date (year exactly 4 digits, YYYY-MM-DD).");
+    }
     if (!photo && !photoPreview) r.push("Passport size photo is required.");
     if (!signature && !sigPreview) r.push("Signature is required.");
     if (!aadharDoc && !aadharPreview) r.push("Aadhar card PDF is required.");
@@ -310,7 +315,7 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
       designation: !form.designation.trim(),
       educationQualification: !form.educationQualification.trim(),
       professionalExperience: !form.professionalExperience.trim(),
-      dob: !form.dob.trim(),
+      dob: !form.dob.trim() || !isValidIsoDate(normalizeIsoDate(form.dob)),
       paymentMode: !form.paymentMode,
       paidAmount: form.paymentMode === "gpay" && !form.paidAmount.trim(),
       transactionNo: form.paymentMode === "gpay" && !form.transactionNo.trim(),
@@ -848,9 +853,11 @@ export default function AdminAtcForm({ onSuccess, onCancel, mode = "create", app
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
                 type="date" 
+                min={ISO_DATE_MIN}
+                max={dobMax}
                 className={`${inputCls} pl-9 ${invalidFields.has("dob") ? "border-red-800 ring-2 ring-red-800/20 bg-red-950/10" : ""}`} 
                 value={form.dob}
-                onChange={(e) => setField("dob", e.target.value)} />
+                onChange={(e) => setField("dob", normalizeIsoDate(e.target.value))} />
             </div>
             {requiredHint("dob")}
           </div>

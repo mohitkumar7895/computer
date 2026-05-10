@@ -1,4 +1,5 @@
 {
+  "tailwindCSS.lint.suggestCanonicalClasses": "ignore",
   "json.schemaDownload.enable": false,
   "json.schemas": [
     {

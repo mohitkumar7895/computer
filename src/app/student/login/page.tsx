@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { GraduationCap, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
@@ -33,7 +34,7 @@ export default function StudentLoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Login failed");
 
-      window.open("/student/dashboard", "_blank", "noopener,noreferrer");
+      router.push("/student/dashboard");
     } catch (err: any) {
       setError(err.message);
     } finally {

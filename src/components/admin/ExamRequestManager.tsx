@@ -12,6 +12,7 @@ import {
   parseGradeBandsJson,
   type GradeBand,
 } from "@/lib/marksheetGradeScaleCore";
+import { ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate";
 
 interface ExamRequest {
   _id: string;
@@ -57,6 +58,15 @@ interface ExamRequest {
   submittedAt?: string;
   createdAt?: string;
   updatedAt: string;
+  subjectMarks?: Array<{
+    subjectName: string;
+    internalObtained: number;
+    internalMax: number;
+    externalObtained: number;
+    externalMax: number;
+    marksObtained?: number;
+    totalMarks?: number;
+  }>;
 }
 
 interface QuestionSet {
@@ -79,16 +89,6 @@ interface StudentCandidate {
   profileImage?: string;
 }
 
-const TODAY_ISO_DATE = new Date().toISOString().slice(0, 10);
-
-const sanitizeIsoDateInput = (value: string): string => {
-  const cleaned = value.replace(/[^\d-]/g, "");
-  const [year = "", month = "", day = ""] = cleaned.split("-");
-  return [year.slice(0, 4), month.slice(0, 2), day.slice(0, 2)]
-    .filter(Boolean)
-    .join("-");
-};
-
 type ZipDocType =
   | "admitCard"
   | "examCopy"
@@ -107,6 +107,7 @@ const ZIP_DOC_SUFFIX: Record<ZipDocType, string> = {
 };
 
 export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: string, role?: "admin" | "atc" }) {
+  const todayIso = useMemo(() => isoDateToday(), []);
   const [requests, setRequests] = useState<ExamRequest[]>([]);
   const [availableStudents, setAvailableStudents] = useState<StudentCandidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,6 +220,24 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
       cancelled = true;
     };
   }, [showResultModal, selectedExam]);
+
+  const pendingIssueExam = useMemo(
+    () => (issueDateExamId ? requests.find((r) => r._id === issueDateExamId) : undefined),
+    [requests, issueDateExamId],
+  );
+
+  const pendingIssueSubjectTotals = useMemo(() => {
+    const rows = pendingIssueExam?.subjectMarks;
+    if (!rows?.length) return null;
+    return {
+      intObtained: rows.reduce((a, r) => a + (Number(r.internalObtained) || 0), 0),
+      intMax: rows.reduce((a, r) => a + (Number(r.internalMax) || 0), 0),
+      extObtained: rows.reduce((a, r) => a + (Number(r.externalObtained) || 0), 0),
+      extMax: rows.reduce((a, r) => a + (Number(r.externalMax) || 0), 0),
+      marksObtained: rows.reduce((a, r) => a + (Number(r.marksObtained) || 0), 0),
+      totalMarks: rows.reduce((a, r) => a + (Number(r.totalMarks) || 0), 0),
+    };
+  }, [pendingIssueExam?.subjectMarks]);
 
   const offlineDerivedGrade = useMemo(
     () =>
@@ -1196,8 +1215,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                     <input 
                         type="date"
                         className={inputCls}
-                        min="1900-01-01"
-                        max={TODAY_ISO_DATE}
+                        min={ISO_DATE_MIN}
+                        max={todayIso}
                         value={approvalForm.examDate}
                         onChange={(e) => setApprovalForm({...approvalForm, examDate: sanitizeIsoDateInput(e.target.value)})}
                         onInput={(e) => {
@@ -1416,8 +1435,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                          type="date"
                          className={inputCls}
                          required
-                         min="1900-01-01"
-                         max={TODAY_ISO_DATE}
+                         min={ISO_DATE_MIN}
+                         max={todayIso}
                          value={examReqForm.examDate}
                          onChange={e => setExamReqForm({...examReqForm, examDate: sanitizeIsoDateInput(e.target.value)})}
                          onInput={(e) => {
@@ -1485,12 +1504,16 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
 
       {issueDateExamId && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-slate-800">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Issue Date</h3>
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-                  This date will be printed on both the marksheet and the certificate.
+                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Approve Result</h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">
+                  {pendingIssueExam?.studentId?.name ?? "Student"} •{" "}
+                  {pendingIssueExam?.studentId?.enrollmentNo ?? "—"}
+                </p>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2">
+                  Issue date is printed on the marksheet and certificate after you approve.
                 </p>
               </div>
               <button
@@ -1501,14 +1524,184 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="px-7 py-5 space-y-3">
+            <div className="px-7 py-5 space-y-5 overflow-y-auto min-h-0 flex-1">
+              {pendingIssueExam && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    ATC submitted result — full subject-wise marking (review before approve)
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="rounded-xl bg-white border border-slate-100 px-3 py-2">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Overall marks</p>
+                      <p className="text-sm font-black text-slate-900 tabular-nums">
+                        {pendingIssueExam.totalScore ?? 0} / {pendingIssueExam.maxScore ?? 100}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-slate-100 px-3 py-2">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Grade</p>
+                      <p className="text-sm font-black text-slate-900 uppercase">{pendingIssueExam.grade ?? "—"}</p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-slate-100 px-3 py-2">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Result</p>
+                      <p className="text-sm font-black text-slate-900 uppercase">
+                        {pendingIssueExam.offlineExamResult ?? "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-slate-100 px-3 py-2">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Course</p>
+                      <p className="text-sm font-black text-slate-900 truncate">{pendingIssueExam.studentId?.course ?? "—"}</p>
+                    </div>
+                  </div>
+                  {pendingIssueExam.subjectMarks && pendingIssueExam.subjectMarks.length > 0 ? (
+                    <div className="rounded-xl border border-slate-100 bg-white overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-180 text-left text-[11px]">
+                          <thead>
+                            <tr className="border-b border-slate-100 bg-slate-50 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                              <th className="px-3 py-2.5">Subject</th>
+                              <th className="px-2 py-2.5 text-center whitespace-nowrap">Int. obtained</th>
+                              <th className="px-2 py-2.5 text-center whitespace-nowrap">Int. max</th>
+                              <th className="px-2 py-2.5 text-center whitespace-nowrap">Ext. obtained</th>
+                              <th className="px-2 py-2.5 text-center whitespace-nowrap">Ext. max</th>
+                              <th className="px-2 py-2.5 text-center whitespace-nowrap">Marks obtained</th>
+                              <th className="px-2 py-2.5 text-center whitespace-nowrap">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pendingIssueExam.subjectMarks.map((row, idx) => (
+                              <tr key={`${row.subjectName}-${idx}`} className="border-t border-slate-100">
+                                <td className="px-3 py-2 font-bold text-slate-800 max-w-50 truncate" title={row.subjectName}>
+                                  {row.subjectName}
+                                </td>
+                                <td className="px-2 py-2 text-center tabular-nums font-semibold text-slate-900">
+                                  {row.internalObtained}
+                                </td>
+                                <td className="px-2 py-2 text-center tabular-nums text-slate-500">{row.internalMax}</td>
+                                <td className="px-2 py-2 text-center tabular-nums font-semibold text-slate-900">
+                                  {row.externalObtained}
+                                </td>
+                                <td className="px-2 py-2 text-center tabular-nums text-slate-500">{row.externalMax}</td>
+                                <td className="px-2 py-2 text-center tabular-nums text-slate-800">
+                                  {row.marksObtained ?? "—"}
+                                </td>
+                                <td className="px-2 py-2 text-center tabular-nums font-black text-slate-900">
+                                  {row.totalMarks ?? "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          {pendingIssueSubjectTotals ? (
+                            <tfoot>
+                              <tr className="border-t border-slate-100 bg-slate-50">
+                                <td className="px-3 py-3 align-top" />
+                                <td className="px-2 py-3 align-top">
+                                  <div className="flex justify-center">
+                                    <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                      <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                        Σ Int. obt.
+                                      </span>
+                                      <span className="tabular-nums text-sm font-black text-slate-900">
+                                        {pendingIssueSubjectTotals.intObtained}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-2 py-3 align-top">
+                                  <div className="flex justify-center">
+                                    <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                      <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                        Σ Int. max
+                                      </span>
+                                      <span className="tabular-nums text-sm font-black text-slate-900">
+                                        {pendingIssueSubjectTotals.intMax}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-2 py-3 align-top">
+                                  <div className="flex justify-center">
+                                    <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                      <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                        Σ Ext. obt.
+                                      </span>
+                                      <span className="tabular-nums text-sm font-black text-slate-900">
+                                        {pendingIssueSubjectTotals.extObtained}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-2 py-3 align-top">
+                                  <div className="flex justify-center">
+                                    <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-22">
+                                      <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                        Σ Ext. max
+                                      </span>
+                                      <span className="tabular-nums text-sm font-black text-slate-900">
+                                        {pendingIssueSubjectTotals.extMax}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-2 py-3 align-top">
+                                  <div className="flex justify-center">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-100 text-center min-w-25">
+                                        <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                          Σ Marks obt.
+                                        </span>
+                                        <span className="tabular-nums text-sm font-black text-slate-900">
+                                          {pendingIssueSubjectTotals.marksObtained || "—"}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] font-bold text-slate-600 tabular-nums text-center leading-tight">
+                                        Exam: {pendingIssueExam.totalScore ?? 0}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-2 py-3 align-top">
+                                  <div className="flex justify-center">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <div className="rounded-lg bg-white px-2.5 py-2 border border-slate-200 ring-1 ring-slate-200 text-center min-w-25">
+                                        <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500 leading-snug">
+                                          Σ Subj. total
+                                        </span>
+                                        <span className="tabular-nums text-sm font-black text-slate-900">
+                                          {pendingIssueSubjectTotals.totalMarks || "—"}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] font-black text-slate-700 tabular-nums text-center leading-tight">
+                                        Exam record{" "}
+                                        <span className="text-slate-900">
+                                          {pendingIssueExam.totalScore ?? 0}/{pendingIssueExam.maxScore ?? 100}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tfoot>
+                          ) : null}
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-900">
+                      No subject-wise marks were submitted. Only overall totals apply — verify marks on the exam copy / ATC
+                      entry before approving.
+                    </div>
+                  )}
+                </div>
+              )}
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                 Pick Issue Date *
               </label>
               <input
                 type="date"
+                min={ISO_DATE_MIN}
+                max={todayIso}
                 value={issueDateValue}
-                onChange={(e) => setIssueDateValue(e.target.value)}
+                onChange={(e) => setIssueDateValue(sanitizeIsoDateInput(e.target.value))}
                 className={inputCls}
                 required
               />

@@ -21,6 +21,7 @@ import {
   parseGradeBandsJson,
   type GradeBand,
 } from "@/lib/marksheetGradeScaleCore";
+import { ISO_DATE_MAX_SCHEDULE, ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate";
 
 interface Student {
   _id: string;
@@ -189,18 +190,6 @@ interface StudentManagerProps {
 }
 
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
-const TODAY_ISO_DATE = new Date().toISOString().split("T")[0];
-
-const sanitizeIsoDateInput = (value: string): string => {
-  const cleaned = value.replace(/[^\d-]/g, "");
-  const parts = cleaned.split("-");
-  if (parts.length === 0) return "";
-  const [year = "", month = "", day = ""] = parts;
-  const y = year.slice(0, 4);
-  const m = month.slice(0, 2);
-  const d = day.slice(0, 2);
-  return [y, m, d].filter((part) => part.length > 0).join("-");
-};
 
 const normalizeIsoDateForInput = (value?: string): string => {
   const text = String(value || "").trim();
@@ -214,6 +203,7 @@ const normalizeIsoDateForInput = (value?: string): string => {
 };
 
 export default function StudentManager({ isDirectAdmission = false, initialFilter }: StudentManagerProps) {
+  const todayIso = useMemo(() => isoDateToday(), []);
   const [tab, setTab] = useState<"list" | "add">("list");
   const [students, setStudents] = useState<Student[]>([]);
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
@@ -1318,8 +1308,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                     type="date"
                     name="dob"
                     className={inputCls("dob")}
-                    min="1900-01-01"
-                    max={TODAY_ISO_DATE}
+                    min={ISO_DATE_MIN}
+                    max={todayIso}
                     onInput={(e) => {
                       const target = e.currentTarget;
                       target.value = sanitizeIsoDateInput(target.value);
@@ -1416,9 +1406,9 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                     type="date"
                     name="admissionDate"
                     className={inputCls("admissionDate")}
-                    defaultValue={TODAY_ISO_DATE}
-                    min="1900-01-01"
-                    max={TODAY_ISO_DATE}
+                    defaultValue={todayIso}
+                    min={ISO_DATE_MIN}
+                    max={todayIso}
                     onInput={(e) => {
                       const target = e.currentTarget;
                       target.value = sanitizeIsoDateInput(target.value);
@@ -1771,8 +1761,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                                   value={String(editForm[item.key as keyof typeof editForm] ?? "")}
                                   onChange={e => setEditForm({...editForm, [item.key]: item.type === "date" ? sanitizeIsoDateInput(e.target.value) : e.target.value})}
                                   className={modalInputCls(item.key)}
-                                  min={item.type === "date" ? "1900-01-01" : undefined}
-                                  max={item.type === "date" ? TODAY_ISO_DATE : undefined}
+                                  min={item.type === "date" ? ISO_DATE_MIN : undefined}
+                                  max={item.type === "date" ? todayIso : undefined}
                                 />
                               )
                             ) : (
@@ -2206,8 +2196,14 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                          <label className={basicLabelCls}>Preferred Date</label>
                          <input 
                            type="date"
+                           min={ISO_DATE_MIN}
+                           max={ISO_DATE_MAX_SCHEDULE}
                            value={examReqForm.preferredDate}
-                           onChange={e => setExamReqForm({...examReqForm, preferredDate: e.target.value})}
+                           onChange={e =>
+                             setExamReqForm({
+                               ...examReqForm,
+                               preferredDate: sanitizeIsoDateInput(e.target.value),
+                             })}
                           className={basicInputCls}
                            required
                          />

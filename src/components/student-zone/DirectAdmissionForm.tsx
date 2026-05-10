@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, type FormEvent } from "react";
+import { useMemo, useRef, useState, useEffect, type FormEvent } from "react";
 import { CheckCircle, FileText, User, MapPin, CreditCard, Plus, Trash2 } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
 import HighestQualificationMultiSelect from "@/components/common/HighestQualificationMultiSelect";
@@ -8,6 +8,7 @@ import {
   formatHighestQualificationMulti,
   type QualificationSelectValue,
 } from "@/lib/qualificationOptions";
+import { ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate";
 
 interface Course {
   _id: string;
@@ -18,19 +19,6 @@ interface Center {
   tpCode: string;
   trainingPartnerName: string;
 }
-
-const TODAY_ISO_DATE = new Date().toISOString().split("T")[0];
-
-const sanitizeIsoDateInput = (value: string): string => {
-  const cleaned = value.replace(/[^\d-]/g, "");
-  const parts = cleaned.split("-");
-  if (parts.length === 0) return "";
-  const [year = "", month = "", day = ""] = parts;
-  const y = year.slice(0, 4);
-  const m = month.slice(0, 2);
-  const d = day.slice(0, 2);
-  return [y, m, d].filter((part) => part.length > 0).join("-");
-};
 
 type CredentialDocumentType =
   | "marksheet10th"
@@ -73,6 +61,7 @@ const guessCredentialDocumentType = (courseName: string): CredentialDocumentType
 const QUALIFICATION_KEYS = new Set(["Below matric", "10th", "12th", "Graduation", "Other"]);
 
 export default function DirectAdmissionForm() {
+  const todayIso = useMemo(() => isoDateToday(), []);
   const { brandName } = useBrand();
   const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
@@ -98,7 +87,7 @@ export default function DirectAdmissionForm() {
     setIsMounted(true);
     void fetchCourses();
     void fetchCenters();
-    setAdmissionDate(TODAY_ISO_DATE);
+    setAdmissionDate(isoDateToday());
   }, []);
 
   useEffect(() => {
@@ -338,8 +327,8 @@ export default function DirectAdmissionForm() {
                 type="date"
                 name="dob"
                 className={inputCls("dob")}
-                min="1900-01-01"
-                max={TODAY_ISO_DATE}
+                min={ISO_DATE_MIN}
+                max={todayIso}
                 onInput={(e) => {
                   const target = e.currentTarget;
                   target.value = sanitizeIsoDateInput(target.value);
@@ -441,8 +430,8 @@ export default function DirectAdmissionForm() {
                 name="admissionDate"
                 className={inputCls("admissionDate")}
                 value={admissionDate}
-                min="1900-01-01"
-                max={TODAY_ISO_DATE}
+                min={ISO_DATE_MIN}
+                max={todayIso}
                 onChange={(e) => setAdmissionDate(sanitizeIsoDateInput(e.target.value))}
                 onInput={(e) => {
                   const target = e.currentTarget;

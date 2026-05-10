@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import InternalPageLayout from "@/components/InternalPageLayout";
 import { useBrand } from "@/context/BrandContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,6 +10,7 @@ import Image from "next/image";
 import { Building2 } from "lucide-react";
 
 export default function AtcLoginPage() {
+  const router = useRouter();
   const { brandName, brandLogo } = useBrand();
   const [isHydrated, setIsHydrated] = useState(false);
   const [form, setForm] = useState({ tpCode: "", password: "" });
@@ -37,7 +39,7 @@ export default function AtcLoginPage() {
       
       if (data.token && data.user) {
         login(data.token, data.user);
-        window.open("/atc/dashboard", "_blank", "noopener,noreferrer");
+        router.push("/atc/dashboard");
       } else {
         setError("Invalid response from server.");
       }

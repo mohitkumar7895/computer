@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { AtcApplication } from "@/models/AtcApplication";
 import { cookies } from "next/headers";
 import { resolveAffiliationFeeForPersist } from "@/lib/affiliationFee";
+import { isValidIsoDate, normalizeIsoDate } from "@/lib/isoDate";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,14 @@ export async function POST(request: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
 
+    const dobNormalized = normalizeIsoDate(formData.get("dob"));
+    if (!isValidIsoDate(dobNormalized)) {
+      return NextResponse.json(
+        { message: "Date of birth must be a valid date (YYYY-MM-DD, year exactly 4 digits)." },
+        { status: 400 },
+      );
+    }
+
     const feeResolved = await resolveAffiliationFeeForPersist(
       formData.get("zones"),
       formData.get("affiliationYear"),
@@ -194,7 +203,7 @@ export async function POST(request: Request) {
       designation: String(formData.get("designation") ?? ""),
       educationQualification: String(formData.get("educationQualification") ?? ""),
       professionalExperience: String(formData.get("professionalExperience") ?? ""),
-      dob: String(formData.get("dob") ?? ""),
+      dob: dobNormalized,
       photo: photoBase64,
       logo: logoBase64,
       signature: sigBase64,

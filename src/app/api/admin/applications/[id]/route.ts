@@ -6,6 +6,7 @@ import { AtcApplication } from "@/models/AtcApplication";
 import { AtcUser } from "@/models/AtcUser";
 import { cookies } from "next/headers";
 import { resolveAffiliationFeeForPersist } from "@/lib/affiliationFee";
+import { isValidIsoDate, normalizeIsoDate } from "@/lib/isoDate";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -131,6 +132,14 @@ export async function PATCH(
         return NextResponse.json({ message: "Please enter a valid email address." }, { status: 400 });
       }
 
+      const dobNormalized = normalizeIsoDate(updatedValues.dob);
+      if (!isValidIsoDate(dobNormalized)) {
+        return NextResponse.json(
+          { message: "Date of birth must be a valid date (YYYY-MM-DD, year exactly 4 digits)." },
+          { status: 400 },
+        );
+      }
+
       const feeResolved = await resolveAffiliationFeeForPersist(
         formData.get("zones"),
         formData.get("affiliationYear"),
@@ -195,7 +204,7 @@ export async function PATCH(
       application.designation = updatedValues.designation;
       application.educationQualification = updatedValues.educationQualification;
       application.professionalExperience = updatedValues.professionalExperience;
-      application.dob = updatedValues.dob;
+      application.dob = dobNormalized;
       application.paymentMode = updatedValues.paymentMode;
       application.infrastructure = infraString;
       application.paidAmount = String(formData.get("paidAmount") ?? application.paidAmount ?? "");

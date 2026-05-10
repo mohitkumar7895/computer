@@ -6,6 +6,7 @@ import { WalletRequest } from "@/models/WalletRequest";
 import { WalletTransaction } from "@/models/WalletTransaction";
 import { Settings } from "@/models/Settings";
 import { AtcStudent } from "@/models/Student";
+import { isValidIsoDate, normalizeIsoDate } from "@/lib/isoDate";
 
 export async function GET(request: Request) {
   const user = await verifyAtc(request);
@@ -79,6 +80,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Payment screenshot is required" }, { status: 400 });
     }
 
+    let paymentDateValue: Date | undefined;
+    if (paymentDate != null && String(paymentDate).trim()) {
+      const normalized = normalizeIsoDate(paymentDate);
+      if (!isValidIsoDate(normalized)) {
+        return NextResponse.json(
+          { message: "Payment date must be a valid date (YYYY-MM-DD, year exactly 4 digits)." },
+          { status: 400 },
+        );
+      }
+      paymentDateValue = new Date(`${normalized}T00:00:00Z`);
+    }
+
     await connectDB();
     const atc = await AtcUser.findById(user.id).select("tpCode").lean() as any;
     if (!atc) return NextResponse.json({ message: "ATC not found" }, { status: 404 });
@@ -88,7 +101,7 @@ export async function POST(request: Request) {
       tpCode: atc.tpCode,
       amount: numericAmount,
       transactionId: String(transactionId).trim(),
-      paymentDate: paymentDate ? new Date(paymentDate) : undefined,
+      paymentDate: paymentDateValue,
       paymentScreenshot,
       paymentNote: String(paymentNote || "").trim(),
       status: "pending",
