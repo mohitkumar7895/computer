@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react
 import { Users, Clock, Search, RefreshCw, Calendar, X, AlertCircle, FileText, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import {
   DEFAULT_MARKSHEET_GRADE_BANDS,
   MARKSHEET_GRADE_BANDS_KEY,
@@ -797,9 +798,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         {showRosterTab && atcTab === "new" ? (
           <div className="animate-in fade-in duration-300">
             {loading ? (
-              <div className="flex flex-col items-center justify-center p-20 gap-4">
-                <span className="w-10 h-10 rounded-full border-4 border-green-100 border-t-green-600 animate-spin" />
-                <p className="text-sm font-bold text-slate-400">Loading student records...</p>
+              <div className="p-6">
+                <SkeletonLoader type="card" count={3} />
               </div>
             ) : availableStudents.length === 0 ? (
               <div className="text-center p-16 bg-white rounded-3xl border border-dashed border-slate-200">
@@ -942,8 +942,8 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         ) : (
           <div className="animate-in fade-in duration-300">
             {loading ? (
-               <div className="flex flex-col items-center justify-center p-20 gap-4">
-                 <span className="w-10 h-10 rounded-full border-4 border-green-100 border-t-green-600 animate-spin" />
+               <div className="p-6">
+                 <SkeletonLoader type="card" count={3} />
                </div>
             ) : filtered.length === 0 ? (
                <div className="bg-white p-20 text-center rounded-2xl border border-slate-100">

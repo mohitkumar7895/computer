@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { CreditCard, History, Printer, CheckCircle, AlertCircle, FileText, Plus, Minus } from "lucide-react";
 import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import type { SVGProps } from "react";
 
 interface Transaction {
@@ -215,11 +216,8 @@ export default function StudentFeeView({ student, center }: { student: FeeStuden
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-8 py-20 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                       <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-                       <p className="text-xs font-bold text-slate-400 uppercase">Fetching Ledger...</p>
-                    </div>
+                  <td colSpan={7} className="p-4">
+                    <SkeletonLoader type="card" count={3} />
                   </td>
                 </tr>
               ) : transactions.length === 0 ? (

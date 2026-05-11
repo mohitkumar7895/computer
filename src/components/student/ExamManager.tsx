@@ -14,6 +14,7 @@ import {
 import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
 import ExamCountdown from "@/components/common/ExamCountdown";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import { buildExamWindow } from "@/lib/exam-schedule";
 import { apiFetch } from "@/utils/api";
 import { ISO_DATE_MAX_SCHEDULE, ISO_DATE_MIN, sanitizeIsoDateInput } from "@/lib/isoDate";
@@ -115,7 +116,7 @@ export default function ExamManager({ student }: ExamManagerProps) {
     }
   };
 
-  if (loading) return <div className="p-4 truncate">Loading exam records...</div>;
+  if (loading) return <div className="p-4"><SkeletonLoader type="card" count={3} /></div>;
 
   const publishedExam = exams.find(e => e.offlineExamStatus === 'published' || (e.examMode === 'online' && e.status === 'completed' && e.resultDeclared));
 

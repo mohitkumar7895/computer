@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/utils/api";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 type WalletRequest = {
   _id: string;
@@ -163,7 +164,7 @@ export default function WalletRequestManager() {
         ))}
       </div>
       {loading ? (
-        <p className="p-6 text-sm text-slate-400">Loading requests...</p>
+        <div className="p-6"><SkeletonLoader type="card" count={3} /></div>
       ) : visibleRequests.length === 0 ? (
         <p className="p-6 text-sm text-slate-400">No wallet requests found.</p>
       ) : (

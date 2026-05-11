@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { Search, History, CreditCard, Printer, X, Plus, Minus, FileText, CheckCircle } from "lucide-react";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import { useBrand } from "@/context/BrandContext";
@@ -359,11 +360,8 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                       <div className="w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin"></div>
-                       <p className="text-xs font-bold text-slate-400 uppercase">Loading Records...</p>
-                    </div>
+                  <td colSpan={5} className="p-4">
+                    <SkeletonLoader type="card" count={3} />
                   </td>
                 </tr>
               ) : students.length === 0 ? (

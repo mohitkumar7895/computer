@@ -11,33 +11,34 @@ import {
   Lock, Eye, EyeOff, ShieldAlert, Clock, CreditCard, UserPlus
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 const StudentManager = dynamic(() => import("@/components/atc/StudentManager"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Student Manager...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 const ExamRequestManager = dynamic(() => import("@/components/admin/ExamRequestManager"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Exam Manager...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 const ExamSetManager = dynamic(() => import("@/components/admin/ExamSetManager"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Exam Sets...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 const StudyMaterialManager = dynamic(() => import("@/components/admin/StudyMaterialManager"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Materials...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 const CertificateRequestManager = dynamic(() => import("@/components/atc/CertificateRequestManager"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Certificates...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 const AtcReports = dynamic(() => import("@/components/atc/AtcReports"), { 
-  loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Reports...</div>,
+  loading: () => <div className="p-4"><SkeletonLoader type="card" count={3} /></div>,
   ssr: false 
 });
 
@@ -219,8 +220,8 @@ export default function AtcDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-10 h-10 rounded-full border-4 border-green-200 border-t-green-600 animate-spin" />
+      <div className="min-h-screen bg-slate-50 p-8">
+        <SkeletonLoader type="dashboard" />
       </div>
     );
   }

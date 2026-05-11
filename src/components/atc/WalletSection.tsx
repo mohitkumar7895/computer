@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/utils/api";
 import { ISO_DATE_MIN, isValidIsoDate, isoDateToday, normalizeIsoDate } from "@/lib/isoDate";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 type WalletRequest = {
   _id: string;
@@ -325,7 +326,7 @@ export default function WalletSection() {
           <div>
             <p className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Recent Requests</p>
             {loading ? (
-              <p className="text-sm text-slate-400">Loading...</p>
+              <SkeletonLoader type="card" count={2} />
             ) : requests.length === 0 ? (
               <p className="text-sm text-slate-400">No wallet requests yet.</p>
             ) : (
@@ -356,7 +357,7 @@ export default function WalletSection() {
             </div>
           ) : null}
           {loading ? (
-            <p className="text-sm text-slate-400">Loading...</p>
+            <SkeletonLoader type="card" count={3} />
           ) : passbookEntries.length === 0 ? (
             <p className="text-sm text-slate-400">No wallet transactions yet.</p>
           ) : (

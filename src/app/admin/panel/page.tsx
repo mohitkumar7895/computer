@@ -42,6 +42,7 @@ import { ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate"
 import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 import WalletRequestManager from "@/components/admin/WalletRequestManager";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
   loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
@@ -1807,8 +1808,8 @@ export default function AdminPanelPage() {
 
                 {/* List of Applications (The Nice Card Style from Dashboard) */}
                 {loading ? (
-                  <div className="flex items-center justify-center py-24 bg-white rounded-3xl border border-slate-100">
-                    <div className="w-10 h-10 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
+                  <div className="p-6">
+                    <SkeletonLoader type="card" count={3} />
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center shadow-sm">
@@ -2012,7 +2013,7 @@ export default function AdminPanelPage() {
                         <div className="space-y-3">
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Wallet History</p>
                           {centerWalletLoading ? (
-                            <p className="text-sm text-slate-400">Loading history...</p>
+                            <SkeletonLoader type="card" count={2} />
                           ) : centerWalletHistory.length === 0 ? (
                             <p className="text-sm text-slate-400">No wallet history found.</p>
                           ) : (
@@ -2085,9 +2086,8 @@ export default function AdminPanelPage() {
                 )}
 
                 {resultsLoading ? (
-                  <div className="p-20 flex flex-col items-center gap-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 border-4 border-amber-100 border-t-amber-600 rounded-full animate-spin" />
-                    <p className="text-sm font-black text-slate-400 uppercase">Fetching pending reviews...</p>
+                  <div className="p-4">
+                    <SkeletonLoader type="card" count={3} />
                   </div>
                 ) : pendingResults.length === 0 ? (
                   <div className="p-20 flex flex-col items-center gap-4 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
@@ -2712,7 +2712,7 @@ export default function AdminPanelPage() {
                   {/* QR Preview */}
                   {qrLoading ? (
                     <div className="flex items-center justify-center h-40">
-                      <div className="w-8 h-8 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
+                      <SkeletonLoader type="card" count={3} />
                     </div>
                   ) : qrPreview ? (
                     <div className="flex flex-col items-center gap-4">
@@ -2947,7 +2947,7 @@ export default function AdminPanelPage() {
                   {/* Sig Preview */}
                   {sigLoading ? (
                     <div className="flex items-center justify-center h-40">
-                      <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
+                      <SkeletonLoader type="card" count={3} />
                     </div>
                   ) : sigPreview ? (
                     <div className="flex flex-col items-center gap-4">
@@ -3461,7 +3461,7 @@ export default function AdminPanelPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {studentLoading ? (
-                        <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">Loading students...</td></tr>
+                        <tr><td colSpan={8} className="p-4"><SkeletonLoader type="card" count={3} /></td></tr>
                       ) : filteredStudents.length === 0 ? (
                         <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No {studentFilter !== "all" ? studentFilter : ""} students found.</td></tr>
                       ) : (

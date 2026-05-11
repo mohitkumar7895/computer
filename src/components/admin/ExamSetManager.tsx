@@ -4,6 +4,7 @@ import { useEffect, useMemo, useCallback, useState } from "react";
 import { BookOpen, PlusCircle, Trash2, CheckCircle, ShieldCheck, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 interface ExamSet {
   _id: string;
@@ -302,7 +303,7 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
             </h3>
             <div className="space-y-4 max-h-150 overflow-y-auto pr-2 custom-scrollbar">
               {loadingSets ? (
-                 <div className="p-10 text-center animate-pulse text-slate-300 font-bold">Initializing papers...</div>
+                 <div className="p-4"><SkeletonLoader type="card" count={2} /></div>
               ) : sets.map((set) => (
                 <button
                   key={set._id}

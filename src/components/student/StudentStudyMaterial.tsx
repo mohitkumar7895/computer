@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Play, FileText, Type, Download, Eye, Search, Filter, Layers, Copy, CheckCircle, ShieldCheck, MapPin } from "lucide-react";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 interface Material {
   _id: string;
@@ -61,9 +62,8 @@ export default function StudentStudyMaterial() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <div className="w-12 h-12 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
-        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest animate-pulse">Loading Study Materials...</p>
+      <div className="p-8">
+        <SkeletonLoader type="card" count={3} />
       </div>
     );
   }

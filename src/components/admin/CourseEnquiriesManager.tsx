@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ListChecks } from "lucide-react";
 import { apiFetch } from "@/utils/api";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 interface CourseEnquiry {
   _id: string;
@@ -59,8 +60,8 @@ export default function CourseEnquiriesManager() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
-                    Loading enquiries...
+                  <td colSpan={5} className="p-4">
+                    <SkeletonLoader type="card" count={3} />
                   </td>
                 </tr>
               ) : enquiries.length === 0 ? (

@@ -20,6 +20,7 @@ import StudentIdCard from "@/components/common/StudentIdCard";
 import StudentFeeView from "@/components/student/StudentFeeView";
 
 import { useBrand } from "@/context/BrandContext";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import { cookieFetch } from "@/lib/auth-client";
 import { apiFetch } from "@/utils/api";
 
@@ -186,8 +187,8 @@ export default function StudentDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+      <div className="min-h-screen bg-slate-50 p-8">
+        <SkeletonLoader type="dashboard" />
       </div>
     );
   }

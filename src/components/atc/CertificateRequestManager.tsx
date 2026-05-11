@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, type ChangeEvent, type FormE
 import { Users, Clock, Search, RefreshCw, Calendar, X, Building2, ClipboardCheck, Trash2, ScrollText } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import { deriveInternalExternalMax } from "@/lib/examDocumentSplit";
 import {
   DEFAULT_MARKSHEET_GRADE_BANDS,
@@ -596,9 +597,8 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         {atcTab === "new" ? (
           <div className="animate-in fade-in duration-300">
             {loading ? (
-              <div className="flex flex-col items-center justify-center p-20 gap-4">
-                <span className="w-10 h-10 rounded-full border-4 border-green-100 border-t-green-600 animate-spin" />
-                <p className="text-sm font-bold text-slate-400">Loading student records...</p>
+              <div className="p-6">
+                <SkeletonLoader type="card" count={3} />
               </div>
             ) : requests.filter(r => r.approvalStatus === 'approved' && r.offlineExamStatus !== 'published').length === 0 ? (
               <div className="text-center p-24 bg-white rounded-[3rem] border border-dashed border-slate-200 shadow-sm">
@@ -766,8 +766,8 @@ export default function CertificateRequestManager({ atcId, role = "atc" }: { atc
         ) : (
           <div className="animate-in fade-in duration-300">
             {loading ? (
-               <div className="flex flex-col items-center justify-center p-20 gap-4">
-                 <span className="w-10 h-10 rounded-full border-4 border-green-100 border-t-green-600 animate-spin" />
+               <div className="p-6">
+                 <SkeletonLoader type="card" count={3} />
                </div>
             ) : filtered.length === 0 ? (
                <div className="bg-white p-24 text-center rounded-[3rem] border border-dashed border-slate-200 shadow-sm">

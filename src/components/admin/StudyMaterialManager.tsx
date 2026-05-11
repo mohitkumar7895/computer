@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { PlusCircle, Trash2, FileText, Type, Play, FileIcon, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 interface Material {
   _id: string;
@@ -277,8 +278,8 @@ export default function StudyMaterialManager({ role }: Props) {
       )}
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <div className="p-4">
+          <SkeletonLoader type="card" count={3} />
         </div>
       ) : materials.length === 0 ? (
         <div className="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-20 text-center">

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useEffect, type FormEvent } from "react";
 import { CheckCircle, FileText, User, MapPin, CreditCard, Plus, Trash2 } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import HighestQualificationMultiSelect from "@/components/common/HighestQualificationMultiSelect";
 import {
   formatHighestQualificationMulti,
@@ -291,7 +292,7 @@ export default function DirectAdmissionForm() {
     `block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${invalidFields.has(name || "") ? "text-red-800 after:ml-2 after:text-[10px] after:font-black after:tracking-normal after:text-red-700 after:content-['Required_field']" : "text-slate-500"}`;
   const sectionCls = "bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5";
 
-  if (!isMounted) return <div className="min-h-100 flex items-center justify-center"><span className="w-8 h-8 rounded-full border-4 border-slate-100 border-t-blue-600 animate-spin" /></div>;
+  if (!isMounted) return <div className="p-8"><SkeletonLoader type="dashboard" /></div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">

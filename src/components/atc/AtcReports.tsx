@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/utils/api";
 import { CalendarDays, Wallet, ArrowUpRight, ArrowDownRight, IndianRupee, Users } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 type ReportData = {
   period: string;
@@ -55,11 +56,7 @@ export default function AtcReports() {
   }, [period]);
 
   if (!data && loading) {
-    return (
-      <div className="flex justify-center items-center h-48 bg-white rounded-3xl border border-slate-100">
-        <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-green-600 animate-spin" />
-      </div>
-    );
+    return <SkeletonLoader type="dashboard" />;
   }
 
   if (!data) return null;

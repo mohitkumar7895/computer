@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useMemo, type FormEvent } from "react";
 import NextImage from "next/image";
 import { Users, PlusCircle, CheckCircle, FileText, User, BookOpen, MapPin, CreditCard, RefreshCw, ShieldCheck, Download, XCircle, Search, Hash, X, Trash2 } from "lucide-react";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import StudentIdCard from "@/components/common/StudentIdCard";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
@@ -1049,9 +1050,8 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
             </div>
 
             {loading ? (
-              <div className="flex flex-col items-center justify-center p-20 gap-4">
-                <span className="w-10 h-10 rounded-full border-4 border-green-100 border-t-green-600 animate-spin" />
-                <p className="text-sm font-bold text-slate-400">Loading student records...</p>
+              <div className="p-6">
+                <SkeletonLoader type="card" count={4} />
               </div>
             ) : (
               <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">

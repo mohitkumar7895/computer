@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import {
   PlusCircle,
   Trash2,
@@ -468,8 +469,8 @@ export default function CourseManager() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-10 text-center text-slate-400">
-                    Loading courses...
+                  <td colSpan={10} className="p-4">
+                    <SkeletonLoader type="card" count={3} />
                   </td>
                 </tr>
               ) : courses.length === 0 ? (
