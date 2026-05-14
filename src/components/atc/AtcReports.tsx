@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/utils/api";
-import { CalendarDays, Wallet, ArrowUpRight, ArrowDownRight, IndianRupee, Users } from "lucide-react";
+import { CalendarDays, Wallet, ArrowUpRight, ArrowDownRight, IndianRupee, Users, Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import SkeletonLoader from "@/components/common/SkeletonLoader";
 
@@ -74,20 +74,31 @@ export default function AtcReports() {
            </h3>
            <p className="text-xs text-slate-500 font-medium">Detailed breakdown of admissions and revenue collection.</p>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-          {["today", "weekly", "monthly", "all-time"].map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p as any)}
-              className={`px-4 py-1.5 text-xs font-bold capitalize rounded-lg transition-all ${
-                period === p 
-                  ? "bg-white text-green-700 shadow-sm" 
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            {["today", "weekly", "monthly", "all-time"].map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p as any)}
+                className={`px-4 py-1.5 text-xs font-bold capitalize rounded-lg transition-all ${
+                  period === p 
+                    ? "bg-white text-green-700 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <a
+            href={`/api/atc/reports/export?period=${period}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-green-700 transition-colors"
+          >
+            <Download size={16} />
+            Download
+          </a>
         </div>
       </div>
 
