@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/Student";
+import { FeeTransaction } from "@/models/FeeTransaction";
 import { getAuthUser } from "@/utils/auth";
 
 export async function GET(request: Request) {
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     }
 
     const students = await AtcStudent.find({ tpCode: user.tpCode })
-      .select("enrollmentNo name fatherName course status createdAt totalFee paidAmount duesAmount admissionDate mobile")
+      .select("enrollmentNo name fatherName course status createdAt totalFee paidAmount duesAmount admissionDate mobile _id")
       .lean();
 
     const periodStudents = students.filter(s => {
@@ -41,6 +42,19 @@ export async function GET(request: Request) {
     if (periodStudents.length === 0) {
       return new NextResponse("No data found for the selected period", { status: 404 });
     }
+
+    const studentIds = periodStudents.map(s => s._id);
+    
+    const feeTransactions = await FeeTransaction.aggregate([
+      { $match: { studentId: { $in: studentIds }, type: "collect" } },
+      { $sort: { date: -1 } },
+      { $group: { _id: "$studentId", lastPaidDate: { $first: "$date" } } }
+    ]);
+
+    const feeDateMap = new Map();
+    feeTransactions.forEach(ft => {
+      feeDateMap.set(ft._id.toString(), ft.lastPaidDate);
+    });
 
     // Prepare CSV data
     const headers = [
@@ -53,13 +67,25 @@ export async function GET(request: Request) {
       "Status",
       "Total Fee",
       "Paid Amount",
-      "Dues Amount"
+      "Dues Amount",
+      "Last Paid Date"
     ];
 
     const rows = periodStudents.map(s => {
       const total = Number(s.totalFee || 0);
       const dues = Number(s.duesAmount || 0);
       const paid = s.paidAmount !== undefined ? Number(s.paidAmount) : Math.max(0, total - dues);
+      
+      let lastPaidDateStr = "N/A";
+      if (paid > 0) {
+        const date = feeDateMap.get(s._id.toString());
+        if (date) {
+          lastPaidDateStr = new Date(date).toLocaleDateString('en-IN');
+        } else {
+          // Fallback if there's paid amount but no explicit transaction record
+          lastPaidDateStr = s.admissionDate || new Date(s.createdAt).toLocaleDateString('en-IN');
+        }
+      }
 
       return [
         `"${s.enrollmentNo || 'N/A'}"`,
@@ -71,7 +97,8 @@ export async function GET(request: Request) {
         `"${s.status || ''}"`,
         `"${total}"`,
         `"${paid}"`,
-        `"${dues}"`
+        `"${dues}"`,
+        `"${lastPaidDateStr}"`
       ].join(",");
     });
 

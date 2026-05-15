@@ -1967,11 +1967,54 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
                       </div>
                     )}
                     {!isEditing && Boolean(selectedStudent.credentialEntries) && (
-                      <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Added Qualifications</p>
-                        <pre className="whitespace-pre-wrap text-xs font-semibold text-slate-700">
-                          {credentialEntriesToEditorText(selectedStudent.credentialEntries)}
-                        </pre>
+                      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Added Qualifications</p>
+                        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                          <table className="w-full min-w-[320px] text-left text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                <th className="px-4 py-2">Qualification</th>
+                                <th className="px-4 py-2">College / School</th>
+                                <th className="px-4 py-2">Course Name</th>
+                                <th className="px-4 py-2">Year</th>
+                                <th className="px-4 py-2">% Obtained</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {(() => {
+                                try {
+                                  const parsed = JSON.parse(selectedStudent.credentialEntries || "[]");
+                                  if (!Array.isArray(parsed) || parsed.length === 0) {
+                                    return (
+                                      <tr>
+                                        <td colSpan={5} className="px-4 py-3 text-xs text-slate-400 italic text-center">No qualifications added</td>
+                                      </tr>
+                                    );
+                                  }
+                                  return parsed.map((entry, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                      <td className="px-4 py-3 font-semibold text-slate-800">{entry.courseName || "-"}</td>
+                                      <td className="px-4 py-3 font-semibold text-slate-800">{entry.schoolName || "-"}</td>
+                                      <td className="px-4 py-3 font-semibold text-slate-800">{entry.courseTitle || "-"}</td>
+                                      <td className="px-4 py-3 font-semibold text-slate-800">{entry.yearPassing || "-"}</td>
+                                      <td className="px-4 py-3 font-semibold text-slate-800">{entry.obtained || "-"}</td>
+                                    </tr>
+                                  ));
+                                } catch (e) {
+                                  return (
+                                    <tr>
+                                      <td colSpan={5} className="px-4 py-3">
+                                        <pre className="whitespace-pre-wrap text-xs font-semibold text-slate-700">
+                                          {credentialEntriesToEditorText(selectedStudent.credentialEntries)}
+                                        </pre>
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
