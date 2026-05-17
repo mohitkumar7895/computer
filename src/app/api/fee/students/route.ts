@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     }
 
     const students = await AtcStudent.find(query)
-      .select("enrollmentNo name fatherName mobile course status totalFee paidAmount duesAmount tpCode dob admissionFees")
+      .select("enrollmentNo name fatherName mobile email course status totalFee paidAmount duesAmount tpCode dob admissionFees")
       .sort({ createdAt: -1 })
       .lean();
 

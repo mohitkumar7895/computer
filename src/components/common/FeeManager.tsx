@@ -15,6 +15,7 @@ interface Student {
   name: string;
   fatherName: string;
   mobile: string;
+  email?: string;
   course: string;
   status: string;
   totalFee: number;
@@ -196,16 +197,39 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
           });
         }, 1500);
 
-        // Send WhatsApp notification if collect and next installment is set
-        if (formData.type === "collect" && student.mobile) {
-          const mobile = student.mobile.replace(/\D/g, "");
-          const msgBody = `Dear ${student.name},\n\nWe have received your payment of ₹${formData.amount} for ${formData.paidFor} on ${new Date(formData.date).toLocaleDateString()}.\nYour receipt number is ${formData.receiptNo}.\n`;
+        // Send Email notification if collect and next installment is set
+        if (formData.type === "collect") {
+          const remainingDues = Math.max(0, student.duesAmount - formData.amount);
+          const msgBody = `Dear ${student.name},\r\n\r\n` +
+            `This email is to confirm that we have successfully received your fee payment. Please find the details of your transaction below:\r\n\r\n` +
+            `--------------------------------------------------\r\n` +
+            `FEE RECEIPT\r\n` +
+            `--------------------------------------------------\r\n` +
+            `Receipt Number: ${formData.receiptNo}\r\n` +
+            `Date of Payment: ${new Date(formData.date).toLocaleDateString()}\r\n` +
+            `Payment Received For: ${formData.paidFor}\r\n` +
+            `Amount Paid: ₹${formData.amount}\r\n` +
+            `Payment Mode: ${formData.paymentMode}\r\n` +
+            `Remaining Dues: ₹${remainingDues}\r\n` +
+            `--------------------------------------------------\r\n\r\n`;
+
           let nextBody = "";
           if (formData.nextInstallmentDate && formData.nextInstallmentAmount) {
-            nextBody = `\nYour next installment of ₹${formData.nextInstallmentAmount} is due on ${new Date(formData.nextInstallmentDate).toLocaleDateString()}.\nPlease deposit it on time.`;
+            nextBody = `* Upcoming Dues Reminder *\r\n` +
+              `Please note that your next installment of ₹${formData.nextInstallmentAmount} is scheduled to be due on ${new Date(formData.nextInstallmentDate).toLocaleDateString()}. We request you to kindly clear the upcoming dues on or before the due date to avoid any inconvenience.\r\n\r\n`;
           }
-          const finalMsg = encodeURIComponent(msgBody + nextBody + `\n\nThank you,\n${brandName || "Institution"}`);
-          window.open(`https://wa.me/91${mobile}?text=${finalMsg}`, "_blank");
+
+          const plainMsg = msgBody + nextBody + `If you have any questions regarding this transaction, please do not hesitate to contact us.\r\n\r\n` +
+            `Sincerely,\r\n` +
+            `${brandName || "Administration"}\r\n`;
+            
+          const finalMsg = encodeURIComponent(plainMsg);
+          const toEmail = student.email || "";
+          const subject = encodeURIComponent(`Fee Receipt - ${formData.receiptNo}`);
+          
+          setTimeout(() => {
+            window.open(`mailto:${toEmail}?subject=${subject}&body=${finalMsg}`, "_blank");
+          }, 500);
         }
       } else {
         setMsg({ type: "error", text: data.message });
