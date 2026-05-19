@@ -16,7 +16,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { email: string; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; email?: string; role: string };
     if (decoded.role !== "admin") {
       return NextResponse.json({ message: "Forbidden." }, { status: 403 });
     }
@@ -29,7 +29,9 @@ export async function PATCH(request: Request) {
 
     await connectDB();
 
-    const user = await AdminUser.findOne({ email: decoded.email });
+    const user = decoded.id 
+      ? await AdminUser.findById(decoded.id)
+      : await AdminUser.findOne({ email: decoded.email });
     if (!user) {
       return NextResponse.json({ message: "Admin user not found." }, { status: 404 });
     }
