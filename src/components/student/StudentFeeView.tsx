@@ -71,8 +71,8 @@ export default function StudentFeeView({ student, center }: { student: FeeStuden
         </head>
         <body>
           <div class="header">
-            <div class="receipt-title">FEE RECEIPT</div>
-            <div>${brandName || "Institution"}</div>
+            <div class="receipt-title">FEES</div>
+            <div>${brandName || "Institute"}</div>
           </div>
           <div class="grid">
             <div>

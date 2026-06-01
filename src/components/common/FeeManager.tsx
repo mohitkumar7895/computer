@@ -203,7 +203,7 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
           const msgBody = `Dear ${student.name},\r\n\r\n` +
             `This email is to confirm that we have successfully received your fee payment. Please find the details of your transaction below:\r\n\r\n` +
             `--------------------------------------------------\r\n` +
-            `FEE RECEIPT\r\n` +
+            `FEES\r\n` +
             `--------------------------------------------------\r\n` +
             `Receipt Number: ${formData.receiptNo}\r\n` +
             `Date of Payment: ${new Date(formData.date).toLocaleDateString()}\r\n` +
@@ -269,8 +269,8 @@ export default function FeeManager({ role }: { role: "admin" | "atc" }) {
         </head>
         <body>
           <div class="header">
-            <div class="receipt-title">FEE RECEIPT</div>
-            <div>${brandName || "Institution"}</div>
+            <div class="receipt-title">FEES RECEIPT</div>
+            <div>${brandName || "Institute"}</div>
           </div>
           <div class="grid">
             <div>
