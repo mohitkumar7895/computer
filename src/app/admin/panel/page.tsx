@@ -344,9 +344,9 @@ export default function AdminPanelPage() {
 
   // ID Format States
   const [centerFormat, setCenterFormat] = useState({ prefix: "ATC-", counter: 1, padding: 4 });
-  const [studentFormat, setStudentFormat] = useState({ prefix: "ATC-ST-", counter: 1, padding: 4 });
+  const [studentFormat, setStudentFormat] = useState({ prefix: "", counter: 1, padding: 1 });
   /** Stored as `reg_format_student_registration` — prefix + counter only (no padding field in UI). */
-  const [studentRegistrationFormat, setStudentRegistrationFormat] = useState({ prefix: "REG-", counter: 1 });
+  const [studentRegistrationFormat, setStudentRegistrationFormat] = useState({ prefix: "", counter: 1 });
   const [idFormatSaving, setIdFormatSaving] = useState(false);
   const [brandName, setBrandName] = useState("Institution Brand");
   const [brandMobile, setBrandMobile] = useState("");
@@ -626,7 +626,14 @@ export default function AdminPanelPage() {
 
       const sfRes = await apiFetch("/api/admin/settings?key=reg_format_student");
       const sfData = await sfRes.json();
-      if (sfData.value) setStudentFormat(JSON.parse(sfData.value));
+      if (sfData.value) {
+        const p = JSON.parse(sfData.value) as { counter?: number };
+        setStudentFormat({
+          prefix: "",
+          counter: typeof p.counter === "number" && Number.isFinite(p.counter) ? p.counter : 1,
+          padding: 1,
+        });
+      }
 
       const srfRes = await apiFetch("/api/admin/settings?key=reg_format_student_registration");
       const srfData = (await srfRes.json()) as { value: string | null };
@@ -634,7 +641,7 @@ export default function AdminPanelPage() {
         try {
           const p = JSON.parse(srfData.value) as { prefix?: string; counter?: number };
           setStudentRegistrationFormat({
-            prefix: typeof p.prefix === "string" ? p.prefix : "REG-",
+            prefix: "",
             counter: typeof p.counter === "number" && Number.isFinite(p.counter) ? p.counter : 1,
           });
         } catch {
@@ -3130,16 +3137,13 @@ export default function AdminPanelPage() {
                        </div>
                        
                        <div className="space-y-4">
-                          <div>
-                            <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Prefix (Text before number)</label>
-                            <input 
-                              type="text" 
-                              value={studentFormat.prefix} 
-                              onChange={(e) => setStudentFormat(prev => ({ ...prev, prefix: e.target.value }))}
-                              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-purple-100 outline-none"
-                              placeholder="e.g. ATC-ST-26-"
-                            />
-                            <p className="text-[8px] text-slate-400 mt-1 italic">Tip: Use <strong>{`{YEAR}`}</strong> in prefix for automatic current year.</p>
+                          <div className="rounded-2xl border border-purple-100 bg-purple-50/70 px-4 py-3">
+                            <p className="text-[9px] font-black text-purple-700 uppercase tracking-widest">
+                              Prefix removed
+                            </p>
+                            <p className="mt-1 text-[10px] font-bold text-purple-700/70">
+                              Enrollment numbers generate as plain numbers only.
+                            </p>
                           </div>
                           <div>
                             <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Internal Counter (Current Value)</label>
@@ -3154,7 +3158,7 @@ export default function AdminPanelPage() {
                           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm text-center">
                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Generated Sample</p>
                              <p className="text-xl font-black text-purple-700 tracking-tighter">
-                               {studentFormat.prefix.replace("{YEAR}", new Date().getFullYear().toString())}{String(studentFormat.counter).padStart(studentFormat.padding, "0")}
+                               {studentFormat.counter}
                              </p>
                           </div>
                        </div>
@@ -3168,21 +3172,12 @@ export default function AdminPanelPage() {
                         </label>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">
-                            Prefix (Text before number)
-                          </label>
-                          <input
-                            type="text"
-                            value={studentRegistrationFormat.prefix}
-                            onChange={(e) =>
-                              setStudentRegistrationFormat((prev) => ({ ...prev, prefix: e.target.value }))
-                            }
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-100 outline-none"
-                            placeholder="e.g. REG-"
-                          />
-                          <p className="text-[8px] text-slate-400 mt-1 italic">
-                            Tip: Use <strong>{`{YEAR}`}</strong> in prefix for automatic current year.
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                          <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">
+                            Prefix removed
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold text-emerald-700/70">
+                            Registration numbers generate as plain numbers only.
                           </p>
                         </div>
                         <div>
@@ -3223,7 +3218,10 @@ export default function AdminPanelPage() {
                             headers: { 
                               "Content-Type": "application/json",
                             },
-                            body: JSON.stringify({ key: "reg_format_student", value: JSON.stringify(studentFormat) }),
+                            body: JSON.stringify({
+                              key: "reg_format_student",
+                              value: JSON.stringify({ prefix: "", counter: studentFormat.counter, padding: 1 }),
+                            }),
                           });
                           await apiFetch("/api/admin/settings", {
                             method: "POST",
@@ -3232,7 +3230,7 @@ export default function AdminPanelPage() {
                             },
                             body: JSON.stringify({
                               key: "reg_format_student_registration",
-                              value: JSON.stringify(studentRegistrationFormat),
+                              value: JSON.stringify({ prefix: "", counter: studentRegistrationFormat.counter }),
                             }),
                           });
                           showToast("success", "ID Formats updated successfully!");

@@ -4,8 +4,6 @@ import { useEffect } from "react";
 
 export default function ServiceWorkerCleanup() {
   useEffect(() => {
-    let cancelled = false;
-
     const cleanup = async () => {
       if (typeof window === "undefined") return;
 
@@ -26,21 +24,9 @@ export default function ServiceWorkerCleanup() {
       } catch {
         // Ignore cleanup errors.
       }
-
-      if (!cancelled) {
-        const markerKey = "__sw_cleanup_done__";
-        const done = sessionStorage.getItem(markerKey);
-        if (!done) {
-          sessionStorage.setItem(markerKey, "1");
-          window.location.reload();
-        }
-      }
     };
 
     cleanup();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   return null;

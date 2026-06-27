@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB as dbConnect } from "@/lib/mongodb";
 import { AtcStudent } from "@/models/AtcStudent";
 import { StudentExam } from "@/models/StudentExam";
+import { getMarksheetGradeBands, gradeFromPercentageWithBands } from "@/lib/marksheetGradeScale";
 
 export async function GET(request: Request) {
   try {
@@ -53,12 +54,8 @@ export async function GET(request: Request) {
     const maxTotalMarks = exam.maxScore || 100;
     const percentage = (totalMarks / maxTotalMarks) * 100;
 
-    let grade = "F";
-    if (percentage >= 80) grade = "A+";
-    else if (percentage >= 70) grade = "A";
-    else if (percentage >= 60) grade = "B";
-    else if (percentage >= 50) grade = "C";
-    else if (percentage >= 40) grade = "D";
+    const gradeBands = await getMarksheetGradeBands();
+    const grade = gradeFromPercentageWithBands(percentage, gradeBands);
 
     const responseData = {
       studentName: student.name,
@@ -72,7 +69,7 @@ export async function GET(request: Request) {
     };
 
     return NextResponse.json(responseData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Marksheet verification error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }

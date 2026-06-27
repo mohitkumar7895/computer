@@ -227,18 +227,18 @@ export default function Navbar() {
       >
         <div
           id="mobile-nav"
-          className={`mx-auto w-full max-w-330 overflow-x-clip px-2 py-2 md:flex md:items-center md:justify-center md:px-6 lg:px-8 ${
+          className={`mx-auto w-full max-w-330 overflow-x-clip px-2 py-2 md:flex md:items-center md:justify-center md:px-3 lg:px-5 ${
             isMobileMenuOpen ? "flex flex-col" : "hidden"
           } md:flex`}
         >
-          <div className="flex w-full flex-col bg-[#0a0aa1] md:max-w-280 md:flex-row md:flex-wrap md:items-center md:justify-between md:px-5 md:py-2.5 md:shadow-[0_14px_28px_rgba(12,12,84,0.18)]">
+          <div className="flex w-full flex-col bg-[#0a0aa1] md:w-auto md:max-w-none md:flex-row md:flex-nowrap md:items-center md:justify-center md:px-2 md:py-2.5 md:shadow-[0_14px_28px_rgba(12,12,84,0.18)] lg:px-3">
             {NAV_LINKS.map((link) =>
               link.children?.length ? (
                 <div key={link.label} className="group relative">
                   <button
                     type="button"
                     onClick={() => setOpenMobileDropdown((current) => (current === link.label ? null : link.label))}
-                    className={`flex w-full items-center px-4 py-3 text-xs font-semibold text-white transition md:w-auto md:px-3 md:py-2 lg:px-4 ${
+                    className={`flex w-full items-center whitespace-nowrap px-4 py-3 text-xs font-semibold text-white transition md:w-auto md:px-1.5 md:py-2 md:text-[10.5px] lg:px-2.5 lg:text-[11.5px] xl:text-xs ${
                       isLinkActive(link.href, link.children) ? "text-blue-100" : "hover:text-blue-100"
                     }`}
                   >
@@ -283,7 +283,7 @@ export default function Navbar() {
                   key={link.label}
                   href={link.href}
                   onClick={handleNavClick(link.href)}
-                  className={`flex items-center px-4 py-3 text-xs font-semibold text-white transition md:px-3 md:py-2 lg:px-4 ${
+                  className={`flex items-center whitespace-nowrap px-4 py-3 text-xs font-semibold text-white transition md:px-1.5 md:py-2 md:text-[10.5px] lg:px-2.5 lg:text-[11.5px] xl:text-xs ${
                     isLinkActive(link.href) ? "text-blue-100" : "hover:text-blue-100"
                   }`}
                 >

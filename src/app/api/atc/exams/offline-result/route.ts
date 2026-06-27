@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     
-    let studentId, offlineExamStatus, totalScoreStr, offlineExamResult, examCopyFile, grade, session, examId;
+    let studentId, offlineExamStatus, totalScoreStr, offlineExamResult, examCopyFile, session, examId;
     let subjectMarksRaw: string | null = null;
 
     if (request.headers.get("content-type")?.includes("application/json")) {
@@ -38,7 +38,6 @@ export async function POST(request: Request) {
       offlineExamStatus = body.offlineExamStatus;
       totalScoreStr = body.totalScore;
       offlineExamResult = body.offlineExamResult;
-      grade = body.grade;
       session = body.session;
       subjectMarksRaw = body.subjectMarks ? JSON.stringify(body.subjectMarks) : null;
     } else {
@@ -48,7 +47,6 @@ export async function POST(request: Request) {
       totalScoreStr = formData.get("totalScore") as string;
       offlineExamResult = formData.get("offlineExamResult") as string;
       examCopyFile = formData.get("examCopy") as File | null;
-      grade = formData.get("grade") as string;
       session = formData.get("session") as string;
       subjectMarksRaw = formData.get("subjectMarks") as string | null;
     }
@@ -76,7 +74,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Exam is not approved yet." }, { status: 400 });
     }
 
-    let scheduledAt: Date | null = getExamScheduledAtUtc({
+    const scheduledAt: Date | null = getExamScheduledAtUtc({
       examDate: exam.examDate,
       examTime: exam.examTime,
       examDateTime: exam.examDateTime,
@@ -157,6 +155,16 @@ export async function POST(request: Request) {
     // ATC can only submit for review or as 'appeared'
     // If they were trying to 'publish', we set it to 'review_pending'
     const finalStatus = offlineExamStatus === "published" ? "review_pending" : offlineExamStatus;
+    const totalMaxForGrade =
+      parsedSubjectMarks.length > 0
+        ? subjectTotalMax
+        : Number(exam.maxScore) > 0
+          ? Number(exam.maxScore)
+          : 100;
+    const percentageForGrade =
+      totalMaxForGrade > 0 ? Math.round((totalScore / totalMaxForGrade) * 10000) / 100 : 0;
+    const gradeBands = await getMarksheetGradeBands();
+    const computedGrade = gradeFromPercentage(percentageForGrade, gradeBands);
     
     exam.offlineExamStatus = finalStatus as OfflineExamStatus;
     exam.offlineExamResult = offlineExamResult as OfflineExamResult;
@@ -173,7 +181,7 @@ export async function POST(request: Request) {
       exam.status = exam.examMode === "online" ? "completed" : "pending";
       exam.resultDeclared = false;
       // Store additional info in exam metadata for admin approval
-      if (grade) exam.grade = grade;
+      exam.grade = computedGrade;
       if (session) exam.session = session;
     }
 
@@ -189,8 +197,6 @@ export async function POST(request: Request) {
       const percentage = totalMaxForCalc > 0
         ? Math.round((totalObtForCalc / totalMaxForCalc) * 10000) / 100
         : 0;
-      const bands = await getMarksheetGradeBands();
-      const computedGrade = grade || gradeFromPercentage(percentage, bands);
       const computedResult: "Pass" | "Fail" =
         offlineExamResult === "Fail" ? "Fail" : percentage >= 33 ? "Pass" : "Fail";
 

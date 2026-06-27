@@ -16,12 +16,12 @@ function parseStudentIdFormat(raw: string | undefined | null): IdFormat {
       throw new Error("shape");
     }
     return {
-      prefix: f.prefix,
+      prefix: "",
       counter: Math.max(1, Math.floor(f.counter)),
-      padding: Math.max(1, Math.floor(f.padding)),
+      padding: 1,
     };
   } catch {
-    return { prefix: "ATC-ST-", counter: 1, padding: 4 };
+    return { prefix: "", counter: 1, padding: 1 };
   }
 }
 
@@ -41,12 +41,11 @@ function parseStudentRegistrationFormat(raw: string | undefined | null): Registr
   try {
     if (!raw) throw new Error("empty");
     const f = JSON.parse(raw) as { prefix?: unknown; counter?: unknown };
-    const prefix = typeof f.prefix === "string" ? f.prefix : "REG-";
     const counter =
       typeof f.counter === "number" && Number.isFinite(f.counter) ? Math.max(1, Math.floor(f.counter)) : 1;
-    return { prefix, counter };
+    return { prefix: "", counter };
   } catch {
-    return { prefix: "REG-", counter: 1 };
+    return { prefix: "", counter: 1 };
   }
 }
 
@@ -61,11 +60,7 @@ export async function generateNextStudentRegistrationNumber(): Promise<string> {
     session.startTransaction();
     const doc = await Settings.findOne({ key: "reg_format_student_registration" }).session(session);
     const format = parseStudentRegistrationFormat(doc?.value as string | undefined);
-    let prefix = format.prefix;
-    if (prefix.includes("{YEAR}")) {
-      prefix = prefix.replace("{YEAR}", new Date().getFullYear().toString());
-    }
-    const id = `${prefix}${format.counter}`;
+    const id = String(format.counter);
     const bumped: RegistrationOnlyFormat = { prefix: format.prefix, counter: format.counter + 1 };
     await Settings.findOneAndUpdate(
       { key: "reg_format_student_registration" },
@@ -91,11 +86,7 @@ async function generateNextStudentRegistrationNumberNonTx(): Promise<string> {
   await connectDB();
   const formatSetting = await Settings.findOne({ key: "reg_format_student_registration" });
   const format = parseStudentRegistrationFormat(formatSetting?.value as string | undefined);
-  let prefix = format.prefix;
-  if (prefix.includes("{YEAR}")) {
-    prefix = prefix.replace("{YEAR}", new Date().getFullYear().toString());
-  }
-  const id = `${prefix}${format.counter}`;
+    const id = String(format.counter);
   const bumped: RegistrationOnlyFormat = { prefix: format.prefix, counter: format.counter + 1 };
   await Settings.findOneAndUpdate(
     { key: "reg_format_student_registration" },
@@ -112,11 +103,7 @@ export async function generateNextStudentEnrollmentNumber(): Promise<string> {
     session.startTransaction();
     const doc = await Settings.findOne({ key: "reg_format_student" }).session(session);
     const format = parseStudentIdFormat(doc?.value as string | undefined);
-    let prefix = format.prefix;
-    if (prefix.includes("{YEAR}")) {
-      prefix = prefix.replace("{YEAR}", new Date().getFullYear().toString());
-    }
-    const id = `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
+    const id = String(format.counter);
     const bumped: IdFormat = { ...format, counter: format.counter + 1 };
     await Settings.findOneAndUpdate(
       { key: "reg_format_student" },
@@ -148,7 +135,7 @@ export async function generateNextId(key: "reg_format_center" | "reg_format_stud
     ? JSON.parse(formatSetting.value)
     : key === "reg_format_center"
       ? { prefix: "ATC-", counter: 1, padding: 4 }
-      : { prefix: "ATC-ST-", counter: 1, padding: 4 };
+      : { prefix: "", counter: 1, padding: 1 };
 
   // 2. Generate ID exactly as per the current counter
   let prefix = format.prefix;
@@ -157,11 +144,18 @@ export async function generateNextId(key: "reg_format_center" | "reg_format_stud
     prefix = prefix.replace("{YEAR}", year);
   }
 
-  const id = `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
+  const id =
+    key === "reg_format_student"
+      ? String(Math.max(1, Math.floor(Number(format.counter) || 1)))
+      : `${prefix}${String(format.counter).padStart(format.padding, "0")}`;
 
   // 3. Increment counter and save for the NEXT request
   // We trust the counter in the DB. If it's a duplicate, the DB will throw a unique constraint error.
   format.counter += 1;
+  if (key === "reg_format_student") {
+    format.prefix = "";
+    format.padding = 1;
+  }
   await Settings.findOneAndUpdate(
     { key },
     { value: JSON.stringify(format) },

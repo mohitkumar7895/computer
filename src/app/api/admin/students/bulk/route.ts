@@ -5,11 +5,13 @@ import { Course } from "@/models/Course";
 import { AtcUser } from "@/models/AtcUser";
 import { WalletTransaction } from "@/models/WalletTransaction";
 import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
+import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+type CourseFeeLite = { registrationFee?: number };
 
 async function verifyAdmin() {
   const cookieStore = await cookies();
@@ -43,14 +45,14 @@ export async function POST(request: Request) {
       const failed: string[] = [];
       for (const student of students) {
         const normalizedCourse = String(student.course || "").trim();
-        const courseQuery: any[] = [
+        const courseQuery: Record<string, unknown>[] = [
           { name: normalizedCourse },
           { shortName: normalizedCourse },
           { name: { $regex: `^${escapeRegex(normalizedCourse)}$`, $options: "i" } },
           { shortName: { $regex: `^${escapeRegex(normalizedCourse)}$`, $options: "i" } },
         ];
         if (student.courseId) courseQuery.push({ _id: student.courseId });
-        const course = await Course.findOne({ $or: courseQuery }).lean() as any;
+        const course = (await Course.findOne({ $or: courseQuery }).lean()) as CourseFeeLite | null;
         if (!course) {
           failed.push(`${student.name}: course not found`);
           continue;
@@ -85,8 +87,9 @@ export async function POST(request: Request) {
         await student.save();
         try {
           await assignEnrollmentNoIfPending(student._id);
+          await assignRegistrationNoIfPending(student._id);
         } catch (e) {
-          console.error("[admin/students/bulk] assign enrollment", e);
+          console.error("[admin/students/bulk] assign student numbers", e);
         }
         const refreshed = await AtcStudent.findById(student._id);
         results.push(refreshed ?? student);
@@ -113,7 +116,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ message: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

@@ -13,6 +13,8 @@ import {
   type CourseSubjectInput,
 } from "@/lib/examDocumentSplit";
 import { getMarksheetGradeBands } from "@/lib/marksheetGradeScale";
+import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
+import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 
 export async function POST(request: Request) {
   try {
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
     const exam = await StudentExam.findById(examId);
     if (!exam) return NextResponse.json({ message: "Exam not found" }, { status: 404 });
 
-    const student = await AtcStudent.findById(exam.studentId);
+    let student = await AtcStudent.findById(exam.studentId);
 
     type CourseLite = {
       name?: string;
@@ -89,6 +91,11 @@ export async function POST(request: Request) {
 
       const releaseMarksheet = Boolean(marksheet) && courseSettings.hasMarksheet;
       const releaseCertificate = Boolean(certificate) && courseSettings.hasCertificate;
+      if ((releaseMarksheet || releaseCertificate) && student) {
+        await assignEnrollmentNoIfPending(student._id);
+        await assignRegistrationNoIfPending(student._id);
+        student = await AtcStudent.findById(exam.studentId);
+      }
 
       // Marksheet rows = exactly what ATC saved (exam.subjectMarks), never
       // buildMarksheetFromCourse. If the exam doc is missing the array (rare),
@@ -200,13 +207,14 @@ export async function POST(request: Request) {
       }
 
       const gradeBands = await getMarksheetGradeBands();
-      const gradeLetter = exam.grade || gradeFromPercentage(finalPercentage, gradeBands);
+      const gradeLetter = gradeFromPercentage(finalPercentage, gradeBands);
 
       exam.offlineExamStatus = "published";
       exam.status = "completed";
       exam.resultDeclared = true;
       exam.marksheetReleased = releaseMarksheet;
       exam.certificateReleased = releaseCertificate;
+      exam.grade = gradeLetter;
       await exam.save();
 
       if (student) {

@@ -6,6 +6,7 @@ import {
   formatDurationMonths,
   formatFromSessionFallback,
 } from "@/lib/examDocumentSplit";
+import { plainDocumentNumber } from "@/lib/documentNumberFormat";
 
 /**
  * Yukti-style landscape A4 certificate (297×210mm).
@@ -127,8 +128,8 @@ export default function CertificateBackgroundOverlay({
   const s = pickStudent(data.studentId);
   const parentLine = safeText(s?.fatherName) || safeText(s?.motherName);
   // After "at" we should print the issuing center name (as requested), not site brand.
-  const centerDisplay =
-    safeText(data.centerName) || safeText(data.centerCode) || safeText(brandName);
+  const centerName = safeText(data.centerName);
+  const centerDisplay = centerName && centerName.toUpperCase() !== "N/A" ? centerName : safeText(brandName);
 
   const fromDisplay =
     safeText(data.fromLabel) ||
@@ -148,13 +149,13 @@ export default function CertificateBackgroundOverlay({
     letterSpacing: "0.02em",
   };
   const bodyCls =
-    "pointer-events-none absolute truncate uppercase leading-tight text-[13px]";
+    "pointer-events-none absolute truncate uppercase leading-tight text-[14.25px]";
   const metaCls =
-    "pointer-events-none absolute truncate not-italic uppercase leading-none text-[12.5px] tabular-nums";
+    "pointer-events-none absolute truncate not-italic uppercase leading-none text-[13.75px] tabular-nums";
   const photoFrameCls =
     "absolute flex items-center justify-center overflow-hidden bg-white ring-1 ring-black/6";
   const gradeValueCls =
-    "pointer-events-none absolute whitespace-nowrap text-center text-[14px] tabular-nums leading-none";
+    "pointer-events-none absolute whitespace-nowrap text-center text-[15.25px] tabular-nums leading-none";
 
   const captureSafeCss = `
     .document-overlay-print-root,
@@ -264,7 +265,7 @@ export default function CertificateBackgroundOverlay({
           width: L.enrollmentLine.w,
         }}
       >
-        {safeText(data.enrollmentNo)}
+        {plainDocumentNumber(data.enrollmentNo)}
       </p>
       <p
         className={metaCls}
@@ -324,7 +325,7 @@ export default function CertificateBackgroundOverlay({
           <img
             src={signatureUrl}
             alt=""
-            className="max-h-[88%] max-w-[95%] object-contain mix-blend-multiply"
+            className="max-h-[78%] max-w-[90%] object-contain mix-blend-multiply"
           />
         ) : null}
       </div>
