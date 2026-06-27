@@ -8,6 +8,7 @@ import {
   parseGradeBandsJson,
   type GradeBand,
 } from "@/lib/marksheetGradeScaleCore";
+import { plainDocumentNumber } from "@/lib/documentNumberFormat";
 
 /**
  * Yukti-style portrait A4 marksheet (210×297mm).
@@ -25,8 +26,8 @@ const L = {
   /** Value starts after printed “Learning Center” label — not on top of it. */
   learningCenter: { top: "53mm", left: "49mm", right: "10mm" },
 
-  enrollment: { top: "65mm", left: "39mm", w: "59mm" },
-  regNo: { top: "65mm", left: "120mm", right: "10mm" },
+  enrollment: { top: "64.4mm", left: "39mm", w: "59mm" },
+  regNo: { top: "64.4mm", left: "120mm", right: "10mm" },
 
   studentName: { top: "76mm", left: "37mm", w: "88mm" },
   dob: { top: "76mm", left: "136mm", right: "8mm" },
@@ -186,9 +187,9 @@ export default function MarksheetBackgroundOverlay({
   }, []);
 
   const s = pickStudent(data.studentId);
-  const regNoOnly = (s?.registrationNo && String(s.registrationNo).trim()) || "";
-  const stEnr = (s?.enrollmentNo && String(s.enrollmentNo).trim()) || "";
-  const msEnr = (typeof data.enrollmentNo === "string" && data.enrollmentNo.trim()) || "";
+  const regNoOnly = plainDocumentNumber(s?.registrationNo);
+  const stEnr = plainDocumentNumber(s?.enrollmentNo);
+  const msEnr = plainDocumentNumber(data.enrollmentNo);
   const roll = (data.rollNo && String(data.rollNo).trim()) || "";
   const enrollDisplay = (() => {
     if (stEnr && !looksLikeLearningCenterLine(stEnr)) return stEnr;
@@ -267,11 +268,11 @@ export default function MarksheetBackgroundOverlay({
     color: ink,
   };
   const lineCls =
-    "absolute max-w-none truncate uppercase leading-none [font-size:10.25px] text-black [font-weight:800]";
+    "absolute max-w-none truncate uppercase leading-none [font-size:11.5px] text-black [font-weight:800]";
   const lcCls =
-    "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:9.25px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
+    "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:10.5px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
   const nameCls =
-    "absolute max-w-none truncate leading-none [font-size:10.25px] [text-transform:none] text-black [font-weight:800]";
+    "absolute max-w-none truncate leading-none [font-size:11.5px] [text-transform:none] text-black [font-weight:800]";
 
   /**
    * Production / PDF capture: `html-to-image` clones into SVG foreignObject where
@@ -420,7 +421,7 @@ export default function MarksheetBackgroundOverlay({
       </p>
 
       <div className="absolute" style={{ top: L.table.subjectTop, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse text-[10px] text-black font-extrabold">
+        <table className="w-full table-fixed border-collapse text-[11px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -471,7 +472,7 @@ export default function MarksheetBackgroundOverlay({
       </div>
 
       <div className="absolute" style={{ top: L.table.footerTop, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse text-[10px] text-black font-extrabold">
+        <table className="w-full table-fixed border-collapse text-[11px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -512,13 +513,13 @@ export default function MarksheetBackgroundOverlay({
       </div>
 
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.gradeCx, L.summaryTop), ...valFont }}
       >
         {safeText(displayGrade)}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.pctCx, L.summaryTop), ...valFont }}
       >
         {data.percentage !== "" && data.percentage != null
@@ -526,20 +527,20 @@ export default function MarksheetBackgroundOverlay({
           : ""}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.maxCx, L.summaryTop), ...valFont }}
       >
         {data.totalMax}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[10.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.obtCx, L.summaryTop), ...valFont }}
       >
         {data.totalObtained}
       </p>
 
       <p
-        className="absolute tabular-nums leading-none text-[10.25px] text-black font-extrabold"
+        className="absolute tabular-nums leading-none text-[11.5px] text-black font-extrabold"
         style={{ ...fieldNudge, ...valFont, top: L.date.top, left: L.date.left }}
       >
         {formatDateDDMMYYYY(data.issueDate)}
@@ -578,7 +579,7 @@ export default function MarksheetBackgroundOverlay({
           <img
             src={signatureUrl}
             alt=""
-            className="max-h-[88%] max-w-[95%] object-contain mix-blend-multiply"
+            className="max-h-[78%] max-w-[90%] object-contain mix-blend-multiply"
           />
         ) : null}
       </div>

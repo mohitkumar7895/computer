@@ -20,6 +20,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: `${brandName} | Professional Training Courses`,
     description: `Official portal for ${brandName}, providing modern computer education and professional training.`,
+    icons: {
+      icon: [{ url: "/yuktii.jpg", type: "image/jpeg" }],
+      shortcut: [{ url: "/yuktii.jpg", type: "image/jpeg" }],
+      apple: [{ url: "/yuktii.jpg", type: "image/jpeg" }],
+    },
   };
 }
 

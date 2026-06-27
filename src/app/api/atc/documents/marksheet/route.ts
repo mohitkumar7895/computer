@@ -5,6 +5,7 @@ import { AtcStudent } from "@/models/Student";
 import { StudentMedia } from "@/models/StudentMedia";
 import { learningCenterLineForMarksheet } from "@/lib/marksheetLearningCenter";
 import { resolveAtcSignature } from "@/lib/documentAtcSignature";
+import { getMarksheetGradeBands, gradeFromPercentageWithBands } from "@/lib/marksheetGradeScale";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -34,6 +35,8 @@ export async function GET(request: Request) {
       studentId?: { _id?: unknown; photo?: string } | string | null;
       [k: string]: unknown;
     };
+    const gradeBands = await getMarksheetGradeBands();
+    data.grade = gradeFromPercentageWithBands(Number(data.percentage) || 0, gradeBands);
     const studentObj =
       data.studentId && typeof data.studentId === "object" ? data.studentId : null;
     if (studentObj?._id) {

@@ -6,6 +6,7 @@ import { AtcUser } from "@/models/AtcUser";
 import { Course } from "@/models/Course";
 import { WalletTransaction } from "@/models/WalletTransaction";
 import { assignEnrollmentNoIfPending } from "@/lib/assignStudentEnrollmentNo";
+import { assignRegistrationNoIfPending } from "@/lib/assignStudentRegistrationNo";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -161,8 +162,9 @@ export async function PATCH(
     if (action === "approved") {
       try {
         await assignEnrollmentNoIfPending(student._id);
+        await assignRegistrationNoIfPending(student._id);
       } catch (e) {
-        console.error("[admin/students PATCH] assign enrollment", e);
+        console.error("[admin/students PATCH] assign student numbers", e);
       }
     }
 
