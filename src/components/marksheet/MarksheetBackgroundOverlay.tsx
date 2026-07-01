@@ -24,7 +24,7 @@ const L = {
   qrBox: { top: "9mm", right: "21mm", w: "21mm", h: "21mm" },
 
   /** Value starts after printed “Learning Center” label — not on top of it. */
-  learningCenter: { top: "53mm", left: "49mm", right: "10mm" },
+  learningCenter: { top: "52.4mm", left: "49mm", right: "10mm" },
 
   enrollment: { top: "64.4mm", left: "39mm", w: "59mm" },
   regNo: { top: "64.4mm", left: "120mm", right: "10mm" },
@@ -40,8 +40,8 @@ const L = {
    * Subject data rows — slightly higher so names sit closer to the printed headers.
    * Totals row uses `tableFooterTop` so it stays on the original template line.
    */
-  table: { subjectTop: "142mm", footerTop: "208mm", left: "10mm", width: "188mm" },
-  rowH: "7.5mm",
+  table: { subjectTop: "142mm", footerTop: "207.5mm", left: "10mm", width: "188mm" },
+  rowH: "8mm",
 
   summaryTop: "218mm",
   gradeCx: "13mm",
@@ -57,18 +57,21 @@ const L = {
 
 /** Lift so glyphs sit clearly *above* dotted rules (dots were striking through text). */
 const fieldNudge: CSSProperties = { transform: "translateY(-1.05mm)" };
-const learningCenterNudge: CSSProperties = { transform: "translateY(-1mm)" };
-/** DOB: a bit more gap from the “DOB” label; still above the dotted line. */
-const dobNudge: CSSProperties = { transform: "translateY(-0.85mm)" };
-/** Mother — was floating too high between rows. */
-const motherNudge: CSSProperties = { transform: "translateY(-0.55mm)" };
+const learningCenterNudge: CSSProperties = { transform: "translateY(-2.25mm)" };
+const enrollRegNudge: CSSProperties = { transform: "translateY(-1.55mm)" };
+const studentNameNudge: CSSProperties = { transform: "translateY(-1.65mm)" };
+const fatherNudge: CSSProperties = { transform: "translateY(-1.85mm)" };
+/** DOB — lift off dotted line. */
+const dobNudge: CSSProperties = { transform: "translateY(-1.5mm)" };
+/** Mother — lift off dotted line. */
+const motherNudge: CSSProperties = { transform: "translateY(-1.45mm)" };
 /** Course — pull *down* toward its own dotted line (was riding up near mother). */
 const courseNudge: CSSProperties = { transform: "translateY(0.5mm)" };
-/** Footer total marks row: slight lift to sit on printed line. */
-const footerRowNudge: CSSProperties = { transform: "translateY(-3.5mm)" };
+/** Footer total marks row: lift off dotted line. */
+const footerRowNudge: CSSProperties = { transform: "translateY(-4.5mm)" };
 
 function summaryNudge(cx: string, top: string): CSSProperties {
-  return { top, left: cx, transform: "translate(-50%, -1mm)" };
+  return { top, left: cx, transform: "translate(-50%, -1.65mm)" };
 }
 
 export type MarksheetBgStudent = {
@@ -268,11 +271,15 @@ export default function MarksheetBackgroundOverlay({
     color: ink,
   };
   const lineCls =
-    "absolute max-w-none truncate uppercase leading-none [font-size:11.5px] text-black [font-weight:800]";
+    "absolute max-w-none truncate uppercase leading-none [font-size:14px] text-black [font-weight:800]";
   const lcCls =
-    "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:10.5px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
+    "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:13px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
   const nameCls =
-    "absolute max-w-none truncate leading-none [font-size:11.5px] [text-transform:none] text-black [font-weight:800]";
+    "absolute max-w-none truncate leading-none [font-size:14px] [text-transform:none] text-black [font-weight:800]";
+  const subjectNameCls =
+    "box-border whitespace-normal break-words pl-[4mm] pr-[2mm] align-top text-left uppercase leading-[1.1] text-[12.5px] [overflow-wrap:anywhere]";
+  const marksCellCls = "box-border px-0 text-center align-top tabular-nums leading-none";
+  const subjectRowAlign: CSSProperties = { verticalAlign: "top", paddingTop: "0.35mm" };
 
   /**
    * Production / PDF capture: `html-to-image` clones into SVG foreignObject where
@@ -336,7 +343,7 @@ export default function MarksheetBackgroundOverlay({
       <p
         className={lineCls}
         style={{
-          ...fieldNudge,
+          ...enrollRegNudge,
           ...valFont,
           top: L.enrollment.top,
           left: L.enrollment.left,
@@ -348,7 +355,7 @@ export default function MarksheetBackgroundOverlay({
       <p
         className={lineCls}
         style={{
-          ...fieldNudge,
+          ...enrollRegNudge,
           ...valFont,
           top: L.regNo.top,
           left: L.regNo.left,
@@ -361,7 +368,7 @@ export default function MarksheetBackgroundOverlay({
       <p
         className={nameCls}
         style={{
-          ...fieldNudge,
+          ...studentNameNudge,
           ...valFont,
           top: L.studentName.top,
           left: L.studentName.left,
@@ -386,7 +393,7 @@ export default function MarksheetBackgroundOverlay({
       <p
         className={nameCls}
         style={{
-          ...fieldNudge,
+          ...fatherNudge,
           ...valFont,
           top: L.father.top,
           left: L.father.left,
@@ -421,7 +428,7 @@ export default function MarksheetBackgroundOverlay({
       </p>
 
       <div className="absolute" style={{ top: L.table.subjectTop, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse text-[11px] text-black font-extrabold">
+        <table className="w-full table-fixed border-collapse text-[14px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -435,33 +442,21 @@ export default function MarksheetBackgroundOverlay({
               return (
                 <tr key={idx} style={{ height: L.rowH }}>
                   <td
-                    className="box-border truncate pl-[4mm] pr-[2mm] align-middle text-left uppercase leading-tight"
-                    style={valFont}
+                    className={subjectNameCls}
+                    style={{ ...valFont, fontSize: "12.5px", ...subjectRowAlign }}
                   >
                     {row?.subjectName ?? ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.intO : ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.intM : ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.extO : ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.extM : ""}
                   </td>
                 </tr>
@@ -472,7 +467,7 @@ export default function MarksheetBackgroundOverlay({
       </div>
 
       <div className="absolute" style={{ top: L.table.footerTop, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse text-[11px] text-black font-extrabold">
+        <table className="w-full table-fixed border-collapse text-[14px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -513,13 +508,13 @@ export default function MarksheetBackgroundOverlay({
       </div>
 
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[14px] text-black font-extrabold"
         style={{ ...summaryNudge(L.gradeCx, L.summaryTop), ...valFont }}
       >
         {safeText(displayGrade)}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[14px] text-black font-extrabold"
         style={{ ...summaryNudge(L.pctCx, L.summaryTop), ...valFont }}
       >
         {data.percentage !== "" && data.percentage != null
@@ -527,20 +522,20 @@ export default function MarksheetBackgroundOverlay({
           : ""}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[14px] text-black font-extrabold"
         style={{ ...summaryNudge(L.maxCx, L.summaryTop), ...valFont }}
       >
         {data.totalMax}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[14px] text-black font-extrabold"
         style={{ ...summaryNudge(L.obtCx, L.summaryTop), ...valFont }}
       >
         {data.totalObtained}
       </p>
 
       <p
-        className="absolute tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute tabular-nums leading-none text-[14px] text-black font-extrabold"
         style={{ ...fieldNudge, ...valFont, top: L.date.top, left: L.date.left }}
       >
         {formatDateDDMMYYYY(data.issueDate)}

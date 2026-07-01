@@ -29,7 +29,7 @@ const L = {
   parentLine: { top: "79mm", left: "205mm", w: "70mm" },
 
   /** "Completed the ___ at ___ Of Duration" — lifted off the dotted line. */
-  courseLine: { top: "89mm", left: "57mm", w: "78mm" },
+  courseLine: { top: "89mm", left: "57mm", w: "108mm" },
   centerLine: { top: "89mm", left: "168mm", w: "75mm" },
 
   /** "___ and obtained the grade ___ in recognition of his/her success this" */
@@ -149,13 +149,15 @@ export default function CertificateBackgroundOverlay({
     letterSpacing: "0.02em",
   };
   const bodyCls =
-    "pointer-events-none absolute truncate uppercase leading-tight text-[14.25px]";
+    "pointer-events-none absolute truncate uppercase leading-tight text-[16.25px]";
+  const courseCls =
+    "pointer-events-none absolute whitespace-normal break-words uppercase leading-[1.08] text-[15px] [overflow-wrap:anywhere]";
   const metaCls =
-    "pointer-events-none absolute truncate not-italic uppercase leading-none text-[13.75px] tabular-nums";
+    "pointer-events-none absolute truncate not-italic uppercase leading-none text-[15.75px] tabular-nums";
   const photoFrameCls =
     "absolute flex items-center justify-center overflow-hidden bg-white ring-1 ring-black/6";
   const gradeValueCls =
-    "pointer-events-none absolute whitespace-nowrap text-center text-[15.25px] tabular-nums leading-none";
+    "pointer-events-none absolute whitespace-nowrap text-center text-[17.25px] tabular-nums leading-none";
 
   const captureSafeCss = `
     .document-overlay-print-root,
@@ -209,10 +211,11 @@ export default function CertificateBackgroundOverlay({
       </p>
 
       <p
-        className={bodyCls}
+        className={courseCls}
         style={{
           ...fieldNudge,
           ...valFont,
+          fontSize: "15px",
           top: L.courseLine.top,
           left: L.courseLine.left,
           width: L.courseLine.w,
