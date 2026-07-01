@@ -40,8 +40,8 @@ const L = {
    * Subject data rows — slightly higher so names sit closer to the printed headers.
    * Totals row uses `tableFooterTop` so it stays on the original template line.
    */
-  table: { subjectTop: "142mm", footerTop: "208mm", left: "10mm", width: "188mm" },
-  rowH: "7.5mm",
+  table: { subjectTop: "142mm", footerTop: "207.5mm", left: "10mm", width: "188mm" },
+  rowH: "8mm",
 
   summaryTop: "218mm",
   gradeCx: "13mm",
@@ -67,11 +67,11 @@ const dobNudge: CSSProperties = { transform: "translateY(-1.5mm)" };
 const motherNudge: CSSProperties = { transform: "translateY(-1.45mm)" };
 /** Course — pull *down* toward its own dotted line (was riding up near mother). */
 const courseNudge: CSSProperties = { transform: "translateY(0.5mm)" };
-/** Footer total marks row: slight lift to sit on printed line. */
-const footerRowNudge: CSSProperties = { transform: "translateY(-3.5mm)" };
+/** Footer total marks row: lift off dotted line. */
+const footerRowNudge: CSSProperties = { transform: "translateY(-4.5mm)" };
 
 function summaryNudge(cx: string, top: string): CSSProperties {
-  return { top, left: cx, transform: "translate(-50%, -1mm)" };
+  return { top, left: cx, transform: "translate(-50%, -1.65mm)" };
 }
 
 export type MarksheetBgStudent = {
@@ -276,6 +276,10 @@ export default function MarksheetBackgroundOverlay({
     "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:13px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
   const nameCls =
     "absolute max-w-none truncate leading-none [font-size:14px] [text-transform:none] text-black [font-weight:800]";
+  const subjectNameCls =
+    "box-border whitespace-normal break-words pl-[4mm] pr-[2mm] align-top text-left uppercase leading-[1.1] text-[12.5px] [overflow-wrap:anywhere]";
+  const marksCellCls = "box-border px-0 text-center align-top tabular-nums leading-none";
+  const subjectRowAlign: CSSProperties = { verticalAlign: "top", paddingTop: "0.35mm" };
 
   /**
    * Production / PDF capture: `html-to-image` clones into SVG foreignObject where
@@ -438,33 +442,21 @@ export default function MarksheetBackgroundOverlay({
               return (
                 <tr key={idx} style={{ height: L.rowH }}>
                   <td
-                    className="box-border truncate pl-[4mm] pr-[2mm] align-middle text-left uppercase leading-tight"
-                    style={valFont}
+                    className={subjectNameCls}
+                    style={{ ...valFont, fontSize: "12.5px", ...subjectRowAlign }}
                   >
                     {row?.subjectName ?? ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.intO : ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.intM : ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.extO : ""}
                   </td>
-                  <td
-                    className="box-border px-0 text-center align-middle tabular-nums"
-                    style={valFont}
-                  >
+                  <td className={marksCellCls} style={{ ...valFont, ...subjectRowAlign }}>
                     {row && m ? m.extM : ""}
                   </td>
                 </tr>

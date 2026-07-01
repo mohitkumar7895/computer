@@ -29,7 +29,7 @@ const L = {
   parentLine: { top: "79mm", left: "205mm", w: "70mm" },
 
   /** "Completed the ___ at ___ Of Duration" — lifted off the dotted line. */
-  courseLine: { top: "89mm", left: "57mm", w: "78mm" },
+  courseLine: { top: "89mm", left: "57mm", w: "108mm" },
   centerLine: { top: "89mm", left: "168mm", w: "75mm" },
 
   /** "___ and obtained the grade ___ in recognition of his/her success this" */
@@ -150,6 +150,8 @@ export default function CertificateBackgroundOverlay({
   };
   const bodyCls =
     "pointer-events-none absolute truncate uppercase leading-tight text-[16.25px]";
+  const courseCls =
+    "pointer-events-none absolute whitespace-normal break-words uppercase leading-[1.08] text-[15px] [overflow-wrap:anywhere]";
   const metaCls =
     "pointer-events-none absolute truncate not-italic uppercase leading-none text-[15.75px] tabular-nums";
   const photoFrameCls =
@@ -209,10 +211,11 @@ export default function CertificateBackgroundOverlay({
       </p>
 
       <p
-        className={bodyCls}
+        className={courseCls}
         style={{
           ...fieldNudge,
           ...valFont,
+          fontSize: "15px",
           top: L.courseLine.top,
           left: L.courseLine.left,
           width: L.courseLine.w,
