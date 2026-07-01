@@ -57,7 +57,7 @@ const L = {
 
 /** Lift so glyphs sit clearly *above* dotted rules (dots were striking through text). */
 const fieldNudge: CSSProperties = { transform: "translateY(-1.05mm)" };
-const learningCenterNudge: CSSProperties = { transform: "translateY(-1mm)" };
+const learningCenterNudge: CSSProperties = { transform: "translateY(-1.65mm)" };
 /** DOB: a bit more gap from the “DOB” label; still above the dotted line. */
 const dobNudge: CSSProperties = { transform: "translateY(-0.85mm)" };
 /** Mother — was floating too high between rows. */
@@ -268,11 +268,11 @@ export default function MarksheetBackgroundOverlay({
     color: ink,
   };
   const lineCls =
-    "absolute max-w-none truncate uppercase leading-none [font-size:11.5px] text-black [font-weight:800]";
+    "absolute max-w-none truncate uppercase leading-none [font-size:12.5px] text-black [font-weight:800]";
   const lcCls =
-    "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:10.5px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
+    "absolute max-w-none whitespace-normal break-words text-left uppercase leading-tight [font-size:11.5px] max-h-[14mm] overflow-hidden text-black [font-weight:800]";
   const nameCls =
-    "absolute max-w-none truncate leading-none [font-size:11.5px] [text-transform:none] text-black [font-weight:800]";
+    "absolute max-w-none truncate leading-none [font-size:12.5px] [text-transform:none] text-black [font-weight:800]";
 
   /**
    * Production / PDF capture: `html-to-image` clones into SVG foreignObject where
@@ -421,7 +421,7 @@ export default function MarksheetBackgroundOverlay({
       </p>
 
       <div className="absolute" style={{ top: L.table.subjectTop, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse text-[11px] text-black font-extrabold">
+        <table className="w-full table-fixed border-collapse text-[12px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -472,7 +472,7 @@ export default function MarksheetBackgroundOverlay({
       </div>
 
       <div className="absolute" style={{ top: L.table.footerTop, left: L.table.left, width: L.table.width }}>
-        <table className="w-full table-fixed border-collapse text-[11px] text-black font-extrabold">
+        <table className="w-full table-fixed border-collapse text-[12px] text-black font-extrabold">
           <colgroup>
             <col style={{ width: "88mm" }} />
             <col style={{ width: "25mm" }} />
@@ -513,13 +513,13 @@ export default function MarksheetBackgroundOverlay({
       </div>
 
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[12.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.gradeCx, L.summaryTop), ...valFont }}
       >
         {safeText(displayGrade)}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[12.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.pctCx, L.summaryTop), ...valFont }}
       >
         {data.percentage !== "" && data.percentage != null
@@ -527,20 +527,20 @@ export default function MarksheetBackgroundOverlay({
           : ""}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[12.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.maxCx, L.summaryTop), ...valFont }}
       >
         {data.totalMax}
       </p>
       <p
-        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute whitespace-nowrap text-center tabular-nums leading-none text-[12.5px] text-black font-extrabold"
         style={{ ...summaryNudge(L.obtCx, L.summaryTop), ...valFont }}
       >
         {data.totalObtained}
       </p>
 
       <p
-        className="absolute tabular-nums leading-none text-[11.5px] text-black font-extrabold"
+        className="absolute tabular-nums leading-none text-[12.5px] text-black font-extrabold"
         style={{ ...fieldNudge, ...valFont, top: L.date.top, left: L.date.left }}
       >
         {formatDateDDMMYYYY(data.issueDate)}

@@ -149,13 +149,13 @@ export default function CertificateBackgroundOverlay({
     letterSpacing: "0.02em",
   };
   const bodyCls =
-    "pointer-events-none absolute truncate uppercase leading-tight text-[14.25px]";
+    "pointer-events-none absolute truncate uppercase leading-tight text-[15.25px]";
   const metaCls =
-    "pointer-events-none absolute truncate not-italic uppercase leading-none text-[13.75px] tabular-nums";
+    "pointer-events-none absolute truncate not-italic uppercase leading-none text-[14.75px] tabular-nums";
   const photoFrameCls =
     "absolute flex items-center justify-center overflow-hidden bg-white ring-1 ring-black/6";
   const gradeValueCls =
-    "pointer-events-none absolute whitespace-nowrap text-center text-[15.25px] tabular-nums leading-none";
+    "pointer-events-none absolute whitespace-nowrap text-center text-[16.25px] tabular-nums leading-none";
 
   const captureSafeCss = `
     .document-overlay-print-root,
