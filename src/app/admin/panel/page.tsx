@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, Fragment, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, Fragment, type FormEvent, type ChangeEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -241,6 +241,37 @@ const fallbackCredentialTextFromStudent = (student: Pick<Student, "qualSchool" |
 
 type Tab = "dashboard" | "create" | "courses" | "courseEnquiries" | "questionSets" | "centers" | "examRequests" | "materials" | "settings" | "students" | "resultReview" | "registration" | "fees" | "backgrounds" | "walletRequests" | "walletPayment";
 
+const ADMIN_PANEL_TAB_KEY = "admin_panel_active_tab";
+const ADMIN_PANEL_TABS: Tab[] = [
+  "dashboard",
+  "create",
+  "courses",
+  "courseEnquiries",
+  "questionSets",
+  "centers",
+  "examRequests",
+  "materials",
+  "settings",
+  "students",
+  "resultReview",
+  "registration",
+  "fees",
+  "backgrounds",
+  "walletRequests",
+  "walletPayment",
+];
+
+function readAdminPanelTab(): Tab {
+  if (typeof window === "undefined") return "dashboard";
+  try {
+    const saved = sessionStorage.getItem(ADMIN_PANEL_TAB_KEY);
+    if (saved && ADMIN_PANEL_TABS.includes(saved as Tab)) return saved as Tab;
+  } catch {
+    /* ignore */
+  }
+  return "dashboard";
+}
+
 const PrintField = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
   <div>
     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
@@ -253,7 +284,17 @@ export default function AdminPanelPage() {
   const issueDateMax = useMemo(() => isoDateToday(), []);
   const { brandName: globalBrandName, brandLogo: globalBrandLogo } = useBrand();
   const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTabState] = useState<Tab>(() => readAdminPanelTab());
+  const applicationsHydratedRef = useRef(false);
+  const studentsHydratedRef = useRef(false);
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next);
+    try {
+      sessionStorage.setItem(ADMIN_PANEL_TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -574,9 +615,10 @@ export default function AdminPanelPage() {
     }
   };
 
-  const fetchApplications = useCallback(async () => {
+  const fetchApplications = useCallback(async (options?: { silent?: boolean }) => {
     if (!sessionReady || authLoading || !authUser) return;
-    setLoading(true);
+    const silent = options?.silent ?? applicationsHydratedRef.current;
+    if (!silent) setLoading(true);
     try {
       const res = await apiFetch("/api/admin/applications");
       if (res.status === 401) {
@@ -589,6 +631,7 @@ export default function AdminPanelPage() {
       showToast("error", "Failed to load applications.");
     } finally {
       setLoading(false);
+      applicationsHydratedRef.current = true;
     }
 
     apiFetch("/api/admin/settings/backgrounds")
@@ -698,9 +741,10 @@ export default function AdminPanelPage() {
     }
   }, [sessionReady, authLoading, authUser]);
 
-  const fetchStudents = useCallback(async () => {
+  const fetchStudents = useCallback(async (options?: { silent?: boolean }) => {
     if (!sessionReady || authLoading || !authUser) return;
-    setStudentLoading(true);
+    const silent = options?.silent ?? studentsHydratedRef.current;
+    if (!silent) setStudentLoading(true);
     try {
       const res = await apiFetch("/api/admin/students");
       const data = await res.json();
@@ -709,6 +753,7 @@ export default function AdminPanelPage() {
       showToast("error", "Failed to load students.");
     } finally {
       setStudentLoading(false);
+      studentsHydratedRef.current = true;
     }
   }, [sessionReady, authLoading, authUser]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -67,6 +67,43 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import WalletSection from "@/components/atc/WalletSection";
 
+type AtcTab =
+  | "dashboard"
+  | "students"
+  | "frontAdmission"
+  | "profile"
+  | "exams"
+  | "examSets"
+  | "materials"
+  | "certificates"
+  | "fees"
+  | "wallet";
+
+const ATC_DASHBOARD_TAB_KEY = "atc_dashboard_active_tab";
+const ATC_DASHBOARD_TABS: AtcTab[] = [
+  "dashboard",
+  "students",
+  "frontAdmission",
+  "profile",
+  "exams",
+  "examSets",
+  "materials",
+  "certificates",
+  "fees",
+  "wallet",
+];
+
+function readAtcDashboardTab(): AtcTab {
+  if (typeof window === "undefined") return "dashboard";
+  try {
+    const saved = sessionStorage.getItem(ATC_DASHBOARD_TAB_KEY);
+    if (saved && ATC_DASHBOARD_TABS.includes(saved as AtcTab)) return saved as AtcTab;
+  } catch {
+    /* ignore */
+  }
+  return "dashboard";
+}
+
 export default function AtcDashboardPage() {
   const { brandName, brandLogo, brandMobile, brandEmail } = useBrand();
   usePageTitle("atc");
@@ -74,7 +111,15 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "frontAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees" | "wallet">("dashboard");
+  const [tab, setTabState] = useState<AtcTab>(() => readAtcDashboardTab());
+  const setTab = useCallback((next: AtcTab) => {
+    setTabState(next);
+    try {
+      sessionStorage.setItem(ATC_DASHBOARD_TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [studentInitialFilter, setStudentInitialFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [stats, setStats] = useState({ 
     total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0,
