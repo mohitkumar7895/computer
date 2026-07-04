@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -67,6 +67,32 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/utils/api";
 import WalletSection from "@/components/atc/WalletSection";
 
+type AtcTab =
+  | "dashboard"
+  | "students"
+  | "frontAdmission"
+  | "profile"
+  | "exams"
+  | "examSets"
+  | "materials"
+  | "certificates"
+  | "fees"
+  | "wallet";
+
+const ATC_DASHBOARD_TAB_KEY = "atc_dashboard_active_tab";
+const ATC_DASHBOARD_TABS: AtcTab[] = [
+  "dashboard",
+  "students",
+  "frontAdmission",
+  "profile",
+  "exams",
+  "examSets",
+  "materials",
+  "certificates",
+  "fees",
+  "wallet",
+];
+
 export default function AtcDashboardPage() {
   const { brandName, brandLogo, brandMobile, brandEmail } = useBrand();
   usePageTitle("atc");
@@ -74,7 +100,30 @@ export default function AtcDashboardPage() {
   const [user, setUser] = useState<AtcUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "students" | "frontAdmission" | "profile" | "exams" | "examSets" | "materials" | "certificates" | "fees" | "wallet">("dashboard");
+  const [tab, setTabState] = useState<AtcTab>("dashboard");
+  const [tabRestored, setTabRestored] = useState(false);
+  const setTab = useCallback((next: AtcTab) => {
+    setTabState(next);
+    try {
+      sessionStorage.setItem(ATC_DASHBOARD_TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(ATC_DASHBOARD_TAB_KEY);
+      if (saved && ATC_DASHBOARD_TABS.includes(saved as AtcTab)) {
+        setTabState(saved as AtcTab);
+      }
+    } catch {
+      /* ignore */
+    }
+    setTabRestored(true);
+  }, []);
+
+  const activeTab: AtcTab = tabRestored ? tab : "dashboard";
   const [studentInitialFilter, setStudentInitialFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">("all");
   const [stats, setStats] = useState({ 
     total: 0, pendingReview: 0, active: 0, rejected: 0, blocked: 0, directPending: 0,
@@ -265,13 +314,13 @@ export default function AtcDashboardPage() {
         <nav className="flex-1 px-3 py-4 space-y-2">
           <button
             onClick={() => { setTab("dashboard"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "dashboard" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "dashboard" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <LayoutDashboard className="w-4 h-4" /> Dashboard
           </button>
           <button
             onClick={() => { setTab("frontAdmission"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "frontAdmission" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "frontAdmission" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <UserPlus className="w-4 h-4" /> Front Admission
             {stats.frontPending > 0 && (
@@ -282,50 +331,50 @@ export default function AtcDashboardPage() {
           </button>
           <button
             onClick={() => { setTab("students"); setStudentInitialFilter("all"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "students" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "students" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <Users className="w-4 h-4" /> My Students
           </button>
           <button
             onClick={() => { setTab("exams"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "exams" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "exams" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <Monitor className="w-4 h-4" /> Exam Requests
           </button>
 
           <button
             onClick={() => { setTab("certificates"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "certificates" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "certificates" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <CheckCircle className="w-4 h-4" /> Certificate Requests
           </button>
           <button
             onClick={() => { setTab("materials"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "materials" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "materials" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <FileText className="w-4 h-4" /> Study Materials
           </button>
           <button
             onClick={() => { setTab("wallet"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "wallet" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "wallet" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <CreditCard className="w-4 h-4" /> Wallet
           </button>
           <button
             onClick={() => { setTab("fees"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "fees" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "fees" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <CreditCard className="w-4 h-4" /> Fee Management
           </button>
           <button
             onClick={() => { setTab("examSets"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "examSets" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "examSets" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <BookOpen className="w-4 h-4" /> My Exam Sets
           </button>
           <button
             onClick={() => { setTab("profile"); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "profile" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "profile" ? "bg-white/20 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}
           >
             <User className="w-4 h-4" /> Profile
           </button>
@@ -356,21 +405,21 @@ export default function AtcDashboardPage() {
           </div>
           <div className="hidden lg:block">
             <h1 className="text-xl font-bold text-slate-800">
-              {tab === "dashboard" ? "Dashboard" : 
-               tab === "students" ? "Student Management" : 
-               tab === "frontAdmission" ? "Front Admission" : 
-               tab === "exams" ? "Exam Requests" :
-               tab === "certificates" ? "Certificate Requests" :
-               tab === "examSets" ? "My Exam Sets" :
-               tab === "materials" ? "Study Materials" :
-               tab === "wallet" ? "Wallet" :
-               tab === "fees" ? "Fee Management" :
+              {activeTab === "dashboard" ? "Dashboard" : 
+               activeTab === "students" ? "Student Management" : 
+               activeTab === "frontAdmission" ? "Front Admission" : 
+               activeTab === "exams" ? "Exam Requests" :
+               activeTab === "certificates" ? "Certificate Requests" :
+               activeTab === "examSets" ? "My Exam Sets" :
+               activeTab === "materials" ? "Study Materials" :
+               activeTab === "wallet" ? "Wallet" :
+               activeTab === "fees" ? "Fee Management" :
                "My Profile"}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">{currentDate}</p>
           </div>
           <div className="lg:hidden">
-            <span className="text-[10px] bg-green-50 text-green-700 px-3 py-1 rounded-full font-bold uppercase">{tab}</span>
+            <span className="text-[10px] bg-green-50 text-green-700 px-3 py-1 rounded-full font-bold uppercase">{activeTab}</span>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -393,7 +442,7 @@ export default function AtcDashboardPage() {
 
         {/* Content */}
         <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-          {(tab === "dashboard" || tab === "profile") && (
+          {(activeTab === "dashboard" || activeTab === "profile") && (
             <>
               {/* Welcome Banner */}
               <div className="bg-linear-to-r from-[#0a2e1a] via-[#0d4d2e] to-[#0a7a3b] rounded-2xl p-6 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -407,7 +456,7 @@ export default function AtcDashboardPage() {
                   </h2>
                   <p className="text-green-200 text-sm mt-1">Your Authorized Training Center portal is ready.</p>
                 </div>
-                {tab === "profile" && (
+                {activeTab === "profile" && (
                   <div className="bg-white/10 border border-white/20 rounded-xl px-5 py-3 text-center">
                     <p className="text-xs text-green-300 font-semibold mb-0.5">Your TP Code</p>
                     <p className="text-2xl font-extrabold tracking-wider">{user.tpCode}</p>
@@ -415,7 +464,7 @@ export default function AtcDashboardPage() {
                 )}
               </div>
 
-              {tab === "dashboard" && (
+              {activeTab === "dashboard" && (
                 <div className="space-y-6">
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
@@ -472,7 +521,7 @@ export default function AtcDashboardPage() {
                 </div>
               )}
 
-              {tab === "profile" && (
+              {activeTab === "profile" && (
                 <>
                   {/* Info Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -721,11 +770,11 @@ export default function AtcDashboardPage() {
             </>
           )}
 
-          {tab === "students" && (
+          {activeTab === "students" && (
             <StudentManager initialFilter={studentInitialFilter} />
           )}
 
-          {tab === "frontAdmission" && (
+          {activeTab === "frontAdmission" && (
             <div className="space-y-6">
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
@@ -754,27 +803,27 @@ export default function AtcDashboardPage() {
             </div>
           )}
 
-          {tab === "exams" && (
+          {activeTab === "exams" && (
             <ExamRequestManager atcId={user.id} role="atc" />
           )}
 
-          {tab === "certificates" && (
+          {activeTab === "certificates" && (
             <CertificateRequestManager atcId={user.id} role="atc" />
           )}
 
-          {tab === "examSets" && (
+          {activeTab === "examSets" && (
             <ExamSetManager role="atc" />
           )}
 
-          {tab === "materials" && (
+          {activeTab === "materials" && (
             <StudyMaterialManager role="atc" />
           )}
 
-          {tab === "fees" && (
+          {activeTab === "fees" && (
             <FeeManager role="atc" />
           )}
 
-          {tab === "wallet" && (
+          {activeTab === "wallet" && (
             <WalletSection />
           )}
         </div>

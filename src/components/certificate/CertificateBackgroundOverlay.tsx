@@ -26,7 +26,8 @@ const L = {
 
   /** "Presented to ___ S/o, D/o ___ has successfully" — text floats just above the dotted line. */
   nameLine: { top: "79mm", left: "55mm", w: "100mm" },
-  parentLine: { top: "79mm", left: "205mm", w: "70mm" },
+  /** Father / guardian — sits just after printed “S/o, D/o”, not centered in blank. */
+  parentLine: { top: "79mm", left: "183mm", w: "72mm" },
 
   /** "Completed the ___ at ___ Of Duration" — lifted off the dotted line. */
   courseLine: { top: "89mm", left: "57mm", w: "108mm" },
@@ -49,12 +50,13 @@ const L = {
   qr: { top: "119mm", left: "200mm", w: "30mm", h: "30mm" },
 
   /** Signature moved slightly more up and toward right side. */
-  sigAtc: { top: "158mm", right: "192mm", w: "64mm", h: "18mm" },
-  sigAuth: { top: "158mm", right: "16mm", w: "64mm", h: "18mm" },
+  sigAtc: { top: "158mm", right: "214mm", w: "64mm", h: "18mm" },
+  sigAuth: { top: "156mm", right: "2mm", w: "64mm", h: "18mm" },
 } as const;
 
 const ink = "#050505";
 const fieldNudge: CSSProperties = { transform: "translateY(0.4mm)" };
+const parentLineNudge: CSSProperties = { transform: "translateY(0.4mm) translateX(-3.5mm)" };
 function centerNudge(cx: string, top: string): CSSProperties {
   return { top, left: cx, transform: "translate(-50%, 0.4mm)" };
 }
@@ -150,6 +152,8 @@ export default function CertificateBackgroundOverlay({
   };
   const bodyCls =
     "pointer-events-none absolute truncate uppercase leading-tight text-[16.25px]";
+  const parentCls =
+    "pointer-events-none absolute truncate text-left uppercase leading-tight text-[16.25px]";
   const courseCls =
     "pointer-events-none absolute whitespace-normal break-words uppercase leading-[1.08] text-[15px] [overflow-wrap:anywhere]";
   const metaCls =
@@ -198,9 +202,9 @@ export default function CertificateBackgroundOverlay({
         {safeText(s?.name)}
       </p>
       <p
-        className={bodyCls}
+        className={parentCls}
         style={{
-          ...fieldNudge,
+          ...parentLineNudge,
           ...valFont,
           top: L.parentLine.top,
           left: L.parentLine.left,

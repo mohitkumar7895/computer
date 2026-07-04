@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -118,10 +119,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [user, setUser] = useState<StaffUser | null>(() => readCachedUser().user);
-  const [token, setToken] = useState<string | null>(() => readCachedUser().token);
-  const [loading, setLoading] = useState(true);
+  const cachedSession = readCachedUser();
+  const [user, setUser] = useState<StaffUser | null>(() => cachedSession.user);
+  const [token, setToken] = useState<string | null>(() => cachedSession.token);
+  const [loading, setLoading] = useState(() => !cachedSession.user);
   const [sessionReady, setSessionReady] = useState(false);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   const logout = useCallback(async () => {
     const role: "admin" | "atc" =
@@ -222,7 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      if (!cancelled) setLoading(true);
+      // Keep panel/dashboard mounted — re-check session in background when already logged in.
+      if (!cancelled && !userRef.current) setLoading(true);
 
       const result = await validate(target);
       if (cancelled) return;
