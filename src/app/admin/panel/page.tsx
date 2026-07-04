@@ -261,17 +261,6 @@ const ADMIN_PANEL_TABS: Tab[] = [
   "walletPayment",
 ];
 
-function readAdminPanelTab(): Tab {
-  if (typeof window === "undefined") return "dashboard";
-  try {
-    const saved = sessionStorage.getItem(ADMIN_PANEL_TAB_KEY);
-    if (saved && ADMIN_PANEL_TABS.includes(saved as Tab)) return saved as Tab;
-  } catch {
-    /* ignore */
-  }
-  return "dashboard";
-}
-
 const PrintField = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
   <div>
     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
@@ -284,7 +273,8 @@ export default function AdminPanelPage() {
   const issueDateMax = useMemo(() => isoDateToday(), []);
   const { brandName: globalBrandName, brandLogo: globalBrandLogo } = useBrand();
   const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
-  const [tab, setTabState] = useState<Tab>(() => readAdminPanelTab());
+  const [tab, setTabState] = useState<Tab>("dashboard");
+  const [tabRestored, setTabRestored] = useState(false);
   const applicationsHydratedRef = useRef(false);
   const studentsHydratedRef = useRef(false);
   const setTab = useCallback((next: Tab) => {
@@ -295,6 +285,21 @@ export default function AdminPanelPage() {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(ADMIN_PANEL_TAB_KEY);
+      if (saved && ADMIN_PANEL_TABS.includes(saved as Tab)) {
+        setTabState(saved as Tab);
+      }
+    } catch {
+      /* ignore */
+    }
+    setTabRestored(true);
+  }, []);
+
+  /** SSR + first client paint must match; restore saved tab after mount. */
+  const activeTab: Tab = tabRestored ? tab : "dashboard";
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -1598,7 +1603,7 @@ export default function AdminPanelPage() {
                 <button
                   key={item.id}
                   onClick={() => { setTab(item.id); setIsSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === item.id ? "bg-white/20 text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === item.id ? "bg-white/20 text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
@@ -1612,7 +1617,7 @@ export default function AdminPanelPage() {
               <div className="space-y-1">
                 <button
                   onClick={() => toggleMenu("settings")}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === "settings" || tab === "registration" || tab === "walletPayment" ? "text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${activeTab === "settings" || activeTab === "registration" || activeTab === "walletPayment" ? "text-white" : "text-blue-200 hover:bg-white/10 hover:text-white"}`}
                 >
                   <Settings className="w-4 h-4" />
                   Settings
@@ -1623,28 +1628,28 @@ export default function AdminPanelPage() {
                   <div className="pl-6 space-y-1 animate-in slide-in-from-top duration-200">
                      <button
                        onClick={() => { setTab("settings"); setIsSidebarOpen(false); }}
-                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "settings" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${activeTab === "settings" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
                      >
                        <Monitor className="w-3.5 h-3.5" />
                        General
                      </button>
                      <button
                        onClick={() => { setTab("registration"); setIsSidebarOpen(false); }}
-                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "registration" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${activeTab === "registration" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
                      >
                        <Hash className="w-3.5 h-3.5" />
                        Registration
                      </button>
                      <button
                        onClick={() => { setTab("walletPayment"); setIsSidebarOpen(false); }}
-                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "walletPayment" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${activeTab === "walletPayment" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
                      >
                        <CreditCard className="w-3.5 h-3.5" />
                        Wallet Payment
                      </button>
                      <button
                        onClick={() => { setTab("backgrounds"); setIsSidebarOpen(false); }}
-                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${tab === "backgrounds" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
+                       className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition ${activeTab === "backgrounds" ? "bg-white/10 text-white" : "text-blue-200 hover:text-white"}`}
                      >
                        <Layers className="w-3.5 h-3.5" />
                        Add Background
@@ -1675,12 +1680,12 @@ export default function AdminPanelPage() {
               </div>
             </div>
             <div className="hidden lg:block">
-              <h2 className="text-xl font-bold text-slate-800">{tabLabel[tab]}</h2>
+              <h2 className="text-xl font-bold text-slate-800">{tabLabel[activeTab]}</h2>
               <p className="text-xs text-slate-500 mt-0.5">{tabDesc[tab]}</p>
             </div>
             {/* Mobile context - show current tab title */}
             <div className="lg:hidden flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100">
-               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{tabLabel[tab]}</span>
+               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{tabLabel[activeTab]}</span>
             </div>
             <div className="flex items-center gap-2">
               <Link
@@ -1697,7 +1702,7 @@ export default function AdminPanelPage() {
 
           <div className="flex-1 p-6">
             {/* ── DASHBOARD TAB ── */}
-            {tab === "dashboard" && (
+            {activeTab === "dashboard" && (
               <div className="space-y-8 animate-in fade-in duration-500">
                 {/* Center Stats */}
                 <div>
@@ -1755,12 +1760,12 @@ export default function AdminPanelPage() {
               </div>
             )}
 
-            {tab === "fees" && <FeeManager role="admin" />}
+            {activeTab === "fees" && <FeeManager role="admin" />}
 
-            {tab === "walletRequests" && <WalletRequestManager />}
+            {activeTab === "walletRequests" && <WalletRequestManager />}
 
             {/* ── CREATE TAB ── */}
-            {tab === "create" && (
+            {activeTab === "create" && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Application Form For Authorized Training Center</h3>
                 <AdminAtcForm
@@ -1784,16 +1789,16 @@ export default function AdminPanelPage() {
             )}
 
             {/* ── COURSES TAB ── */}
-            {tab === "courses" && <CourseManager />}
+            {activeTab === "courses" && <CourseManager />}
 
             {/* ── COURSE ENQUIRIES TAB ── */}
-            {tab === "courseEnquiries" && <CourseEnquiriesManager />}
+            {activeTab === "courseEnquiries" && <CourseEnquiriesManager />}
 
             {/* ── EXAM SETS TAB ── */}
-            {tab === "questionSets" && <ExamSetManager role="admin" />}
+            {activeTab === "questionSets" && <ExamSetManager role="admin" />}
 
             {/* ── MANAGE CENTERS TAB ── */}
-            {tab === "centers" && (
+            {activeTab === "centers" && (
               <div className="space-y-4 animate-in fade-in duration-300">
 
 
@@ -2098,13 +2103,13 @@ export default function AdminPanelPage() {
             )}
 
             {/* ── EXAM REQUESTS TAB ── */}
-            {tab === "examRequests" && <ExamRequestManager role="admin" />}
+            {activeTab === "examRequests" && <ExamRequestManager role="admin" />}
 
             {/* ── STUDY MATERIALS TAB ── */}
-            {tab === "materials" && <StudyMaterialManager role="admin" />}
+            {activeTab === "materials" && <StudyMaterialManager role="admin" />}
 
             {/* ── RESULT REVIEW TAB ── */}
-            {tab === "resultReview" && (
+            {activeTab === "resultReview" && (
               <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="flex items-center justify-between">
                   <div>
@@ -2521,7 +2526,7 @@ export default function AdminPanelPage() {
               </div>
             )}
             {/* ── SETTINGS TAB ── */}
-            {tab === "settings" && (
+            {activeTab === "settings" && (
               <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* Global Brand Identity */}
@@ -3122,7 +3127,7 @@ export default function AdminPanelPage() {
             )}
 
             {/* ── REGISTRATION SETTINGS TAB ── */}
-            {tab === "registration" && (
+            {activeTab === "registration" && (
               <div className="space-y-8 animate-in fade-in duration-500">
                 {/* reg_format_center, reg_format_student, reg_format_student_registration */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
@@ -3297,7 +3302,7 @@ export default function AdminPanelPage() {
             )}
 
             {/* ── BACKGROUND TEMPLATES TAB ── */}
-            {tab === "backgrounds" && (
+            {activeTab === "backgrounds" && (
               <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 space-y-8 animate-in fade-in duration-500">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center border border-purple-100">
@@ -3374,7 +3379,7 @@ export default function AdminPanelPage() {
               </div>
             )}
 
-            {tab === "walletPayment" && (
+            {activeTab === "walletPayment" && (
               <div className="max-w-2xl">
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
                   <div className="flex items-center gap-3">
@@ -3433,7 +3438,7 @@ export default function AdminPanelPage() {
             )}
 
             {/* ── MANAGE STUDENTS TAB ── */}
-            {tab === "students" && (
+            {activeTab === "students" && (
               <div className="space-y-4 animate-in fade-in duration-300">
                 {/* Student Filter Bar */}
                 <div className="flex flex-wrap items-center gap-3">
