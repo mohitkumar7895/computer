@@ -1125,7 +1125,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                <div className="flex flex-col gap-1.5">
                                  <button
                                    onClick={() => {
-                                      window.open(`/admin/document/certificate/${exam._id}?download=1`, "_blank");
+                                      window.open(`/admin/document/certificate/${exam._id}?download=1`, "_blank", "noopener,noreferrer");
                                    }}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition uppercase shadow-sm"
                                  >
@@ -1133,7 +1133,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                  </button>
                                  <button
                                    onClick={() => {
-                                      window.open(`/admin/document/marksheet/${exam._id}?download=1`, "_blank");
+                                      window.open(`/admin/document/marksheet/${exam._id}?download=1`, "_blank", "noopener,noreferrer");
                                    }}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition uppercase shadow-sm"
                                  >
@@ -1154,13 +1154,13 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                              {role === "admin" && canAccessResultDocs(exam) && (
                                <div className="flex flex-col gap-1.5">
                                  <button
-                                   onClick={() => window.open(`/admin/document/certificate/${exam._id}?print=1&download=1`, "_blank")}
+                                   onClick={() => window.open(`/admin/document/certificate/${exam._id}?print=1&download=1`, "_blank", "noopener,noreferrer")}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
                                  >
                                    Print Certificate
                                  </button>
                                  <button
-                                   onClick={() => window.open(`/admin/document/marksheet/${exam._id}?print=1&download=1`, "_blank")}
+                                   onClick={() => window.open(`/admin/document/marksheet/${exam._id}?print=1&download=1`, "_blank", "noopener,noreferrer")}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
                                  >
                                    Print Marksheet

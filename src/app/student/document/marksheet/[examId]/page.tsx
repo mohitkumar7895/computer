@@ -10,6 +10,7 @@ import MarksheetBackgroundOverlay, {
 } from "@/components/marksheet/MarksheetBackgroundOverlay";
 import { downloadElementAsA4Pdf } from "@/lib/downloadA4";
 import DocumentTemplateBackground from "@/components/documents/DocumentTemplateBackground";
+import MarksheetA4Frame, { MARKSHEET_A4_PRINT_CSS } from "@/components/marksheet/MarksheetA4Frame";
 
 export default function StudentMarksheetPage() {
   const { examId } = useParams();
@@ -139,11 +140,8 @@ export default function StudentMarksheetPage() {
         ) : null}
       </div>
 
-      <div
-        id="cert-a4"
-        className="relative isolate h-[297mm] w-[210mm] overflow-hidden bg-white shadow-2xl print:shadow-none"
-      >
-        {bg ? <DocumentTemplateBackground src={bg} /> : null}
+      <MarksheetA4Frame>
+        {bg ? <DocumentTemplateBackground src={bg} fullBleed /> : null}
         {showTextOverlay ? (
           <MarksheetBackgroundOverlay
             data={data}
@@ -161,19 +159,9 @@ export default function StudentMarksheetPage() {
             </p>
           </div>
         ) : null}
-      </div>
+      </MarksheetA4Frame>
 
-      <style jsx global>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 0;
-          }
-          body {
-            background: white !important;
-          }
-        }
-      `}</style>
+      <style jsx global>{`${MARKSHEET_A4_PRINT_CSS}`}</style>
     </div>
   );
 }

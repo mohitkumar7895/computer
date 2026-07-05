@@ -1,30 +1,50 @@
 /**
- * Helpers for capturing an A4 (or A4-landscape) overlay element to JPEG and
- * embedding it in a single-page jsPDF document (smaller than PNG for typical templates).
- *
- * The earlier inline implementation (`toPng(el, { pixelRatio: 2 })`) clipped
- * the right-hand side of the certificate on viewports narrower than 297 mm
- * because it relied on the element's bounding rect at the moment of capture,
- * and did not wait for late-loading images (photo, QR, background).
- *
- * This helper:
- *   1. Waits for every <img> inside the element to finish loading.
- *   2. Waits for document.fonts, extra animation frames, and a short delay so
- *      layout/fonts settle (production CDNs can be slower than localhost).
- *   3. Passes explicit width / height / canvasWidth / canvasHeight to
- *      html-to-image so the full A4 area is rasterised even when the element
- *      overflows the viewport.
+ * Capture an A4-sized element to a single-page PDF download.
  */
 
 export type A4Orientation = "portrait" | "landscape";
+
+export type A4DownloadOptions = {
+  /** Lower pixel ratio + shorter settle — faster download, still readable on A4. */
+  fast?: boolean;
+  pixelRatio?: number;
+  jpegQuality?: number;
+};
 
 const ORIENTATION_TO_MM: Record<A4Orientation, { width: number; height: number }> = {
   portrait: { width: 210, height: 297 },
   landscape: { width: 297, height: 210 },
 };
 
-async function waitForImages(el: HTMLElement, timeoutMs = 8000): Promise<void> {
+type HtmlToImage = typeof import("html-to-image");
+type JsPDF = typeof import("jspdf").default;
+
+let libsPromise: Promise<{ htmlToImage: HtmlToImage; jsPDF: JsPDF }> | null = null;
+
+function preloadPdfLibs(): Promise<{ htmlToImage: HtmlToImage; jsPDF: JsPDF }> {
+  if (!libsPromise) {
+    libsPromise = Promise.all([import("html-to-image"), import("jspdf")]).then(
+      ([htmlToImage, jspdf]) => ({
+        htmlToImage,
+        jsPDF: jspdf.default,
+      }),
+    );
+  }
+  return libsPromise;
+}
+
+/** Warm PDF libraries during idle time (e.g. panel mount). */
+export function preloadA4PdfLibs(): void {
+  if (typeof window === "undefined") return;
+  const idle = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(cb, 1));
+  idle(() => {
+    void preloadPdfLibs();
+  });
+}
+
+async function waitForImages(el: HTMLElement, timeoutMs = 5000): Promise<void> {
   const imgs = Array.from(el.querySelectorAll("img"));
+  if (!imgs.length) return;
   await Promise.all(
     imgs.map(
       (img) =>
@@ -45,25 +65,21 @@ async function waitForImages(el: HTMLElement, timeoutMs = 8000): Promise<void> {
         }),
     ),
   );
-  // Let the browser flush any pending paint after images decoded.
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-/**
- * Extra settle time for production: `html-to-image` clones the DOM into an SVG
- * foreignObject; webfonts and Tailwind must finish before capture or text can
- * rasterize blank (localhost often wins due to cache / faster `_next` static).
- */
-async function waitForFontsAndPaintSettle(): Promise<void> {
+async function waitForPaintSettle(fast: boolean): Promise<void> {
+  if (fast) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    return;
+  }
   try {
     await document.fonts?.ready;
   } catch {
     /* ignore */
   }
-  for (let i = 0; i < 4; i++) {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  }
-  await new Promise<void>((resolve) => setTimeout(resolve, 350));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await new Promise<void>((resolve) => setTimeout(resolve, 120));
 }
 
 function capturePixelSize(el: HTMLElement): { w: number; h: number } {
@@ -71,6 +87,30 @@ function capturePixelSize(el: HTMLElement): { w: number; h: number } {
   const w = Math.ceil(rect.width) || el.offsetWidth || el.clientWidth;
   const h = Math.ceil(rect.height) || el.offsetHeight || el.clientHeight;
   return { w: Math.max(1, w), h: Math.max(1, h) };
+}
+
+function styleExportClone(el: HTMLElement): void {
+  el.querySelectorAll<HTMLElement>("img").forEach((img) => {
+    if (img.classList.contains("document-template-bg")) {
+      img.style.display = "block";
+      img.style.position = "absolute";
+      img.style.inset = "0";
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.minWidth = "100%";
+      img.style.minHeight = "100%";
+      img.style.maxWidth = "none";
+      img.style.objectFit = "fill";
+      img.style.objectPosition = "center";
+      img.style.zIndex = "1";
+    }
+  });
+  el.querySelectorAll<HTMLElement>(".document-overlay-print-root").forEach((overlay) => {
+    overlay.style.position = "absolute";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "80";
+    overlay.style.isolation = "isolate";
+  });
 }
 
 function buildExportClone(el: HTMLElement, w: number, h: number): HTMLElement {
@@ -86,105 +126,62 @@ function buildExportClone(el: HTMLElement, w: number, h: number): HTMLElement {
   clone.style.background = "#ffffff";
   clone.style.isolation = "isolate";
   clone.setAttribute("data-export-clone", "true");
-
-  // Force deterministic layer order for PDF export:
-  // background image at bottom, all text/signature overlays above it.
-  clone.querySelectorAll<HTMLElement>("img").forEach((img) => {
-    if (img.classList.contains("document-template-bg")) {
-      img.style.position = "absolute";
-      img.style.inset = "0";
-      img.style.zIndex = "1";
-    }
-  });
-  clone.querySelectorAll<HTMLElement>(".document-overlay-print-root").forEach((overlay) => {
-    overlay.style.position = "absolute";
-    overlay.style.inset = "0";
-    overlay.style.zIndex = "80";
-    overlay.style.isolation = "isolate";
-  });
-
+  styleExportClone(clone);
   document.body.appendChild(clone);
   return clone;
 }
 
-/** Render `el` (sized to A4 in CSS units) to a single-page PDF and trigger a download. */
+/** Render `el` (A4 in CSS) to PDF and trigger browser download. */
 export async function downloadElementAsA4Pdf(
   el: HTMLElement,
   fileName: string,
   orientation: A4Orientation = "portrait",
-  /** Lower values → smaller PDF; default keeps text sharp on A4 without multi‑MB PNGs. */
-  pixelRatio = 1.35,
-  jpegQuality = 0.88,
+  options: A4DownloadOptions = {},
 ): Promise<void> {
-  await waitForImages(el);
-  await waitForFontsAndPaintSettle();
+  const fast = options.fast ?? false;
+  const pixelRatio = options.pixelRatio ?? (fast ? 1.15 : 1.35);
+  const jpegQuality = options.jpegQuality ?? (fast ? 0.82 : 0.88);
 
-  const [{ toPng }, { default: jsPDF }] = await Promise.all([
-    import("html-to-image"),
-    import("jspdf"),
+  const [{ htmlToImage, jsPDF }, _] = await Promise.all([
+    preloadPdfLibs(),
+    waitForImages(el, fast ? 4000 : 6000),
   ]);
+  await waitForPaintSettle(fast);
 
   const { w, h } = capturePixelSize(el);
-  const cw = Math.max(1, Math.round(w * Math.max(1.6, pixelRatio)));
-  const ch = Math.max(1, Math.round(h * Math.max(1.6, pixelRatio)));
+  const ratio = Math.max(fast ? 1.15 : 1.35, pixelRatio);
+  const cw = Math.max(1, Math.round(w * ratio));
+  const ch = Math.max(1, Math.round(h * ratio));
 
-  const captureVisibleWithToPng = async (): Promise<string> =>
-    toPng(el, {
-      cacheBust: true,
-      pixelRatio: Math.max(1.6, pixelRatio),
-      width: w,
-      height: h,
-      canvasWidth: cw,
-      canvasHeight: ch,
-      backgroundColor: "#ffffff",
-      skipFonts: true,
-      style: {
-        transform: "none",
-        margin: "0",
-      },
-    });
+  const captureOpts = {
+    cacheBust: true,
+    pixelRatio: ratio,
+    quality: jpegQuality,
+    width: w,
+    height: h,
+    canvasWidth: cw,
+    canvasHeight: ch,
+    backgroundColor: "#ffffff",
+    skipFonts: true,
+    style: { transform: "none", margin: "0" },
+  };
 
-  const captureWithCloneFallback = async (): Promise<string> => {
-    const { toJpeg } = await import("html-to-image");
+  let imageData: string;
+  try {
+    imageData = await htmlToImage.toJpeg(el, captureOpts);
+  } catch {
     const exportEl = buildExportClone(el, w, h);
-    await waitForImages(exportEl);
-    await waitForFontsAndPaintSettle();
     try {
-      return await toJpeg(exportEl, {
-        cacheBust: true,
-        pixelRatio,
-        quality: jpegQuality,
-        width: w,
-        height: h,
-        canvasWidth: cw,
-        canvasHeight: ch,
-        backgroundColor: "#ffffff",
-        // Avoid broken / cross-origin @font-face inlining on some hosts; overlay
-        // text uses explicit system font stacks so capture stays readable.
-        skipFonts: true,
-        style: {
-          transform: "none",
-          margin: "0",
-        },
-      });
+      await waitForImages(exportEl, 3000);
+      imageData = await htmlToImage.toJpeg(exportEl, captureOpts);
     } finally {
       exportEl.remove();
     }
-  };
-
-  let jpeg: string;
-  try {
-    // Primary path: exact visible DOM capture (WYSIWYG).
-    jpeg = await captureVisibleWithToPng();
-  } catch {
-    // Fallback path if visible-DOM capture fails.
-    jpeg = await captureWithCloneFallback();
   }
 
   const dims = ORIENTATION_TO_MM[orientation];
   const pdf = new jsPDF({ orientation, unit: "mm", format: "a4" });
-  const fmt = jpeg.startsWith("data:image/png") ? "PNG" : "JPEG";
-  pdf.addImage(jpeg, fmt, 0, 0, dims.width, dims.height);
+  pdf.addImage(imageData, "JPEG", 0, 0, dims.width, dims.height);
   const safeName = fileName.trim() || "document";
   pdf.save(safeName.endsWith(".pdf") ? safeName : `${safeName}.pdf`);
 }

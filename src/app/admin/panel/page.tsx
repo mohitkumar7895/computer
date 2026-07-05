@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef, Fragment, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, Fragment, type FormEvent, type ChangeEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -43,6 +43,7 @@ import dynamic from "next/dynamic";
 import StudyMaterialManager from "@/components/admin/StudyMaterialManager";
 import WalletRequestManager from "@/components/admin/WalletRequestManager";
 import SkeletonLoader from "@/components/common/SkeletonLoader";
+import { preloadA4PdfLibs } from "@/lib/downloadA4";
 
 const FeeManager = dynamic(() => import("@/components/common/FeeManager"), { 
   loading: () => <div className="p-10 text-center font-bold text-slate-400">Loading Fee Manager...</div>,
@@ -274,7 +275,6 @@ export default function AdminPanelPage() {
   const { brandName: globalBrandName, brandLogo: globalBrandLogo } = useBrand();
   const { loading: authLoading, user: authUser, logout: authLogout, sessionReady } = useAuth();
   const [tab, setTabState] = useState<Tab>("dashboard");
-  const [tabRestored, setTabRestored] = useState(false);
   const applicationsHydratedRef = useRef(false);
   const studentsHydratedRef = useRef(false);
   const setTab = useCallback((next: Tab) => {
@@ -286,7 +286,7 @@ export default function AdminPanelPage() {
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     try {
       const saved = sessionStorage.getItem(ADMIN_PANEL_TAB_KEY);
       if (saved && ADMIN_PANEL_TABS.includes(saved as Tab)) {
@@ -295,11 +295,13 @@ export default function AdminPanelPage() {
     } catch {
       /* ignore */
     }
-    setTabRestored(true);
   }, []);
 
-  /** SSR + first client paint must match; restore saved tab after mount. */
-  const activeTab: Tab = tabRestored ? tab : "dashboard";
+  useEffect(() => {
+    preloadA4PdfLibs();
+  }, []);
+
+  const activeTab = tab;
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
