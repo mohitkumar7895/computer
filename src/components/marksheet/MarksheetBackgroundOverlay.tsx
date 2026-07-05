@@ -123,6 +123,8 @@ type Props = {
   signatureUrl?: string;
   /** ATC application signature image. */
   atcSignatureUrl?: string;
+  /** Skip extra settings fetch when API already computed grade. */
+  skipGradeBandsFetch?: boolean;
 };
 
 /** DD-MM-YYYY for DOB and issue date on marksheet. */
@@ -168,10 +170,12 @@ export default function MarksheetBackgroundOverlay({
   verifyUrl,
   signatureUrl,
   atcSignatureUrl,
+  skipGradeBandsFetch = false,
 }: Props) {
   const [gradeBands, setGradeBands] = useState<GradeBand[]>(() => [...DEFAULT_MARKSHEET_GRADE_BANDS]);
 
   useEffect(() => {
+    if (skipGradeBandsFetch || (data.grade && String(data.grade).trim())) return;
     let cancelled = false;
     fetch(`/api/public/settings?key=${MARKSHEET_GRADE_BANDS_KEY}`)
       .then((r) => r.json())
@@ -184,7 +188,7 @@ export default function MarksheetBackgroundOverlay({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [skipGradeBandsFetch, data.grade]);
 
   const s = pickStudent(data.studentId);
   const regNoOnly = plainDocumentNumber(s?.registrationNo);
@@ -260,6 +264,13 @@ export default function MarksheetBackgroundOverlay({
   const qrSrc = verifyUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`
     : "";
+
+  useEffect(() => {
+    if (!qrSrc) return;
+    const img = new Image();
+    img.decoding = "async";
+    img.src = qrSrc;
+  }, [qrSrc]);
 
   const ink = "#000000";
   const valFont: CSSProperties = {

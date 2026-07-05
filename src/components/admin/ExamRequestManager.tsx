@@ -14,6 +14,7 @@ import {
   type GradeBand,
 } from "@/lib/marksheetGradeScaleCore";
 import { ISO_DATE_MIN, isoDateToday, sanitizeIsoDateInput } from "@/lib/isoDate";
+import { preloadA4PdfLibs } from "@/lib/downloadA4";
 
 interface ExamRequest {
   _id: string;
@@ -204,6 +205,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     if (authLoading || !authUser) return;
     void fetchRequests();
     void fetchQuestionSets();
+    preloadA4PdfLibs();
   }, [atcId, fetchRequests, fetchQuestionSets, authLoading, authUser]);
 
   useEffect(() => {
@@ -1124,6 +1126,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                              {role === "admin" && canAccessResultDocs(exam) && (
                                <div className="flex flex-col gap-1.5">
                                  <button
+                                   onMouseEnter={preloadA4PdfLibs}
                                    onClick={() => {
                                       window.open(`/admin/document/certificate/${exam._id}?download=1`, "_blank", "noopener,noreferrer");
                                    }}
@@ -1132,6 +1135,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                                     Download Certificate
                                  </button>
                                  <button
+                                   onMouseEnter={preloadA4PdfLibs}
                                    onClick={() => {
                                       window.open(`/admin/document/marksheet/${exam._id}?download=1`, "_blank", "noopener,noreferrer");
                                    }}
@@ -1154,12 +1158,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                              {role === "admin" && canAccessResultDocs(exam) && (
                                <div className="flex flex-col gap-1.5">
                                  <button
+                                   onMouseEnter={preloadA4PdfLibs}
                                    onClick={() => window.open(`/admin/document/certificate/${exam._id}?print=1&download=1`, "_blank", "noopener,noreferrer")}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition uppercase shadow-sm"
                                  >
                                    Print Certificate
                                  </button>
                                  <button
+                                   onMouseEnter={preloadA4PdfLibs}
                                    onClick={() => window.open(`/admin/document/marksheet/${exam._id}?print=1&download=1`, "_blank", "noopener,noreferrer")}
                                    className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition uppercase shadow-sm"
                                  >

@@ -5,7 +5,7 @@
 export type A4Orientation = "portrait" | "landscape";
 
 export type A4DownloadOptions = {
-  /** Lower pixel ratio + shorter settle — faster download, still readable on A4. */
+  /** Lower pixel ratio + shorter waits — faster download, still readable on A4. */
   fast?: boolean;
   pixelRatio?: number;
   jpegQuality?: number;
@@ -33,18 +33,26 @@ function preloadPdfLibs(): Promise<{ htmlToImage: HtmlToImage; jsPDF: JsPDF }> {
   return libsPromise;
 }
 
-/** Warm PDF libraries during idle time (e.g. panel mount). */
+/** Warm PDF libraries during idle time (e.g. panel / document layout mount). */
 export function preloadA4PdfLibs(): void {
   if (typeof window === "undefined") return;
-  const idle = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(cb, 1));
-  idle(() => {
-    void preloadPdfLibs();
-  });
+  void preloadPdfLibs();
 }
 
-async function waitForImages(el: HTMLElement, timeoutMs = 5000): Promise<void> {
+function isSlowExternalImage(img: HTMLImageElement): boolean {
+  const src = img.currentSrc || img.src || "";
+  return src.includes("qrserver.com") || src.includes("api.qrserver");
+}
+
+function qrImageTimeout(fast: boolean): number {
+  return fast ? 2500 : 4000;
+}
+
+async function waitForImages(el: HTMLElement, fast: boolean): Promise<void> {
+  const defaultTimeoutMs = fast ? 600 : 3000;
   const imgs = Array.from(el.querySelectorAll("img"));
   if (!imgs.length) return;
+
   await Promise.all(
     imgs.map(
       (img) =>
@@ -59,27 +67,13 @@ async function waitForImages(el: HTMLElement, timeoutMs = 5000): Promise<void> {
             done = true;
             resolve();
           };
+          const timeoutMs = isSlowExternalImage(img) ? qrImageTimeout(fast) : defaultTimeoutMs;
           img.addEventListener("load", finish, { once: true });
           img.addEventListener("error", finish, { once: true });
           window.setTimeout(finish, timeoutMs);
         }),
     ),
   );
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitForPaintSettle(fast: boolean): Promise<void> {
-  if (fast) {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    return;
-  }
-  try {
-    await document.fonts?.ready;
-  } catch {
-    /* ignore */
-  }
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  await new Promise<void>((resolve) => setTimeout(resolve, 120));
 }
 
 function capturePixelSize(el: HTMLElement): { w: number; h: number } {
@@ -138,23 +132,21 @@ export async function downloadElementAsA4Pdf(
   orientation: A4Orientation = "portrait",
   options: A4DownloadOptions = {},
 ): Promise<void> {
-  const fast = options.fast ?? false;
-  const pixelRatio = options.pixelRatio ?? (fast ? 1.15 : 1.35);
-  const jpegQuality = options.jpegQuality ?? (fast ? 0.82 : 0.88);
+  const fast = options.fast ?? true;
+  const ratio = options.pixelRatio ?? (fast ? 1 : 1.25);
+  const jpegQuality = options.jpegQuality ?? (fast ? 0.76 : 0.88);
 
-  const [{ htmlToImage, jsPDF }, _] = await Promise.all([
+  const [{ htmlToImage, jsPDF }] = await Promise.all([
     preloadPdfLibs(),
-    waitForImages(el, fast ? 4000 : 6000),
+    waitForImages(el, fast),
   ]);
-  await waitForPaintSettle(fast);
 
   const { w, h } = capturePixelSize(el);
-  const ratio = Math.max(fast ? 1.15 : 1.35, pixelRatio);
   const cw = Math.max(1, Math.round(w * ratio));
   const ch = Math.max(1, Math.round(h * ratio));
 
   const captureOpts = {
-    cacheBust: true,
+    cacheBust: !fast,
     pixelRatio: ratio,
     quality: jpegQuality,
     width: w,
@@ -172,7 +164,7 @@ export async function downloadElementAsA4Pdf(
   } catch {
     const exportEl = buildExportClone(el, w, h);
     try {
-      await waitForImages(exportEl, 3000);
+      await waitForImages(exportEl, fast);
       imageData = await htmlToImage.toJpeg(exportEl, captureOpts);
     } finally {
       exportEl.remove();
@@ -180,8 +172,8 @@ export async function downloadElementAsA4Pdf(
   }
 
   const dims = ORIENTATION_TO_MM[orientation];
-  const pdf = new jsPDF({ orientation, unit: "mm", format: "a4" });
-  pdf.addImage(imageData, "JPEG", 0, 0, dims.width, dims.height);
+  const pdf = new jsPDF({ orientation, unit: "mm", format: "a4", compress: true });
+  pdf.addImage(imageData, "JPEG", 0, 0, dims.width, dims.height, undefined, "FAST");
   const safeName = fileName.trim() || "document";
   pdf.save(safeName.endsWith(".pdf") ? safeName : `${safeName}.pdf`);
 }
