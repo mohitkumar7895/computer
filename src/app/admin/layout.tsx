@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getBrandName } from "@/lib/settings";
+import LegacyServiceWorkerDisarm from "@/components/LegacyServiceWorkerDisarm";
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getBrandName();
@@ -12,5 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   // Standalone layout — no site Navbar or Footer
-  return <>{children}</>;
+  return (
+    <>
+      <LegacyServiceWorkerDisarm />
+      {children}
+    </>
+  );
 }

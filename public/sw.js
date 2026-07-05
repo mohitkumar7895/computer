@@ -1,11 +1,9 @@
-// Self-unregistering service worker.
-// We don't use a service worker for this app, but old visitors may still have
-// one registered from a previous version. Browsers re-fetch this file
-// automatically; on activation we unregister and drop all caches so users
-// stop seeing stale Next.js / Turbopack chunks ("module factory not available").
+// Legacy service worker cleanup.
+// Old installs may still be registered. This version unregisters quietly and
+// must NEVER reload other open tabs (e.g. admin panel while marksheet opens).
 
 self.addEventListener("install", () => {
-  self.skipWaiting();
+  // Do not call skipWaiting() — immediate activation used to reload every tab.
 });
 
 self.addEventListener("activate", (event) => {
@@ -22,14 +20,7 @@ self.addEventListener("activate", (event) => {
       } catch {
         /* ignore */
       }
-      try {
-        const clients = await self.clients.matchAll({ type: "window" });
-        clients.forEach((client) => {
-          if ("navigate" in client) client.navigate(client.url);
-        });
-      } catch {
-        /* ignore */
-      }
+      // Never call client.navigate() here — that forced a full panel refresh.
     })(),
   );
 });

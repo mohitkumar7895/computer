@@ -31,7 +31,6 @@ export async function generateMetadata(): Promise<Metadata> {
 import { BrandProvider } from "@/context/BrandContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { getFullBrandData } from "@/lib/settings";
-import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup";
 
 export default async function RootLayout({
   children,
@@ -50,7 +49,6 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <BrandProvider initialData={brandData}>
-            <ServiceWorkerCleanup />
             {children}
           </BrandProvider>
         </AuthProvider>

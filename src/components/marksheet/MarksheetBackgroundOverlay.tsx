@@ -19,59 +19,56 @@ import { plainDocumentNumber } from "@/lib/documentNumberFormat";
  * If your replacement blank shifts a row by a millimetre or two, only retune
  * the affected entry inside `L` below.
  */
+/** Full-bleed background stretch neeche jitna margin cover hua — poora overlay utna neeche. */
+const FULL_BLEED_SHIFT = "14mm";
+
 const L = {
-  photo: { top: "9mm", left: "11mm", w: "27mm", h: "31mm" },
-  qrBox: { top: "9mm", right: "21mm", w: "21mm", h: "21mm" },
+  photo: { top: "11.5mm", left: "11mm", w: "27mm", h: "31mm" },
+  qrBox: { top: "11.5mm", right: "21mm", w: "21mm", h: "21mm" },
 
-  /** Value starts after printed “Learning Center” label — not on top of it. */
-  learningCenter: { top: "52.4mm", left: "49mm", right: "10mm" },
+  /** Learning Center label ke saamne — institute / center name. */
+  learningCenter: { top: "55mm", left: "50mm", right: "10mm" },
 
-  enrollment: { top: "64.4mm", left: "39mm", w: "59mm" },
-  regNo: { top: "64.4mm", left: "120mm", right: "10mm" },
+  enrollment: { top: "68mm", left: "45mm", w: "56mm" },
+  regNo: { top: "68mm", left: "119mm", right: "10mm" },
 
-  studentName: { top: "76mm", left: "37mm", w: "88mm" },
-  dob: { top: "76mm", left: "136mm", right: "8mm" },
+  studentName: { top: "80.8mm", left: "43mm", w: "88mm" },
+  dob: { top: "80.8mm", left: "135mm", right: "8mm" },
 
-  father: { top: "88mm", left: "38mm", right: "9mm" },
-  mother: { top: "99mm", left: "39mm", right: "9mm" },
+  father: { top: "85.5mm", left: "42mm", right: "9mm" },
+  mother: { top: "97.5mm", left: "43mm", right: "9mm" },
   course: { top: "108.5mm", left: "37mm", right: "10mm" },
 
-  /**
-   * Subject data rows — slightly higher so names sit closer to the printed headers.
-   * Totals row uses `tableFooterTop` so it stays on the original template line.
-   */
-  table: { subjectTop: "142mm", footerTop: "207.5mm", left: "10mm", width: "188mm" },
+  table: { subjectTop: "144.5mm", footerTop: "212.5mm", left: "10mm", width: "188mm" },
   rowH: "8mm",
 
-  summaryTop: "218mm",
+  /** Values row — printed GRADE / % / MAX / OBT headers ke turant neeche. */
+  summaryTop: "225.5mm",
   gradeCx: "13mm",
   pctCx: "35mm",
   maxCx: "59mm",
   obtCx: "80mm",
 
-  date: { top: "225mm", left: "34mm" },
-  /** Signature slot moved further up and slightly left. */
-  sigAtc: { top: "223mm", right: "128mm", w: "52mm", h: "18mm" },
-  sigAuth: { top: "220mm", right: "34mm", w: "52mm", h: "18mm" },
+  date: { top: "234.5mm", left: "27mm" },
+  sigAtc: { top: "237mm", right: "128mm", w: "52mm", h: "18mm" },
+  sigAuth: { top: "234mm", right: "34mm", w: "52mm", h: "18mm" },
 } as const;
 
-/** Lift so glyphs sit clearly *above* dotted rules (dots were striking through text). */
-const fieldNudge: CSSProperties = { transform: "translateY(-1.05mm)" };
-const learningCenterNudge: CSSProperties = { transform: "translateY(-2.25mm)" };
-const enrollRegNudge: CSSProperties = { transform: "translateY(-1.55mm)" };
-const studentNameNudge: CSSProperties = { transform: "translateY(-1.65mm)" };
-const fatherNudge: CSSProperties = { transform: "translateY(-1.85mm)" };
-/** DOB — lift off dotted line. */
-const dobNudge: CSSProperties = { transform: "translateY(-1.5mm)" };
-/** Mother — lift off dotted line. */
-const motherNudge: CSSProperties = { transform: "translateY(-1.45mm)" };
-/** Course — pull *down* toward its own dotted line (was riding up near mother). */
-const courseNudge: CSSProperties = { transform: "translateY(0.5mm)" };
-/** Footer total marks row: lift off dotted line. */
-const footerRowNudge: CSSProperties = { transform: "translateY(-4.5mm)" };
+/** Baseline on printed dotted lines — negative Y = upar, line par baithta hai. */
+const learningCenterNudge: CSSProperties = { transform: "translate(1.5mm, 1.6mm)" };
+const enrollmentNudge: CSSProperties = { transform: "translate(1.5mm, 1.9mm)" };
+const regNoNudge: CSSProperties = { transform: "translate(0.5mm, 1.9mm)" };
+const studentNameNudge: CSSProperties = { transform: "translate(1.5mm, 2.5mm)" };
+const dobNudge: CSSProperties = { transform: "translate(1.5mm, 2.5mm)" };
+const fatherNudge: CSSProperties = { transform: "translate(2mm, -3.2mm)" };
+const motherNudge: CSSProperties = { transform: "translate(2mm, -2mm)" };
+const courseNudge: CSSProperties = { transform: "translateY(0.35mm)" };
+const footerRowNudge: CSSProperties = { transform: "translateY(1.5mm)" };
+const sigSlotNudge: CSSProperties = { transform: "translateY(1mm)" };
+const dateNudge: CSSProperties = { transform: "translate(-1mm, 1mm)" };
 
 function summaryNudge(cx: string, top: string): CSSProperties {
-  return { top, left: cx, transform: "translate(-50%, -1.65mm)" };
+  return { top, left: cx, transform: "translate(-50%, 2.6mm)" };
 }
 
 export type MarksheetBgStudent = {
@@ -279,7 +276,7 @@ export default function MarksheetBackgroundOverlay({
   const subjectNameCls =
     "box-border whitespace-normal break-words pl-[4mm] pr-[2mm] align-top text-left uppercase leading-[1.1] text-[12.5px] [overflow-wrap:anywhere]";
   const marksCellCls = "box-border px-0 text-center align-top tabular-nums leading-none";
-  const subjectRowAlign: CSSProperties = { verticalAlign: "top", paddingTop: "0.35mm" };
+  const subjectRowAlign: CSSProperties = { verticalAlign: "top", paddingTop: "1.1mm" };
 
   /**
    * Production / PDF capture: `html-to-image` clones into SVG foreignObject where
@@ -343,7 +340,7 @@ export default function MarksheetBackgroundOverlay({
       <p
         className={lineCls}
         style={{
-          ...enrollRegNudge,
+          ...enrollmentNudge,
           ...valFont,
           top: L.enrollment.top,
           left: L.enrollment.left,
@@ -355,7 +352,7 @@ export default function MarksheetBackgroundOverlay({
       <p
         className={lineCls}
         style={{
-          ...enrollRegNudge,
+          ...regNoNudge,
           ...valFont,
           top: L.regNo.top,
           left: L.regNo.left,
@@ -390,6 +387,10 @@ export default function MarksheetBackgroundOverlay({
         {formatDateDDMMYYYY(s?.dob)}
       </p>
 
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ transform: `translateY(${FULL_BLEED_SHIFT})` }}
+      >
       <p
         className={nameCls}
         style={{
@@ -536,7 +537,7 @@ export default function MarksheetBackgroundOverlay({
 
       <p
         className="absolute tabular-nums leading-none text-[14px] text-black font-extrabold"
-        style={{ ...fieldNudge, ...valFont, top: L.date.top, left: L.date.left }}
+        style={{ ...dateNudge, ...valFont, top: L.date.top, left: L.date.left }}
       >
         {formatDateDDMMYYYY(data.issueDate)}
       </p>
@@ -544,6 +545,7 @@ export default function MarksheetBackgroundOverlay({
       <div
         className="absolute flex items-end justify-center pb-[1mm]"
         style={{
+          ...sigSlotNudge,
           top: L.sigAtc.top,
           right: L.sigAtc.right,
           width: L.sigAtc.w,
@@ -563,6 +565,7 @@ export default function MarksheetBackgroundOverlay({
       <div
         className="absolute flex items-end justify-center pb-[1mm]"
         style={{
+          ...sigSlotNudge,
           top: L.sigAuth.top,
           right: L.sigAuth.right,
           width: L.sigAuth.w,
@@ -577,6 +580,7 @@ export default function MarksheetBackgroundOverlay({
             className="max-h-[78%] max-w-[90%] object-contain mix-blend-multiply"
           />
         ) : null}
+      </div>
       </div>
     </div>
   );
