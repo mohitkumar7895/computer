@@ -5,6 +5,7 @@ import { AtcStudent } from "@/models/Student";
 import { StudentMedia } from "@/models/StudentMedia";
 import { learningCenterLineForMarksheet } from "@/lib/marksheetLearningCenter";
 import { resolveAtcSignature } from "@/lib/documentAtcSignature";
+import { getDocumentPageAssets } from "@/lib/documentPageAssets.server";
 import { getMarksheetGradeBands, gradeFromPercentageWithBands } from "@/lib/marksheetGradeScale";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -45,24 +46,34 @@ export async function GET(request: Request) {
       studentId?: { _id?: unknown; photo?: string } | string | null;
       [k: string]: unknown;
     };
-    const gradeBands = await getMarksheetGradeBands();
-    data.grade = gradeFromPercentageWithBands(Number(data.percentage) || 0, gradeBands);
     const studentObj =
       data.studentId && typeof data.studentId === "object" ? data.studentId : null;
-    if (studentObj?._id) {
-      const media = (await StudentMedia.findOne({
-        studentId: studentObj._id,
-        fieldName: "photo",
-      })
-        .select("content")
-        .lean()) as { content?: string } | null;
-      if (media?.content) studentObj.photo = media.content;
+    const studentId = studentObj?._id;
+
+    const [gradeBands, media, learningCenterLine, atcSignature, assets] = await Promise.all([
+      getMarksheetGradeBands(),
+      studentId
+        ? StudentMedia.findOne({ studentId, fieldName: "photo" }).select("content").lean()
+        : Promise.resolve(null),
+      learningCenterLineForMarksheet(marksheet.atcId),
+      resolveAtcSignature(marksheet.atcId?.toString()),
+      getDocumentPageAssets("marksheet"),
+    ]);
+
+    data.grade = gradeFromPercentageWithBands(Number(data.percentage) || 0, gradeBands);
+    if (media && typeof (media as { content?: string }).content === "string") {
+      if (studentObj) studentObj.photo = (media as { content: string }).content;
     }
 
-    const learningCenterLine = await learningCenterLineForMarksheet(marksheet.atcId);
-    const atcSignature = await resolveAtcSignature(marksheet.atcId?.toString());
-
-    return NextResponse.json({ data, learningCenterLine, atcSignature });
+    const res = NextResponse.json({
+      data,
+      learningCenterLine,
+      atcSignature,
+      backgroundUrl: assets.backgroundUrl,
+      signatureUrl: assets.signatureUrl,
+    });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch {
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }

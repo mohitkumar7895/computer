@@ -229,6 +229,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Keep panel/dashboard mounted — re-check session in background when already logged in.
       if (!cancelled && !userRef.current) setLoading(true);
 
+      const isDocumentViewer = /\/document\//.test(pathname);
+      if (isDocumentViewer && userRef.current) {
+        if (!cancelled) {
+          setLoading(false);
+          setSessionReady(true);
+        }
+        void validate(target).then((result) => {
+          if (cancelled || !result.ok || !result.user) return;
+          setUser(result.user);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(result.user));
+          }
+        });
+        return;
+      }
+
       const result = await validate(target);
       if (cancelled) return;
 

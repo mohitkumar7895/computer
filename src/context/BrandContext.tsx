@@ -58,7 +58,14 @@ export const BrandProvider = ({
   };
 
   useEffect(() => {
-    fetchBrand();
+    if (initialData.brand_name) setLoading(false);
+    const schedule =
+      typeof window !== "undefined" && "requestIdleCallback" in window
+        ? window.requestIdleCallback
+        : (cb: () => void) => window.setTimeout(cb, 150);
+    schedule(() => {
+      void fetchBrand();
+    });
   }, []);
 
   return (

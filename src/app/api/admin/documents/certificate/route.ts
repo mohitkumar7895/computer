@@ -5,6 +5,7 @@ import { Course } from "@/models/Course";
 import { AtcStudent } from "@/models/Student";
 import { StudentMedia } from "@/models/StudentMedia";
 import { resolveAtcSignature } from "@/lib/documentAtcSignature";
+import { getDocumentPageAssets } from "@/lib/documentPageAssets.server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -41,8 +42,6 @@ export async function GET(request: Request) {
 
     if (!cert) return NextResponse.json({ message: "Certificate not found" }, { status: 404 });
 
-    // Photos are stored separately in StudentMedia (16 MB doc-size workaround), so the
-    // populated studentId.photo is always "". Pull the media doc and inject it back.
     const certData = cert.toObject() as {
       studentId?: { _id?: unknown; photo?: string } | string | null;
       durationMonths?: number;
@@ -51,25 +50,34 @@ export async function GET(request: Request) {
     };
     const studentObj =
       certData.studentId && typeof certData.studentId === "object" ? certData.studentId : null;
-    if (studentObj?._id) {
-      const media = (await StudentMedia.findOne({
-        studentId: studentObj._id,
-        fieldName: "photo",
-      })
-        .select("content")
-        .lean()) as { content?: string } | null;
-      if (media?.content) studentObj.photo = media.content;
+    const studentId = studentObj?._id;
+
+    const [media, course, atcSignature, assets] = await Promise.all([
+      studentId
+        ? StudentMedia.findOne({ studentId, fieldName: "photo" }).select("content").lean()
+        : Promise.resolve(null),
+      !certData.durationMonths && certData.courseName
+        ? Course.findOne({ name: certData.courseName }).select("durationMonths").lean()
+        : Promise.resolve(null),
+      resolveAtcSignature(cert.atcId?.toString()),
+      getDocumentPageAssets("certificate"),
+    ]);
+
+    if (media && typeof (media as { content?: string }).content === "string" && studentObj) {
+      studentObj.photo = (media as { content: string }).content;
+    }
+    if (course && typeof (course as { durationMonths?: number }).durationMonths === "number") {
+      certData.durationMonths = (course as { durationMonths: number }).durationMonths;
     }
 
-    if (!certData.durationMonths && certData.courseName) {
-      const course = (await Course.findOne({ name: certData.courseName })
-        .select("durationMonths")
-        .lean()) as { durationMonths?: number } | null;
-      if (course?.durationMonths) certData.durationMonths = course.durationMonths;
-    }
-
-    const atcSignature = await resolveAtcSignature(cert.atcId?.toString());
-    return NextResponse.json({ data: certData, atcSignature });
+    const res = NextResponse.json({
+      data: certData,
+      atcSignature,
+      backgroundUrl: assets.backgroundUrl,
+      signatureUrl: assets.signatureUrl,
+    });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch {
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }

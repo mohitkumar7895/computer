@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import {
   formatCertificateFromLabel,
   formatDurationMonths,
@@ -143,6 +143,13 @@ export default function CertificateBackgroundOverlay({
   const qrSrc = verifyUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`
     : "";
+
+  useEffect(() => {
+    if (!qrSrc) return;
+    const img = new Image();
+    img.decoding = "async";
+    img.src = qrSrc;
+  }, [qrSrc]);
 
   const valFont: CSSProperties = {
     fontFamily: 'system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif',

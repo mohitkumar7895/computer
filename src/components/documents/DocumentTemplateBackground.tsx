@@ -11,16 +11,24 @@ type Props = {
    * so no letterboxing / inline-img gap remains at the bottom edge.
    */
   fullBleed?: boolean;
+  /** Shorter fallback timeout when opening/downloading documents. */
+  fastReady?: boolean;
 };
 
-const READY_TIMEOUT_MS = 12_000;
+const DEFAULT_READY_TIMEOUT_MS = 12_000;
+const FAST_READY_TIMEOUT_MS = 2_000;
 
 /**
  * Full-bleed template image behind certificate/marksheet text.
  * Preloads HTTP(S) URLs and hints the browser to fetch/decode ASAP.
  * Parents should hide the text overlay until `onPainted` has run (when a template exists).
  */
-export default function DocumentTemplateBackground({ src, onPainted, fullBleed = false }: Props) {
+export default function DocumentTemplateBackground({
+  src,
+  onPainted,
+  fullBleed = false,
+  fastReady = false,
+}: Props) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const doneRef = useRef(false);
 
@@ -35,9 +43,10 @@ export default function DocumentTemplateBackground({ src, onPainted, fullBleed =
   }, [src]);
 
   useEffect(() => {
-    const t = window.setTimeout(fire, READY_TIMEOUT_MS);
+    const timeoutMs = fastReady ? FAST_READY_TIMEOUT_MS : DEFAULT_READY_TIMEOUT_MS;
+    const t = window.setTimeout(fire, timeoutMs);
     return () => window.clearTimeout(t);
-  }, [src, fire]);
+  }, [src, fire, fastReady]);
 
   useEffect(() => {
     const el = imgRef.current;
