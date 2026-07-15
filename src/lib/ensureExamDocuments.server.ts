@@ -34,6 +34,23 @@ type CourseLite = {
   subjects?: CourseSubjectInput[];
 };
 
+async function nextCertificateSerial(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `CERT-${year}-`;
+  const latest = await Certificate.findOne({
+    serialNo: { $regex: `^${prefix}\\d+$` },
+  })
+    .sort({ serialNo: -1 })
+    .select("serialNo")
+    .lean();
+  const latestSequence = Number.parseInt(
+    String(latest?.serialNo ?? "").slice(prefix.length),
+    10,
+  );
+  const nextSequence = Number.isFinite(latestSequence) ? latestSequence + 1 : 1;
+  return `${prefix}${nextSequence.toString().padStart(5, "0")}`;
+}
+
 function examIsPublished(exam: {
   status?: string;
   offlineExamStatus?: string;
@@ -245,8 +262,7 @@ export async function ensureCertificateForExam(examId: string): Promise<boolean>
   const issueDate = existing?.issueDate ?? new Date();
   let serialNo = existing?.serialNo;
   if (!serialNo) {
-    const count = await Certificate.countDocuments();
-    serialNo = `CERT-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, "0")}`;
+    serialNo = await nextCertificateSerial();
   }
 
   const session = exam.session || student.session || "2024-25";
