@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, RefreshCw } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
 import { downloadElementAsA4Pdf } from "@/lib/downloadA4";
-import { preloadImageUrl } from "@/lib/preloadImageUrl";
+import { useDocumentPageData } from "@/lib/useDocumentPageData";
 import CertificateBackgroundOverlay, {
   type CertificatePageData,
 } from "@/components/certificate/CertificateBackgroundOverlay";
 import DocumentTemplateBackground from "@/components/documents/DocumentTemplateBackground";
 
-const BG_WAIT_MS = 700;
+const BG_WAIT_MS = 350;
 
 export default function AdminCertificatePage() {
   const { examId } = useParams();
@@ -22,56 +22,30 @@ export default function AdminCertificatePage() {
   const isZipPrintMode = searchParams.get("zipPrint") === "1";
   const shouldDownload = searchParams.get("download") === "1";
   const fastPath = shouldDownload || isPrintMode;
+  const examIdStr = String(examId ?? "");
 
-  const [data, setData] = useState<CertificatePageData | null>(null);
-  const [bg, setBg] = useState("");
-  const [sig, setSig] = useState("");
-  const [atcSig, setAtcSig] = useState("");
+  const { payload, loadState, errorMessage, retry } = useDocumentPageData({
+    apiPath: "/api/admin/documents/certificate",
+    examId: examIdStr,
+    stayOnFailure: shouldDownload,
+    onHardFailure: () => router.push("/admin/panel"),
+  });
+
+  const data = (payload?.data as CertificatePageData | undefined) ?? null;
+  const bg = payload?.backgroundUrl?.trim() ?? "";
+  const sig = payload?.signatureUrl ?? "";
+  const atcSig = payload?.atcSignature ?? "";
+
   const [bgPainted, setBgPainted] = useState(false);
   const [captureReady, setCaptureReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const downloadStartedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const examIdStr = String(examId ?? "");
-
-    setAtcSig("");
     setBgPainted(false);
     setCaptureReady(false);
     downloadStartedRef.current = false;
-
-    void (async () => {
-      try {
-        const docRes = await fetch(`/api/admin/documents/certificate?examId=${examIdStr}`, {
-          credentials: "include",
-        });
-        if (cancelled) return;
-
-        const docJson = await docRes.json();
-        if (docJson?.data) {
-          setData(docJson.data as CertificatePageData);
-          setAtcSig(typeof docJson.atcSignature === "string" ? docJson.atcSignature : "");
-          if (typeof docJson.signatureUrl === "string") setSig(docJson.signatureUrl);
-          if (typeof docJson.backgroundUrl === "string" && docJson.backgroundUrl.trim()) {
-            setBg(docJson.backgroundUrl);
-            preloadImageUrl(docJson.backgroundUrl);
-          } else {
-            setBg("");
-            setBgPainted(true);
-          }
-          return;
-        }
-        if (!shouldDownload) router.push("/admin/panel");
-      } catch {
-        if (!cancelled && !shouldDownload) router.push("/admin/panel");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [examId, router, shouldDownload]);
+  }, [examIdStr, payload]);
 
   useEffect(() => {
     if (!data) {
@@ -101,20 +75,23 @@ export default function AdminCertificatePage() {
       ).replace(/\s+/g, "_");
       const suffix = isPrintMode || isZipPrintMode ? "Certificate_Print" : "Certificate";
       await downloadElementAsA4Pdf(el, `${fileName}_${suffix}`, "landscape", { fast: true });
+      if (shouldDownload) {
+        window.setTimeout(() => window.close(), 400);
+      }
     } catch (err) {
       console.error("Certificate download failed", err);
     } finally {
       setDownloading(false);
     }
-  }, [data, isPrintMode, isZipPrintMode]);
+  }, [data, isPrintMode, isZipPrintMode, shouldDownload]);
 
   useEffect(() => {
-    if (!shouldDownload || !captureReady || downloadStartedRef.current) return;
+    if (!shouldDownload || !captureReady || !data || downloadStartedRef.current) return;
     downloadStartedRef.current = true;
     requestAnimationFrame(() => {
       void downloadPdf();
     });
-  }, [shouldDownload, captureReady, downloadPdf]);
+  }, [shouldDownload, captureReady, data, downloadPdf]);
 
   useEffect(() => {
     if (!data || !isPrintMode || isZipPrintMode) return;
@@ -122,10 +99,26 @@ export default function AdminCertificatePage() {
     return () => window.clearTimeout(t);
   }, [data, isPrintMode, isZipPrintMode]);
 
+  if (loadState === "error") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-10 text-center">
+        <p className="font-bold uppercase tracking-widest text-red-600">Certificate load failed</p>
+        <p className="max-w-md text-sm text-slate-500">{errorMessage}</p>
+        <button
+          type="button"
+          onClick={() => void retry()}
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black uppercase text-white"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    );
+  }
+
   if (!data) {
     return (
       <div className="p-10 text-center font-bold uppercase tracking-widest text-slate-400 animate-pulse">
-        {shouldDownload ? "Loading certificate…" : "Preparing Certificate…"}
+        {shouldDownload ? "Preparing certificate…" : "Preparing Certificate…"}
       </div>
     );
   }

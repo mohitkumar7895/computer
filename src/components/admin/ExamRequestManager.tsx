@@ -154,37 +154,50 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [issueDateValue, setIssueDateValue] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   );
+  const [fetchError, setFetchError] = useState("");
   const { loading: authLoading, user: authUser } = useAuth();
   const showRosterTab = role === "atc";
 
   const fetchRequests = useCallback(async () => {
     if (authLoading || !authUser) return;
     setLoading(true);
-    try {
-      const url = role === "admin" ? "/api/admin/exams/all" : "/api/atc/exams/all";
-      const res = await apiFetch(url, { 
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRequests(data.requests || []);
-      }
-      
-      if (role === "atc") {
-        const studentRes = await apiFetch("/api/atc/students", { 
-          cache: "no-store",
-        });
-        if (studentRes.ok) {
-          const sData = await studentRes.json();
-          const validStudents = (sData.students || []).filter((s: StudentCandidate) => s.status === "approved" || s.status === "active");
-          setAvailableStudents(validStudents);
+    setFetchError("");
+    const url = role === "admin" ? "/api/admin/exams/all" : "/api/atc/exams/all";
+
+    let lastError = "Could not load exam requests.";
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await apiFetch(url, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setRequests(data.requests || []);
+
+          if (role === "atc") {
+            const studentRes = await apiFetch("/api/atc/students", { cache: "no-store" });
+            if (studentRes.ok) {
+              const sData = await studentRes.json();
+              const validStudents = (sData.students || []).filter(
+                (s: StudentCandidate) => s.status === "approved" || s.status === "active",
+              );
+              setAvailableStudents(validStudents);
+            }
+          }
+          setLoading(false);
+          return;
         }
+        const errBody = (await res.json().catch(() => null)) as { message?: string } | null;
+        lastError = errBody?.message || `Request failed (${res.status})`;
+      } catch (err) {
+        console.error("Fetch failed", err);
+        lastError = "Network error while loading exam requests.";
       }
-    } catch (err) {
-      console.error("Fetch failed", err);
-    } finally {
-      setLoading(false);
+      if (attempt < 3) {
+        await new Promise((resolve) => window.setTimeout(resolve, 500 * attempt));
+      }
     }
+
+    setFetchError(lastError);
+    setLoading(false);
   }, [authLoading, authUser, role]);
 
   const fetchQuestionSets = useCallback(async () => {
@@ -762,6 +775,19 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
+
+        {fetchError ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+            <p className="text-xs font-bold text-red-700">{fetchError}</p>
+            <button
+              type="button"
+              onClick={() => void fetchRequests()}
+              className="rounded-xl bg-red-600 px-4 py-2 text-[10px] font-black uppercase text-white hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
 
         {role === "admin" && atcTab === "history" && (
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm mb-6">

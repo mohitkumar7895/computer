@@ -2,17 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, RefreshCw } from "lucide-react";
 import { useBrand } from "@/context/BrandContext";
 import MarksheetBackgroundOverlay, {
   type MarksheetPageData,
 } from "@/components/marksheet/MarksheetBackgroundOverlay";
 import { downloadElementAsA4Pdf } from "@/lib/downloadA4";
-import { preloadImageUrl } from "@/lib/preloadImageUrl";
+import { useDocumentPageData } from "@/lib/useDocumentPageData";
 import DocumentTemplateBackground from "@/components/documents/DocumentTemplateBackground";
 import MarksheetA4Frame, { MARKSHEET_A4_PRINT_CSS } from "@/components/marksheet/MarksheetA4Frame";
 
-const BG_WAIT_MS = 700;
+const BG_WAIT_MS = 350;
 
 export default function AdminMarksheetPage() {
   const { examId } = useParams();
@@ -23,60 +23,31 @@ export default function AdminMarksheetPage() {
   const shouldDownload = searchParams.get("download") === "1";
   const fastPath = shouldDownload || isPrintMode;
   const { brandName } = useBrand();
+  const examIdStr = String(examId ?? "");
 
-  const [data, setData] = useState<MarksheetPageData | null>(null);
-  const [learningCenterLine, setLearningCenterLine] = useState("");
-  const [bg, setBg] = useState("");
-  const [sig, setSig] = useState("");
-  const [atcSig, setAtcSig] = useState("");
+  const { payload, loadState, errorMessage, retry } = useDocumentPageData({
+    apiPath: "/api/admin/documents/marksheet",
+    examId: examIdStr,
+    stayOnFailure: shouldDownload,
+    onHardFailure: () => router.push("/admin/panel"),
+  });
+
+  const data = (payload?.data as MarksheetPageData | undefined) ?? null;
+  const learningCenterLine = payload?.learningCenterLine ?? "";
+  const bg = payload?.backgroundUrl?.trim() ?? "";
+  const sig = payload?.signatureUrl ?? "";
+  const atcSig = payload?.atcSignature ?? "";
+
   const [bgPainted, setBgPainted] = useState(false);
   const [captureReady, setCaptureReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const downloadStartedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const examIdStr = String(examId ?? "");
-
-    setAtcSig("");
     setBgPainted(false);
     setCaptureReady(false);
     downloadStartedRef.current = false;
-
-    void (async () => {
-      try {
-        const docRes = await fetch(`/api/admin/documents/marksheet?examId=${examIdStr}`, {
-          credentials: "include",
-        });
-        if (cancelled) return;
-
-        const docJson = await docRes.json();
-        if (docJson?.data) {
-          setData(docJson.data as MarksheetPageData);
-          setLearningCenterLine(
-            typeof docJson.learningCenterLine === "string" ? docJson.learningCenterLine : "",
-          );
-          setAtcSig(typeof docJson.atcSignature === "string" ? docJson.atcSignature : "");
-          if (typeof docJson.signatureUrl === "string") setSig(docJson.signatureUrl);
-          if (typeof docJson.backgroundUrl === "string" && docJson.backgroundUrl.trim()) {
-            setBg(docJson.backgroundUrl);
-            preloadImageUrl(docJson.backgroundUrl);
-          } else {
-            setBg("");
-            setBgPainted(true);
-          }
-          return;
-        }
-        if (!shouldDownload) router.push("/admin/panel");
-      } catch {
-        if (!cancelled && !shouldDownload) router.push("/admin/panel");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [examId, router, shouldDownload]);
+  }, [examIdStr, payload]);
 
   useEffect(() => {
     if (!data) {
@@ -105,20 +76,23 @@ export default function AdminMarksheetPage() {
       ).replace(/\s+/g, "_");
       const suffix = isPrintMode || isZipPrintMode ? "Marksheet_Print" : "Marksheet";
       await downloadElementAsA4Pdf(el, `${fileName}_${suffix}`, "portrait", { fast: true });
+      if (shouldDownload) {
+        window.setTimeout(() => window.close(), 400);
+      }
     } catch (err) {
       console.error("Marksheet download failed", err);
     } finally {
       setDownloading(false);
     }
-  }, [data, isPrintMode, isZipPrintMode]);
+  }, [data, isPrintMode, isZipPrintMode, shouldDownload]);
 
   useEffect(() => {
-    if (!shouldDownload || !captureReady || downloadStartedRef.current) return;
+    if (!shouldDownload || !captureReady || !data || downloadStartedRef.current) return;
     downloadStartedRef.current = true;
     requestAnimationFrame(() => {
       void downloadPdf();
     });
-  }, [shouldDownload, captureReady, downloadPdf]);
+  }, [shouldDownload, captureReady, data, downloadPdf]);
 
   useEffect(() => {
     if (!data || !isPrintMode || isZipPrintMode) return;
@@ -126,10 +100,26 @@ export default function AdminMarksheetPage() {
     return () => window.clearTimeout(t);
   }, [data, isPrintMode, isZipPrintMode]);
 
+  if (loadState === "error") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-10 text-center">
+        <p className="font-bold uppercase tracking-widest text-red-600">Marksheet load failed</p>
+        <p className="max-w-md text-sm text-slate-500">{errorMessage}</p>
+        <button
+          type="button"
+          onClick={() => void retry()}
+          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black uppercase text-white"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    );
+  }
+
   if (!data) {
     return (
       <div className="p-10 text-center font-bold uppercase tracking-widest text-slate-400 animate-pulse">
-        {shouldDownload ? "Loading marksheet…" : "Processing Marksheet…"}
+        {shouldDownload ? "Preparing marksheet…" : "Processing Marksheet…"}
       </div>
     );
   }
