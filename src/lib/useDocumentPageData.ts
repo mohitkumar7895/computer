@@ -52,17 +52,19 @@ export function useDocumentPageData({
   const [payload, setPayload] = useState<DocumentPagePayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const attemptRef = useRef(0);
+  const onHardFailureRef = useRef(onHardFailure);
+
+  useEffect(() => {
+    onHardFailureRef.current = onHardFailure;
+  }, [onHardFailure]);
 
   const load = useCallback(async () => {
     if (!examId) return;
     setLoadState("loading");
     setErrorMessage("");
-    attemptRef.current = 0;
 
     let lastError = "Could not load document.";
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      attemptRef.current = attempt;
       try {
         const json = await fetchDocumentPayload(apiPath, examId);
         if (json.backgroundUrl?.trim()) preloadImageUrl(json.backgroundUrl);
@@ -77,11 +79,12 @@ export function useDocumentPageData({
 
     setLoadState("error");
     setErrorMessage(lastError);
-    if (!stayOnFailure) onHardFailure?.();
-  }, [apiPath, examId, stayOnFailure, onHardFailure]);
+    if (!stayOnFailure) onHardFailureRef.current?.();
+  }, [apiPath, examId, stayOnFailure]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   return {
@@ -89,6 +92,5 @@ export function useDocumentPageData({
     loadState,
     errorMessage,
     retry: load,
-    attempt: attemptRef.current,
   };
 }

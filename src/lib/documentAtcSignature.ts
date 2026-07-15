@@ -1,4 +1,5 @@
 import { AtcUser } from "@/models/AtcUser";
+import { AtcApplication } from "@/models/AtcApplication";
 
 type AtcApplicationWithSignature = {
   signature?: string | null;
@@ -12,6 +13,7 @@ export async function resolveAtcSignature(
   const atcUser = (await AtcUser.findById(atcId)
     .populate<{ applicationId?: AtcApplicationWithSignature | null }>({
       path: "applicationId",
+      model: AtcApplication,
       select: "signature",
     })
     .select("applicationId")
