@@ -75,7 +75,8 @@ export async function GET(request: Request) {
     });
     res.headers.set("Cache-Control", "private, no-store");
     return res;
-  } catch {
+  } catch (error) {
+    console.error("[admin/documents/certificate GET]", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
