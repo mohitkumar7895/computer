@@ -6,26 +6,12 @@ import { AtcStudent } from "@/models/Student";
 import { StudentMedia } from "@/models/StudentMedia";
 import { resolveAtcSignature } from "@/lib/documentAtcSignature";
 import { getDocumentPageAssets } from "@/lib/documentPageAssets.server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-async function verifyAdmin() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_token")?.value;
-  if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { role: string };
-    return decoded.role === "admin" ? decoded : null;
-  } catch {
-    return null;
-  }
-}
+import { ensureCertificateForExam } from "@/lib/ensureExamDocuments.server";
+import { verifyAdmin } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const admin = await verifyAdmin(request);
     if (!admin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
@@ -33,13 +19,24 @@ export async function GET(request: Request) {
     if (!examId) return NextResponse.json({ message: "examId is required" }, { status: 400 });
 
     await connectDB();
-    const cert = await Certificate.findOne({ examId }).populate({
+    let cert = await Certificate.findOne({ examId }).populate({
       path: "studentId",
       model: AtcStudent,
       select:
         "name fatherName motherName photo enrollmentNo session course graduationDoc highestQualDoc dob gender mobile admissionDate",
     });
 
+    if (!cert) {
+      const created = await ensureCertificateForExam(examId);
+      if (created) {
+        cert = await Certificate.findOne({ examId }).populate({
+          path: "studentId",
+          model: AtcStudent,
+          select:
+            "name fatherName motherName photo enrollmentNo session course graduationDoc highestQualDoc dob gender mobile admissionDate",
+        });
+      }
+    }
     if (!cert) return NextResponse.json({ message: "Certificate not found" }, { status: 404 });
 
     const certData = cert.toObject() as {

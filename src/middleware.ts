@@ -21,20 +21,23 @@ export async function middleware(request: NextRequest) {
 
   const cookieToken = request.cookies.get("admin_token")?.value || "";
   const bearer = request.headers.get("authorization")?.replace("Bearer ", "").trim() || "";
-  // For admin APIs, prefer httpOnly cookie over localStorage bearer.
-  // This avoids stale bearer tokens causing random data-load failures.
-  const token = cookieToken || bearer;
-  if (!token) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  const encodedSecret = new TextEncoder().encode(secret);
+
+  let authorized = false;
+  for (const token of [cookieToken, bearer]) {
+    if (!token) continue;
+    try {
+      const { payload } = await jwtVerify(token, encodedSecret);
+      if (payload.role === "admin") {
+        authorized = true;
+        break;
+      }
+    } catch {
+      // try the other token source
+    }
   }
 
-  try {
-    const encodedSecret = new TextEncoder().encode(secret);
-    const { payload } = await jwtVerify(token, encodedSecret);
-    if (payload.role !== "admin") {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    }
-  } catch {
+  if (!authorized) {
     return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 
