@@ -62,6 +62,7 @@ export const NAV_LINKS: NavLink[] = [
     ],
   },
   { label: "CONTACT US", href: "/contact-us" },
+  { label: "OLD WEBSITE", href: "https://palevioletred-armadillo-663971.hostingersite.com/" },
 ];
 
 export const SITE_INFO = {
@@ -89,4 +90,5 @@ export const FOOTER_LINKS = [
   { label: "Courses", href: "/courses-offered" },
   { label: "Contact", href: "/contact-us" },
   { label: "Director's Message", href: "#about" },
+  { label: "Old Website", href: "https://palevioletred-armadillo-663971.hostingersite.com/" },
 ];

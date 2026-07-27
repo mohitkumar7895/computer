@@ -102,6 +102,8 @@ export default function Footer() {
               <Link
                 key={link.label}
                 href={link.href}
+                target={link.href.startsWith("http") ? "_blank" : undefined}
+                rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
                 className="flex items-center gap-3 text-sm font-medium text-white transition hover:text-slate-100 sm:text-base"
               >
                 <FaChevronCircleRight className="h-4 w-4 shrink-0 text-slate-200" />

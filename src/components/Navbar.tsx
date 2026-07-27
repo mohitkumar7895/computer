@@ -108,7 +108,8 @@ export default function Navbar() {
     return children?.some((child) => child.href === activeSection) ?? false;
   };
 
-  const shouldOpenInNewTab = (href: string) => href === "/admin/login" || href === "/student/login";
+  const shouldOpenInNewTab = (href: string) =>
+    href === "/admin/login" || href === "/student/login" || href.startsWith("http");
 
   return (
     <header className="relative z-50">
@@ -282,6 +283,8 @@ export default function Navbar() {
                 <Link
                   key={link.label}
                   href={link.href}
+                  target={shouldOpenInNewTab(link.href) ? "_blank" : undefined}
+                  rel={shouldOpenInNewTab(link.href) ? "noopener noreferrer" : undefined}
                   onClick={handleNavClick(link.href)}
                   className={`flex items-center whitespace-nowrap px-4 py-3 text-xs font-semibold text-white transition md:px-1.5 md:py-2 md:text-[10.5px] lg:px-2.5 lg:text-[11.5px] xl:text-xs ${
                     isLinkActive(link.href) ? "text-blue-100" : "hover:text-blue-100"
