@@ -21,8 +21,8 @@ import { plainDocumentNumber } from "@/lib/documentNumberFormat";
  * such that the rendered text baseline lands on the printed label baseline.
  */
 const L = {
-  /** Photo placeholder (top-right white square in the template). */
-  photo: { top: "21mm", right: "17mm", w: "42mm", h: "45mm" },
+  /** Measured from blank template photo square (1280×901 → landscape A4 object-fill). */
+  photo: { top: "26.1mm", right: "19.3mm", w: "32mm", h: "39.2mm" },
 
   /** "Presented to ___ S/o, D/o ___ has successfully" — text floats just above the dotted line. */
   nameLine: { top: "79mm", left: "55mm", w: "100mm" },
@@ -166,7 +166,7 @@ export default function CertificateBackgroundOverlay({
   const metaCls =
     "pointer-events-none absolute truncate not-italic uppercase leading-none text-[15.75px] tabular-nums";
   const photoFrameCls =
-    "absolute flex items-center justify-center overflow-hidden bg-white ring-1 ring-black/6";
+    "absolute overflow-hidden bg-white";
   const gradeValueCls =
     "pointer-events-none absolute whitespace-nowrap text-center text-[17.25px] tabular-nums leading-none";
 
@@ -192,11 +192,11 @@ export default function CertificateBackgroundOverlay({
           <img
             src={s.photo}
             alt="Student"
-            className="h-full w-full object-cover object-top"
+            className="absolute inset-0 h-full w-full max-w-none object-fill"
             referrerPolicy="no-referrer"
           />
         ) : (
-          <span className="select-none text-[8px] font-semibold uppercase tracking-wider text-slate-400">
+          <span className="absolute inset-0 flex items-center justify-center select-none text-[8px] font-semibold uppercase tracking-wider text-slate-400">
             No Photo
           </span>
         )}
