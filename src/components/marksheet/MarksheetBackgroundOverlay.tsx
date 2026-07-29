@@ -23,7 +23,8 @@ import { plainDocumentNumber } from "@/lib/documentNumberFormat";
 const FULL_BLEED_SHIFT = "14mm";
 
 const L = {
-  photo: { top: "11.5mm", left: "11mm", w: "27mm", h: "31mm" },
+  /** Measured from blank template photo square (1980×2500 → A4 object-fill). */
+  photo: { top: "9.5mm", left: "11.1mm", w: "27.6mm", h: "36.2mm" },
   qrBox: { top: "11.5mm", right: "21mm", w: "21mm", h: "21mm" },
 
   /** Learning Center label ke saamne — institute / center name. */
@@ -311,7 +312,7 @@ export default function MarksheetBackgroundOverlay({
     >
       <style dangerouslySetInnerHTML={{ __html: captureSafeCss }} />
       <div
-        className="absolute overflow-hidden bg-white ring-1 ring-black/6"
+        className="absolute overflow-hidden bg-white"
         style={{ top: L.photo.top, left: L.photo.left, width: L.photo.w, height: L.photo.h }}
       >
         {s?.photo ? (
@@ -319,7 +320,7 @@ export default function MarksheetBackgroundOverlay({
           <img
             src={s.photo}
             alt=""
-            className="h-full w-full object-cover object-top"
+            className="absolute inset-0 h-full w-full max-w-none object-fill"
             referrerPolicy="no-referrer"
           />
         ) : null}
