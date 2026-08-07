@@ -224,6 +224,7 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   const [studentFilter, setStudentFilter] = useState<"all" | "pending" | "approved" | "rejected" | "disabled">(
     initialFilter || (isDirectAdmission ? "pending" : "all")
   );
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -896,24 +897,36 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
   const modalInputCls = (name?: string) => `w-full px-4 py-2.5 bg-white border ${modalInvalidFields.has(name || "") ? "border-red-700 ring-4 ring-red-50" : "border-slate-200"} rounded-xl text-sm focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition placeholder:text-slate-400`;
 
   const filteredStudents = students.filter(s => {
+    let match = true;
     // If we are in Front Admission mode
     if (isDirectAdmission) {
-      if (studentFilter === "all") return true; 
-      if (studentFilter === "pending") return s.status === "pending_atc";
-      if (studentFilter === "approved") return s.status === "pending_admin";
-      if (studentFilter === "disabled") return s.status === "disabled" || s.status === "blocked";
-      return s.status === studentFilter;
+      if (studentFilter === "pending") match = s.status === "pending_atc";
+      else if (studentFilter === "approved") match = s.status === "pending_admin";
+      else if (studentFilter === "disabled") match = s.status === "disabled" || s.status === "blocked";
+      else if (studentFilter !== "all") match = s.status === studentFilter;
     } 
-    
     // If we are in My Students mode
     else {
-      if (studentFilter === "all") return true; // Show everything in "All"
-      if (studentFilter === "pending") return s.status === "pending" || s.status === "pending_admin";
-      if (studentFilter === "approved") return s.status === "approved" || s.status === "active";
-      if (studentFilter === "rejected") return s.status === "rejected";
-      if (studentFilter === "disabled") return s.status === "disabled" || s.status === "blocked";
-      return s.status === studentFilter;
+      if (studentFilter === "pending") match = s.status === "pending" || s.status === "pending_admin";
+      else if (studentFilter === "approved") match = s.status === "approved" || s.status === "active";
+      else if (studentFilter === "rejected") match = s.status === "rejected";
+      else if (studentFilter === "disabled") match = s.status === "disabled" || s.status === "blocked";
+      else if (studentFilter !== "all") match = s.status === studentFilter;
     }
+
+    if (!match) return false;
+
+    if (studentSearchQuery.trim()) {
+      const q = studentSearchQuery.toLowerCase();
+      return (
+        (s.name?.toLowerCase() || "").includes(q) ||
+        (s.enrollmentNo?.toLowerCase() || "").includes(q) ||
+        (s.email?.toLowerCase() || "").includes(q) ||
+        (s.mobile?.toLowerCase() || "").includes(q)
+      );
+    }
+
+    return true;
   });
 
   const selectedDirectStudents = isDirectAdmission
@@ -1028,25 +1041,37 @@ export default function StudentManager({ isDirectAdmission = false, initialFilte
         {tab === "list" && (
           <div className="animate-in fade-in duration-300">
             {/* Status Filter Bar */}
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-              {(isDirectAdmission
-                ? (["all", "pending", "approved", "rejected"] as const)
-                : (["all", "pending", "approved", "rejected", "disabled"] as const)).map((s) => {
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex flex-wrap items-center gap-3">
+                {(isDirectAdmission
+                  ? (["all", "pending", "approved", "rejected"] as const)
+                  : (["all", "pending", "approved", "rejected", "disabled"] as const)).map((s) => {
 
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setStudentFilter(s)}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
-                      studentFilter === s
-                        ? "bg-green-600 text-white border-green-600 shadow-lg shadow-green-100 scale-105"
-                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    {s === "all" ? (isDirectAdmission ? "All Requests" : "All Students") : s}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setStudentFilter(s)}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                        studentFilter === s
+                          ? "bg-green-600 text-white border-green-600 shadow-lg shadow-green-100 scale-105"
+                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {s === "all" ? (isDirectAdmission ? "All Requests" : "All Students") : s}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              </div>
             </div>
 
             {loading ? (
