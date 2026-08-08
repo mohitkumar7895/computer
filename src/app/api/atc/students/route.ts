@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       email: String(formData.get("email") || "").trim().toLowerCase(),
       currentAddress: String(formData.get("currentAddress")).trim(),
       permanentAddress: String(formData.get("permanentAddress")).trim(),
-      course: String(formData.get("course")).trim(),
+      course: String(formData.get("course")).trim().replace(/\s+/g, " "),
       courseId: formData.get("courseId") ? String(formData.get("courseId")) : undefined,
       courseType: String(formData.get("courseType") || "Regular").trim(),
       session: String(formData.get("session")).trim(),

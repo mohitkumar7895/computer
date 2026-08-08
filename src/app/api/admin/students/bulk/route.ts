@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       const results = [];
       const failed: string[] = [];
       for (const student of students) {
-        const normalizedCourse = String(student.course || "").trim();
+        const normalizedCourse = String(student.course || "").trim().replace(/\s+/g, " ");
         const courseQuery: Record<string, unknown>[] = [
           { name: normalizedCourse },
           { shortName: normalizedCourse },

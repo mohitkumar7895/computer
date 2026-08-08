@@ -58,7 +58,7 @@ export async function PATCH(
 
     if (action === "approved" || action === "rejected") {
       if (action === "approved" && student.status !== "active") {
-        const normalizedCourse = String(student.course || "").trim();
+        const normalizedCourse = String(student.course || "").trim().replace(/\s+/g, " ");
         const courseQuery: any[] = [
           { name: normalizedCourse },
           { shortName: normalizedCourse },
