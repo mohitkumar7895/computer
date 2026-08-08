@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       student.duesAmount = parsedFee - (student.paidAmount || 0);
 
       // Keep courseId in sync for robust admin-side registration fee lookup.
-      const normalizedCourse = String(student.course || "").trim();
+      const normalizedCourse = String(student.course || "").trim().replace(/\s+/g, " ");
       const course = await Course.findOne({
         $or: [
           { name: normalizedCourse },
