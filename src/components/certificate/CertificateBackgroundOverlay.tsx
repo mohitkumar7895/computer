@@ -47,7 +47,7 @@ const L = {
   issueDateLine: { top: "150mm", left: "55mm", w: "78mm" },
 
   /** Verification QR — fits snugly inside the printed square placeholder. */
-  qr: { top: "119mm", left: "200mm", w: "30mm", h: "30mm" },
+  qr: { top: "121.5mm", left: "200mm", w: "30mm", h: "30mm" },
 
   /** Signature moved slightly more up and toward right side. */
   sigAtc: { top: "158mm", right: "214mm", w: "64mm", h: "18mm" },
