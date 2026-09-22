@@ -320,19 +320,20 @@ export default function MarksheetBackgroundOverlay({
           <img
             src={s.photo}
             alt=""
-            className="absolute inset-0 h-full w-full max-w-none object-cover object-top"
+            className="absolute inset-0 max-w-none"
+            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
             referrerPolicy="no-referrer"
           />
         ) : null}
       </div>
 
       <div
-        className="absolute flex items-center justify-center overflow-hidden bg-white ring-1 ring-black/6"
+        className="absolute flex items-center justify-center overflow-hidden bg-white"
         style={{ top: L.qrBox.top, right: L.qrBox.right, width: L.qrBox.w, height: L.qrBox.h }}
       >
         {qrSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={qrSrc} alt="" className="max-h-[92%] max-w-[92%] object-contain" />
+          <img src={qrSrc} alt="" className="h-full w-full object-contain" />
         ) : null}
       </div>
 

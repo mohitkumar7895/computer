@@ -192,7 +192,8 @@ export default function CertificateBackgroundOverlay({
           <img
             src={s.photo}
             alt="Student"
-            className="absolute inset-0 h-full w-full max-w-none object-cover object-top"
+            className="absolute inset-0 max-w-none"
+            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
             referrerPolicy="no-referrer"
           />
         ) : (
