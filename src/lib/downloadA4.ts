@@ -133,8 +133,8 @@ export async function downloadElementAsA4Pdf(
   options: A4DownloadOptions = {},
 ): Promise<void> {
   const fast = options.fast ?? true;
-  const ratio = options.pixelRatio ?? (fast ? 1 : 1.25);
-  const jpegQuality = options.jpegQuality ?? (fast ? 0.76 : 0.88);
+  const ratio = options.pixelRatio ?? (fast ? 2 : 3);
+  const jpegQuality = options.jpegQuality ?? (fast ? 0.92 : 1.0);
 
   const [{ htmlToImage, jsPDF }] = await Promise.all([
     preloadPdfLibs(),
