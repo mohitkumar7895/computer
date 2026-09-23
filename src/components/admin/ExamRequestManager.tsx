@@ -133,7 +133,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
   const [examReqForm, setExamReqForm] = useState({ 
     examDate: "",
     examTime: "",
-    durationMinutes: 60,
+    durationMinutes: "60",
     setId: ""
   });
   const [requesting, setRequesting] = useState(false);
@@ -339,14 +339,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           examMode: requestExamStudent.examMode || "online",
           examDate: examReqForm.examDate,
           examTime: examReqForm.examTime,
-          durationMinutes: examReqForm.durationMinutes,
+          durationMinutes: Number(examReqForm.durationMinutes) || 60,
           setId: requestExamStudent.examMode === "online" ? examReqForm.setId : undefined
         }),
       });
       if (res.ok) {
         await fetchRequests();
         setRequestExamStudent(null);
-        setExamReqForm({ examDate: "", examTime: "", durationMinutes: 60, setId: "" });
+        setExamReqForm({ examDate: "", examTime: "", durationMinutes: "60", setId: "" });
       }
     } catch (err) {
       console.error("Request failed", err);
@@ -1501,7 +1501,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         className={inputCls}
                         required
                         value={examReqForm.durationMinutes}
-                        onChange={(e) => setExamReqForm({ ...examReqForm, durationMinutes: Number(e.target.value) || 60 })}
+                        onChange={(e) => setExamReqForm({ ...examReqForm, durationMinutes: e.target.value })}
                       />
                     </div>
 
