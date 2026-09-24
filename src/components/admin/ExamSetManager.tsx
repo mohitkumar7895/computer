@@ -176,6 +176,20 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
     if (selectedSetId) await fetchQuestions(selectedSetId);
   };
 
+  const deleteExamSet = async (setId: string) => {
+    if (!confirm("Are you sure you want to delete this Exam Set?")) return;
+    try {
+      await apiFetch(`${apiBase}/question-sets?id=${encodeURIComponent(setId)}`, { 
+        method: "DELETE",
+      });
+      if (selectedSetId === setId) setSelectedSetId(null);
+      await fetchSets();
+      setStatusMessage({ type: "success", text: "Exam Set deleted successfully." });
+    } catch {
+      setStatusMessage({ type: "error", text: "Failed to delete Exam Set." });
+    }
+  };
+
   const handleBulkAssign = async (studentExamIds: string[]) => {
     setAssigning(true);
     try {
@@ -256,11 +270,11 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
               </div>
               <div className="grid gap-4 grid-cols-2">
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Duration</label>
+                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Questions Count</label>
                    <input
                      type="number"
-                     value={newSet.durationMinutes}
-                     onChange={(e) => setNewSet((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                     value={newSet.questionCount}
+                     onChange={(e) => setNewSet((prev) => ({ ...prev, questionCount: e.target.value }))}
                      className="w-full rounded-2xl border-none bg-slate-50 px-5 py-4 text-sm font-bold"
                    />
                 </div>
@@ -274,17 +288,28 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
                    />
                 </div>
               </div>
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Exam Mode</label>
-                 <select 
-                   value={newSet.examMode}
-                   onChange={(e) => setNewSet((prev) => ({ ...prev, examMode: e.target.value }))}
-                   className="w-full rounded-2xl border-none bg-slate-50 px-5 py-4 text-sm font-bold"
-                 >
-                   <option value="both">Online & Offline</option>
-                   <option value="online">Online Only</option>
-                   <option value="offline">Offline Only</option>
-                 </select>
+              <div className="grid gap-4 grid-cols-2">
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Duration</label>
+                   <input
+                     type="number"
+                     value={newSet.durationMinutes}
+                     onChange={(e) => setNewSet((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                     className="w-full rounded-2xl border-none bg-slate-50 px-5 py-4 text-sm font-bold"
+                   />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Exam Mode</label>
+                   <select 
+                     value={newSet.examMode}
+                     onChange={(e) => setNewSet((prev) => ({ ...prev, examMode: e.target.value }))}
+                     className="w-full rounded-2xl border-none bg-slate-50 px-5 py-4 text-sm font-bold"
+                   >
+                     <option value="both">Online & Offline</option>
+                     <option value="online">Online Only</option>
+                     <option value="offline">Offline Only</option>
+                   </select>
+                </div>
               </div>
               <button
                 onClick={handleCreateSet}
@@ -305,28 +330,37 @@ export default function ExamSetManager({ role }: ExamSetManagerProps) {
               {loadingSets ? (
                  <div className="p-4"><SkeletonLoader type="card" count={2} /></div>
               ) : sets.map((set) => (
-                <button
-                  key={set._id}
-                  onClick={() => setSelectedSetId(set._id)}
-                  className={`w-full group text-left p-5 rounded-3xl border-2 transition-all duration-300 ${
-                    selectedSetId === set._id 
-                    ? "bg-blue-600 border-blue-600 shadow-xl shadow-blue-100 -translate-y-1" 
-                    : "bg-white border-slate-50 hover:border-slate-200"}`}
-                >
-                  <p className={`font-black uppercase text-sm tracking-tight ${selectedSetId === set._id ? "text-white" : "text-slate-800"}`}>
-                    {set.title}
-                  </p>
-                  <div className="flex items-center gap-3 mt-3">
-                    <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg ${
-                      selectedSetId === set._id ? "bg-white/20 text-white" : "bg-blue-50 text-blue-600"
-                    }`}>
-                      {set.examMode}
-                    </span>
-                    <span className={`text-[10px] font-bold ${selectedSetId === set._id ? "text-blue-100" : "text-slate-400"}`}>
-                      {set.questionCount} Questions • {set.totalMarks} Marks
-                    </span>
-                  </div>
-                </button>
+                <div key={set._id} className="relative group">
+                  <button
+                    onClick={() => setSelectedSetId(set._id)}
+                    className={`w-full text-left p-5 rounded-3xl border-2 transition-all duration-300 ${
+                      selectedSetId === set._id 
+                      ? "bg-blue-600 border-blue-600 shadow-xl shadow-blue-100 -translate-y-1" 
+                      : "bg-white border-slate-50 hover:border-slate-200"}`}
+                  >
+                    <p className={`font-black uppercase text-sm tracking-tight ${selectedSetId === set._id ? "text-white" : "text-slate-800"}`}>
+                      {set.title}
+                    </p>
+                    <div className="flex items-center gap-3 mt-3">
+                      <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg ${
+                        selectedSetId === set._id ? "bg-white/20 text-white" : "bg-blue-50 text-blue-600"
+                      }`}>
+                        {set.examMode}
+                      </span>
+                      <span className={`text-[10px] font-bold ${selectedSetId === set._id ? "text-blue-100" : "text-slate-400"}`}>
+                        {set.questionCount} Questions • {set.totalMarks} Marks
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteExamSet(set._id); }}
+                    className={`absolute top-4 right-4 p-2 rounded-full transition-all opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 ${
+                       selectedSetId === set._id ? "text-white hover:bg-white/20 hover:text-white" : "text-slate-300"
+                    }`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
