@@ -7,6 +7,7 @@ type ExamLike = {
   examTime?: string | null;
   examDateTime?: string | Date | null;
   durationMinutes?: number | null;
+  startedAt?: string | Date | null;
   status?: string | null;
 };
 
@@ -35,16 +36,36 @@ export function buildExamWindow(exam: ExamLike, now = new Date()): ExamWindow {
   return { startsAt, endsAt, now };
 }
 
+export function buildExamAttemptWindow(exam: ExamLike, now = new Date()): ExamWindow {
+  if (!exam.startedAt) {
+    return { startsAt: null, endsAt: null, now };
+  }
+
+  const startsAt = new Date(exam.startedAt);
+  if (Number.isNaN(startsAt.getTime())) {
+    return { startsAt: null, endsAt: null, now };
+  }
+
+  const duration = Math.max(1, Number(exam.durationMinutes ?? 60) || 60);
+  const endsAt = new Date(startsAt.getTime() + duration * 60_000);
+  return { startsAt, endsAt, now };
+}
+
 export function lifecycleStatusForExam(exam: ExamLike, now = new Date()): ExamLifecycleStatus {
   if (exam.status === "completed") return "completed";
+  const { endsAt: attemptEndsAt } = buildExamAttemptWindow(exam, now);
+  if (attemptEndsAt && now > attemptEndsAt) return "completed";
+
   // Backward compatibility: old approved online exams had no schedule fields.
   // If no usable schedule exists, treat as active so students can still attempt.
   if (!exam.examDateTime && !exam.examDate) return "active";
-  const { startsAt, endsAt } = buildExamWindow(exam, now);
-  if (!startsAt || !endsAt) return "upcoming";
+  const { startsAt } = buildExamWindow(exam, now);
+  if (!startsAt) return "upcoming";
   if (now < startsAt) return "upcoming";
-  if (now >= startsAt && now <= endsAt) return "active";
-  return "completed";
+
+  // The configured schedule is the unlock time. Once the student starts,
+  // their complete duration is measured from startedAt, not from the slot.
+  return "active";
 }
 
 export function msUntil(value: Date | null, now = new Date()): number {
