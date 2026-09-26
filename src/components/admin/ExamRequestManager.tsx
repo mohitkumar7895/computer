@@ -173,7 +173,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
           setRequests(data.requests || []);
 
           if (role === "atc") {
-            const studentRes = await apiFetch("/api/atc/students", { cache: "no-store" });
+            const studentRes = await apiFetch("/api/atc/students?view=exam-roster", { cache: "no-store" });
             if (studentRes.ok) {
               const sData = await studentRes.json();
               const validStudents = (sData.students || []).filter(
@@ -347,9 +347,14 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
         await fetchRequests();
         setRequestExamStudent(null);
         setExamReqForm({ examDate: "", examTime: "", durationMinutes: "60", setId: "" });
+        alert("Exam request submitted successfully!");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "Failed to submit request.");
       }
     } catch (err) {
       console.error("Request failed", err);
+      alert("Network error while submitting request.");
     } finally {
       setRequesting(false);
     }
@@ -713,6 +718,15 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
     return matchesSearch && matchesMode && matchesStatus && isNotInResultPhase;
   });
 
+  const filteredStudents = availableStudents.filter((s) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (s.name?.toLowerCase() || "").includes(term) ||
+      (s.enrollmentNo?.toLowerCase() || "").includes(term)
+    );
+  });
+
   const labelCls = "block text-[11px] font-black uppercase text-slate-400 tracking-wider mb-2";
   const inputCls = "w-full px-5 py-3 bg-slate-50 rounded-xl border-none font-bold text-slate-800 focus:ring-2 focus:ring-green-500 transition";
   const canAccessResultDocs = (exam: ExamRequest) =>
@@ -829,7 +843,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
               <div className="p-6">
                 <SkeletonLoader type="card" count={3} />
               </div>
-            ) : availableStudents.length === 0 ? (
+            ) : filteredStudents.length === 0 ? (
               <div className="text-center p-16 bg-white rounded-3xl border border-dashed border-slate-200">
                  <Users className="w-8 h-8 text-slate-200 mx-auto mb-4" />
                  <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No active students found.</p>
@@ -858,9 +872,9 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                         <input 
                           type="checkbox"
                           className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                          checked={selectedExams.length > 0 && selectedExams.length === availableStudents.length}
+                          checked={selectedExams.length > 0 && selectedExams.length === filteredStudents.length}
                           onChange={(e) => {
-                            if (e.target.checked) setSelectedExams(availableStudents.map(s => s._id));
+                            if (e.target.checked) setSelectedExams(filteredStudents.map(s => s._id));
                             else setSelectedExams([]);
                           }}
                         />
@@ -873,7 +887,7 @@ export default function ExamRequestManager({ atcId, role = "admin" }: { atcId?: 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {availableStudents.map(s => {
+                    {filteredStudents.map(s => {
                       const existingRequest = requests.find((r) => r.studentId?._id === s._id);
                       const hasTodayRequest = requests.some((r) => {
                         const sameStudent = r.studentId?._id === s._id;

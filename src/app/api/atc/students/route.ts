@@ -26,13 +26,16 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const isDirect = searchParams.get("direct") === "true";
+  const isExamRoster = searchParams.get("view") === "exam-roster";
 
   await connectDB();
   try {
-    console.log("[GET /api/atc/students] tpCode:", user.tpCode, "isDirect:", isDirect);
+    console.log("[GET /api/atc/students] tpCode:", user.tpCode, "isDirect:", isDirect, "isExamRoster:", isExamRoster);
     const query: any = { tpCode: user.tpCode };
 
-    if (isDirect) {
+    if (isExamRoster) {
+      query.status = { $in: ["approved", "active"] };
+    } else if (isDirect) {
       // For Admission Request tab: ONLY show direct admissions that are pending
       query.isDirectAdmission = true;
       query.status = { $in: ["pending_atc", "pending_admin"] };
@@ -45,16 +48,28 @@ export async function GET(request: Request) {
     }
 
     console.log("[GET /api/atc/students] Final Query:", JSON.stringify(query));
-    const students = await AtcStudent.find(query)
-      .select("-aadharDoc -studentSignature -qualificationDoc -idProof -marksheet12th -graduationDoc -highestQualDoc -otherDocs")
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
+    const studentQuery = AtcStudent.find(query)
+      .select(
+        isExamRoster
+          ? "_id name enrollmentNo course fatherName mobile admissionDate examMode status photo profileImage"
+          : "-aadharDoc -studentSignature -qualificationDoc -idProof -marksheet12th -graduationDoc -highestQualDoc -otherDocs",
+      )
+      .sort({ createdAt: -1 });
+
+    if (!isExamRoster) studentQuery.limit(100);
+    const students = await studentQuery.lean();
     
     console.log(`[GET /api/atc/students] Found ${students.length} students`);
     if (students.length > 0) {
       console.log("[GET /api/atc/students] Sample students:", students.slice(0, 3).map(s => ({ tpCode: s.tpCode, status: s.status, isDirect: s.isDirectAdmission })));
     }
+
+    // Exam Request only needs a lightweight roster; avoid the fee/media N+1
+    // work used by the full student-management response.
+    if (isExamRoster) {
+      return NextResponse.json({ students });
+    }
+
     const { StudentMedia } = await import("@/models/StudentMedia");
     // Fetch transactions and merge balances for each student
     const { FeeTransaction } = await import("@/models/FeeTransaction");
