@@ -15,7 +15,7 @@ import AdmitCard from "./AdmitCard";
 import LiveExam from "./LiveExam";
 import ExamCountdown from "@/components/common/ExamCountdown";
 import SkeletonLoader from "@/components/common/SkeletonLoader";
-import { buildExamWindow } from "@/lib/exam-schedule";
+import { buildExamAttemptWindow, buildExamWindow } from "@/lib/exam-schedule";
 import { apiFetch } from "@/utils/api";
 import { ISO_DATE_MAX_SCHEDULE, ISO_DATE_MIN, sanitizeIsoDateInput } from "@/lib/isoDate";
 
@@ -43,6 +43,7 @@ export type StudentExamRow = {
   answers?: unknown[];
   offlineExamCopy?: string;
   durationMinutes?: number;
+  startedAt?: string;
 };
 
 interface ExamManagerProps {
@@ -329,18 +330,21 @@ export default function ExamManager({ student }: ExamManagerProps) {
                            <div className="flex flex-col items-start gap-1">
                              {(() => {
                                 const now = new Date(nowTs);
-                                const { startsAt, endsAt } = buildExamWindow(exam, now);
+                                const { startsAt } = buildExamWindow(exam, now);
                                 if (!startsAt) {
                                   return <span className="text-[9px] font-bold text-red-500 italic">Exam date/time not assigned</span>;
                                 }
                                 if (startsAt.getTime() > now.getTime()) {
                                   return <ExamCountdown targetAt={startsAt} />;
                                 }
-                                if (endsAt && endsAt.getTime() <= now.getTime()) {
-                                  return <span className="text-[9px] font-bold text-red-500 italic">Exam window closed</span>;
+                                const { endsAt: attemptEndsAt } = buildExamAttemptWindow(exam, now);
+                                if (attemptEndsAt && attemptEndsAt.getTime() <= now.getTime()) {
+                                  return <span className="text-[9px] font-bold text-red-500 italic">Exam duration over</span>;
                                 }
                                 return (
-                                  <button onClick={() => setExamInProgress(exam)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition">Start Exam</button>
+                                  <button onClick={() => setExamInProgress(exam)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition">
+                                    {exam.startedAt ? "Resume Exam" : "Start Exam"}
+                                  </button>
                                 );
                              })()}
                            </div>
